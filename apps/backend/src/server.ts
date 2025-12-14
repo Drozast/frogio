@@ -9,6 +9,9 @@ import { logger } from './config/logger.js';
 import { initializeMinio } from './config/minio.js';
 import prisma from './config/database.js';
 import redis from './config/redis.js';
+import authRoutes from './modules/auth/auth.routes.js';
+import reportsRoutes from './modules/reports/reports.routes.js';
+import infractionsRoutes from './modules/infractions/infractions.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -30,13 +33,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging
-app.use((req, res, next) => {
-  logger.http(`${req.method} ${req.url}`);
+app.use((_req, _res, next) => {
+  logger.http(`${_req.method} ${_req.url}`);
   next();
 });
 
 // Health check
-app.get('/health', async (req, res) => {
+app.get('/health', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     await redis.ping();
@@ -58,14 +61,18 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// API Routes (placeholder - implementaremos después)
-app.get('/api', (req, res) => {
+// API Routes
+app.get('/api', (_req, res) => {
   res.json({
     name: 'FROGIO API',
     version: '1.0.0',
     description: 'Sistema de Gestión de Seguridad Pública Municipal',
   });
 });
+
+app.use('/api/auth', authRoutes);
+app.use('/api/reports', reportsRoutes);
+app.use('/api/infractions', infractionsRoutes);
 
 // Socket.io (notificaciones en tiempo real)
 io.on('connection', (socket) => {
@@ -80,7 +87,7 @@ io.on('connection', (socket) => {
 export { io };
 
 // Error handling
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logger.error(err.stack || err.message);
 
   res.status(500).json({
@@ -90,10 +97,10 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 });
 
 // 404 handler
-app.use((req, res) => {
+app.use((_req: express.Request, res: express.Response) => {
   res.status(404).json({
     error: 'Not found',
-    path: req.url,
+    path: _req.url,
   });
 });
 

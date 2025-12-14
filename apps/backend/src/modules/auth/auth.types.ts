@@ -2,10 +2,12 @@ export interface RegisterDto {
   email: string;
   password: string;
   rut: string;
+  firstName?: string;
+  lastName?: string;
   name?: string;
   phone?: string;
   address?: string;
-  role: 'citizen' | 'inspector' | 'admin';
+  role?: 'citizen' | 'inspector' | 'admin';
 }
 
 export interface LoginDto {
@@ -20,7 +22,10 @@ export interface AuthResponse {
     id: string;
     email: string;
     rut: string;
-    name: string | null;
+    firstName?: string;
+    lastName?: string;
+    phone?: string | null;
+    name?: string | null;
     role: string;
     isActive: boolean;
   };
