@@ -225,7 +225,7 @@ class _EnhancedResponseInputWidgetState extends State<EnhancedResponseInputWidge
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: _responseType,
+          initialValue: _responseType,
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -262,7 +262,7 @@ class _EnhancedResponseInputWidgetState extends State<EnhancedResponseInputWidge
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: _urgency,
+          initialValue: _urgency,
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -458,7 +458,7 @@ class _EnhancedResponseInputWidgetState extends State<EnhancedResponseInputWidge
                     _isPublic = value;
                   });
                 },
-                activeColor: AppTheme.primaryColor,
+                activeThumbColor: AppTheme.primaryColor,
               ),
               const SizedBox(width: 8),
               Expanded(

@@ -362,7 +362,7 @@ class _EnhancedStatusUpdateWidgetState extends State<EnhancedStatusUpdateWidget>
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: _priority,
+            initialValue: _priority,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
             ),

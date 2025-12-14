@@ -117,7 +117,7 @@ class _ReportAssignmentWidgetState extends State<ReportAssignmentWidget> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedInspectorId,
+                initialValue: _selectedInspectorId,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'Selecciona un inspector',

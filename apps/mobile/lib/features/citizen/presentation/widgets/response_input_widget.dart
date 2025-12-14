@@ -184,7 +184,7 @@ class _ResponseInputWidgetState extends State<ResponseInputWidget> {
                                 _isPublic = value;
                               });
                             },
-                            activeColor: AppTheme.primaryColor,
+                            activeThumbColor: AppTheme.primaryColor,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
