@@ -1,0 +1,192 @@
+version: '3.8'
+
+services:
+  # PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: frogio-postgres
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: frogio_production
+      POSTGRES_USER: frogio
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    networks:
+      - frogio_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U frogio"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: frogio-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - frogio_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO (S3-compatible storage)
+  minio:
+    image: minio/minio:latest
+    container_name: frogio-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - frogio_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Backend API
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: frogio-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      API_URL: ${API_URL:-http://localhost:3000}
+      DATABASE_URL: postgresql://frogio:${DB_PASSWORD:-changeme}@postgres:5432/frogio_production
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: false
+      MINIO_ACCESS_KEY: ${MINIO_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_PASSWORD:-minioadmin}
+      MINIO_BUCKET: frogio-files
+      NTFY_URL: ${NTFY_URL:-http://ntfy:80}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-}
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      FACEBOOK_CALLBACK_URL: ${FACEBOOK_CALLBACK_URL:-}
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-noreply@frogio.cl}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM:-FROGIO <noreply@frogio.cl>}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX_REQUESTS: 100
+    ports:
+      - "3000:3000"
+    networks:
+      - frogio_network
+    volumes:
+      - ./apps/backend/logs:/app/logs
+
+  # Web Admin (Next.js)
+  web-admin:
+    build:
+      context: ./apps/web-admin
+      dockerfile: Dockerfile
+    container_name: frogio-web-admin
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:3000}
+    ports:
+      - "3001:3000"
+    networks:
+      - frogio_network
+
+  # ntfy (Push Notifications)
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: frogio-ntfy
+    restart: unless-stopped
+    command: serve
+    volumes:
+      - ntfy_data:/var/cache/ntfy
+      - ntfy_config:/etc/ntfy
+    ports:
+      - "8080:80"
+    networks:
+      - frogio_network
+    environment:
+      NTFY_BASE_URL: ${NTFY_BASE_URL:-http://localhost:8080}
+
+  # Uptime Kuma (Monitoring)
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: frogio-uptime
+    restart: unless-stopped
+    volumes:
+      - uptime_data:/app/data
+    ports:
+      - "3002:3001"
+    networks:
+      - frogio_network
+
+  # Adminer (Database management - solo desarrollo)
+  adminer:
+    image: adminer:latest
+    container_name: frogio-adminer
+    restart: unless-stopped
+    profiles:
+      - dev
+    ports:
+      - "8081:8080"
+    networks:
+      - frogio_network
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  ntfy_data:
+    driver: local
+  ntfy_config:
+    driver: local
+  uptime_data:
+    driver: local
+
+networks:
+  frogio_network:
+    driver: bridge

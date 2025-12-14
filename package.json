@@ -1,0 +1,46 @@
+{
+  "name": "frogio",
+  "version": "1.0.0",
+  "description": "Sistema de Gestión de Seguridad Pública Municipal - Monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "backend:dev": "npm run dev --workspace=apps/backend",
+    "backend:build": "npm run build --workspace=apps/backend",
+    "web:dev": "npm run dev --workspace=apps/web-admin",
+    "web:build": "npm run build --workspace=apps/web-admin",
+    "mobile:run": "cd apps/mobile && flutter run",
+    "mobile:build:android": "cd apps/mobile && flutter build apk --release",
+    "mobile:build:ios": "cd apps/mobile && flutter build ios --release",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "prisma:studio": "npm run prisma:studio --workspace=apps/backend",
+    "prisma:migrate": "npm run prisma:migrate --workspace=apps/backend",
+    "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\""
+  },
+  "devDependencies": {
+    "turbo": "^1.11.2",
+    "prettier": "^3.1.1"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "keywords": [
+    "frogio",
+    "municipal",
+    "security",
+    "monorepo"
+  ],
+  "author": "FROGIO Team",
+  "license": "MIT"
+}

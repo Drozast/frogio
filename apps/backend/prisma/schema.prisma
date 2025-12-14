@@ -1,0 +1,331 @@
+// Prisma Schema para FROGIO
+// Database: PostgreSQL con Multi-Tenancy (Schema per Tenant)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// SCHEMA PUBLIC (Compartido - Super Admin)
+// ========================================
+
+model Tenant {
+  id                   String    @id @default(uuid())
+  slug                 String    @unique // 'santa-juana'
+  name                 String // 'Municipalidad de Santa Juana'
+  subdomain            String?   @unique
+  subscriptionType     String // 'monthly' | 'yearly'
+  subscriptionStatus   String // 'active' | 'inactive' | 'trial'
+  subscriptionStart    DateTime
+  subscriptionEnd      DateTime?
+  contactName          String?
+  contactEmail         String?
+  contactPhone         String?
+  dbSchema             String // Nombre del schema en PostgreSQL
+  config               Json? // Configuración personalizada
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@map("tenants")
+}
+
+model SuperAdmin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  avatar       String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("super_admins")
+}
+
+// ========================================
+// SCHEMA PER TENANT (Ejemplo: santa_juana)
+// Estos modelos se replicarán en cada schema
+// ========================================
+
+// USUARIOS
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  passwordHash     String?
+  rut              String    @unique // RUT chileno
+  name             String?
+  phone            String?
+  address          String?
+  role             String // 'citizen' | 'inspector' | 'admin'
+  avatar           String?
+  oauthProvider    String? // 'google' | 'facebook' | null
+  oauthId          String?
+  emailVerified    Boolean   @default(false)
+  isActive         Boolean   @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relaciones
+  reports          Report[]          @relation("CitizenReports")
+  assignedReports  Report[]          @relation("AssignedReports")
+  responses        Response[]
+  statusHistory    StatusHistory[]
+  medicalRecords   MedicalRecord[]
+  infractions      Infraction[]
+  vehicleLogs      VehicleLog[]
+  notifications    Notification[]
+  courtCitations   CourtCitation[]
+
+  @@index([email])
+  @@index([rut])
+  @@map("users")
+}
+
+// REPORTES DE CIUDADANOS
+model Report {
+  id              String   @id @default(uuid())
+  citizenId       String
+  title           String
+  description     String
+  category        String // 'security' | 'infrastructure' | 'noise' | 'lighting' | 'other'
+  priority        String   @default("medium") // 'low' | 'medium' | 'high' | 'urgent'
+  status          String   @default("submitted") // 'draft' | 'submitted' | 'reviewing' | 'in_progress' | 'resolved' | 'rejected' | 'archived'
+  latitude        Float
+  longitude       Float
+  address         String?
+  assignedToId    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  citizen         User             @relation("CitizenReports", fields: [citizenId], references: [id])
+  assignedTo      User?            @relation("AssignedReports", fields: [assignedToId], references: [id])
+  attachments     Attachment[]
+  statusHistory   StatusHistory[]
+  responses       Response[]
+
+  @@index([citizenId])
+  @@index([status])
+  @@index([assignedToId])
+  @@index([createdAt])
+  @@map("reports")
+}
+
+// ADJUNTOS (Fotos/Videos)
+model Attachment {
+  id         String   @id @default(uuid())
+  reportId   String
+  fileUrl    String
+  fileType   String // 'image' | 'video'
+  fileName   String
+  fileSize   Int?
+  uploadedAt DateTime @default(now())
+
+  // Relaciones
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+// HISTORIAL DE ESTADOS
+model StatusHistory {
+  id          String   @id @default(uuid())
+  reportId    String
+  status      String
+  comment     String?
+  changedById String?
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  report     Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  changedBy  User?  @relation(fields: [changedById], references: [id])
+
+  @@map("status_history")
+}
+
+// RESPUESTAS DE INSPECTORES/ADMINS
+model Response {
+  id          String   @id @default(uuid())
+  reportId    String
+  responderId String
+  message     String
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  report    Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  responder User   @relation(fields: [responderId], references: [id])
+
+  @@map("responses")
+}
+
+// REGISTRO MÉDICO DEL HOGAR
+model MedicalRecord {
+  id                    String   @id @default(uuid())
+  userId                String
+  householdMemberName   String
+  relationship          String? // 'self' | 'spouse' | 'child' | 'parent' | 'other'
+  medicalCondition      String
+  medications           String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relaciones
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("medical_records")
+}
+
+// INFRACCIONES (MULTAS)
+model Infraction {
+  id               String    @id @default(uuid())
+  citationNumber   String    @unique
+  inspectorId      String
+  citizenRut       String
+  citizenName      String
+  infractionType   String
+  infractionCode   String?
+  description      String
+  amount           Float
+  latitude         Float?
+  longitude        Float?
+  address          String?
+  vehiclePlate     String?
+  paymentStatus    String    @default("pending") // 'pending' | 'paid' | 'overdue'
+  paymentDueDate   DateTime
+  paidAt           DateTime?
+  inspectorSignature String? // URL o Base64
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relaciones
+  inspector       User               @relation(fields: [inspectorId], references: [id])
+  evidence        InfractionEvidence[]
+  courtCitations  CourtCitation[]
+
+  @@index([citizenRut])
+  @@index([paymentStatus])
+  @@index([inspectorId])
+  @@map("infractions")
+}
+
+// EVIDENCIA DE INFRACCIONES
+model InfractionEvidence {
+  id           String   @id @default(uuid())
+  infractionId String
+  fileUrl      String
+  fileType     String // 'image' | 'video'
+  uploadedAt   DateTime @default(now())
+
+  // Relaciones
+  infraction Infraction @relation(fields: [infractionId], references: [id], onDelete: Cascade)
+
+  @@map("infraction_evidence")
+}
+
+// CITACIONES AL JUZGADO
+model CourtCitation {
+  id                 String    @id @default(uuid())
+  citationNumber     String    @unique
+  infractionId       String?
+  citizenId          String?
+  citizenRut         String
+  citizenName        String
+  courtDate          DateTime
+  courtLocation      String
+  reason             String
+  status             String    @default("pending") // 'pending' | 'notified' | 'attended' | 'missed'
+  notificationSentAt DateTime?
+  attendedAt         DateTime?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Relaciones
+  infraction Infraction? @relation(fields: [infractionId], references: [id])
+  citizen    User?       @relation(fields: [citizenId], references: [id])
+
+  @@index([citizenRut])
+  @@index([courtDate])
+  @@index([status])
+  @@map("court_citations")
+}
+
+// VEHÍCULOS MUNICIPALES
+model Vehicle {
+  id          String       @id @default(uuid())
+  plate       String       @unique
+  brand       String
+  model       String
+  year        Int
+  vehicleType String
+  status      String       @default("available") // 'available' | 'in_use' | 'maintenance' | 'retired'
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relaciones
+  logs VehicleLog[]
+
+  @@map("vehicles")
+}
+
+// LOGS DE VEHÍCULOS
+model VehicleLog {
+  id            String    @id @default(uuid())
+  vehicleId     String
+  inspectorId   String
+  actionType    String // 'checkout' | 'checkin' | 'maintenance' | 'fuel'
+  odometerStart Int?
+  odometerEnd   Int?
+  fuelLevel     Float?
+  notes         String?
+  startedAt     DateTime
+  endedAt       DateTime?
+  createdAt     DateTime  @default(now())
+
+  // Relaciones
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+  inspector User    @relation(fields: [inspectorId], references: [id])
+
+  @@map("vehicle_logs")
+}
+
+// NOTIFICACIONES
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  type      String // 'report_update' | 'assignment' | 'citation' | 'payment' | 'general'
+  data      Json?
+  read      Boolean  @default(false)
+  sentAt    DateTime @default(now())
+
+  // Relaciones
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+// TOKENS DE REFRESH (Redis alternativo)
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
