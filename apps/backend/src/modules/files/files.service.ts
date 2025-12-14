@@ -13,6 +13,10 @@ export class FilesService {
     uploadedBy: string,
     tenantId: string
   ) {
+    if (!minioClient) {
+      throw new Error('MinIO no está configurado. El almacenamiento de archivos no está disponible.');
+    }
+
     // Generate unique filename
     const fileExtension = file.originalname.split('.').pop();
     const uniqueFilename = `${crypto.randomUUID()}.${fileExtension}`;
@@ -44,6 +48,10 @@ export class FilesService {
   }
 
   async getFileUrl(fileId: string, tenantId: string): Promise<string> {
+    if (!minioClient) {
+      throw new Error('MinIO no está configurado. El almacenamiento de archivos no está disponible.');
+    }
+
     const [file] = await prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM "${tenantId}".files WHERE id = $1 LIMIT 1`,
       fileId
@@ -73,6 +81,10 @@ export class FilesService {
   }
 
   async deleteFile(fileId: string, tenantId: string) {
+    if (!minioClient) {
+      throw new Error('MinIO no está configurado. El almacenamiento de archivos no está disponible.');
+    }
+
     const [file] = await prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM "${tenantId}".files WHERE id = $1 LIMIT 1`,
       fileId

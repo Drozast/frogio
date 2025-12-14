@@ -116,10 +116,12 @@ export class AuthService {
         tenantId: string;
       };
 
-      // Check if refresh token is blacklisted
-      const isBlacklisted = await redis.get(`blacklist:${refreshToken}`);
-      if (isBlacklisted) {
-        throw new Error('Token inválido');
+      // Check if refresh token is blacklisted (only if redis is available)
+      if (redis) {
+        const isBlacklisted = await redis.get(`blacklist:${refreshToken}`);
+        if (isBlacklisted) {
+          throw new Error('Token inválido');
+        }
       }
 
       // Generate new tokens
@@ -130,8 +132,10 @@ export class AuthService {
   }
 
   async logout(refreshToken: string): Promise<void> {
-    // Add refresh token to blacklist (expires in 7 days)
-    await redis.setex(`blacklist:${refreshToken}`, 7 * 24 * 60 * 60, '1');
+    // Add refresh token to blacklist (expires in 7 days) - only if redis is available
+    if (redis) {
+      await redis.setex(`blacklist:${refreshToken}`, 7 * 24 * 60 * 60, '1');
+    }
   }
 
   private async generateTokens(

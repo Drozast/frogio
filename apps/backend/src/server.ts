@@ -54,11 +54,15 @@ app.get('/health', async (_req, res) => {
     };
 
     // Check redis (optional)
-    try {
-      await redis.ping();
-      services.redis = 'connected';
-    } catch (redisError) {
-      services.redis = 'unavailable';
+    if (redis) {
+      try {
+        await redis.ping();
+        services.redis = 'connected';
+      } catch (redisError) {
+        services.redis = 'unavailable';
+      }
+    } else {
+      services.redis = 'not configured';
     }
 
     res.json({
@@ -130,9 +134,13 @@ async function bootstrap() {
     await prisma.$connect();
     logger.info('✅ PostgreSQL connected');
 
-    // Verificar conexión a Redis
-    await redis.ping();
-    logger.info('✅ Redis connected');
+    // Verificar conexión a Redis (optional)
+    if (redis) {
+      await redis.ping();
+      logger.info('✅ Redis connected');
+    } else {
+      logger.info('ℹ️  Redis not configured (optional)');
+    }
 
     // Inicializar MinIO
     await initializeMinio();
@@ -154,7 +162,9 @@ process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully...');
   httpServer.close(async () => {
     await prisma.$disconnect();
-    await redis.quit();
+    if (redis) {
+      await redis.quit();
+    }
     logger.info('Server closed');
     process.exit(0);
   });
