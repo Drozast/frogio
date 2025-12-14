@@ -12,6 +12,8 @@ services:
       dockerfile: Dockerfile
     container_name: frogio-backend
     restart: unless-stopped
+    env_file:
+      - .env.production
     environment:
       # Core
       NODE_ENV: production
@@ -90,6 +92,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    env_file:
+      - .env.production
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${API_URL:-http://192.168.31.115:3000}
