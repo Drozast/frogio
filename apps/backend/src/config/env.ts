@@ -12,8 +12,8 @@ const envSchema = z.object({
   // Database
   DATABASE_URL: z.string().url(),
 
-  // Redis
-  REDIS_URL: z.string().url(),
+  // Redis (optional)
+  REDIS_URL: z.string().url().optional(),
 
   // JWT
   JWT_SECRET: z.string(),
@@ -31,24 +31,24 @@ const envSchema = z.object({
   FACEBOOK_APP_SECRET: z.string().optional(),
   FACEBOOK_CALLBACK_URL: z.string().url().optional(),
 
-  // MinIO
-  MINIO_ENDPOINT: z.string(),
+  // MinIO (optional)
+  MINIO_ENDPOINT: z.string().optional(),
   MINIO_PORT: z.string().default('9000'),
   MINIO_USE_SSL: z.string().default('false'),
-  MINIO_ACCESS_KEY: z.string(),
-  MINIO_SECRET_KEY: z.string(),
+  MINIO_ACCESS_KEY: z.string().optional(),
+  MINIO_SECRET_KEY: z.string().optional(),
   MINIO_BUCKET: z.string().default('frogio-files'),
 
-  // ntfy
-  NTFY_URL: z.string().url(),
+  // ntfy (optional)
+  NTFY_URL: z.string().url().optional(),
 
-  // SMTP
-  SMTP_HOST: z.string(),
+  // SMTP (optional)
+  SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.string().default('587'),
   SMTP_SECURE: z.string().default('false'),
-  SMTP_USER: z.string(),
-  SMTP_PASSWORD: z.string(),
-  SMTP_FROM: z.string(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
 
   // CORS
   CORS_ORIGIN: z.string(),
@@ -70,7 +70,7 @@ export const env = {
   PORT: parseInt(parsed.data.PORT),
   MINIO_PORT: parseInt(parsed.data.MINIO_PORT),
   MINIO_USE_SSL: parsed.data.MINIO_USE_SSL === 'true',
-  SMTP_PORT: parseInt(parsed.data.SMTP_PORT),
+  SMTP_PORT: parsed.data.SMTP_PORT ? parseInt(parsed.data.SMTP_PORT) : 587,
   SMTP_SECURE: parsed.data.SMTP_SECURE === 'true',
   RATE_LIMIT_WINDOW_MS: parseInt(parsed.data.RATE_LIMIT_WINDOW_MS),
   RATE_LIMIT_MAX_REQUESTS: parseInt(parsed.data.RATE_LIMIT_MAX_REQUESTS),
