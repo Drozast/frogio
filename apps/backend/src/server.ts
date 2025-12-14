@@ -46,16 +46,25 @@ app.use((_req, _res, next) => {
 // Health check
 app.get('/health', async (_req, res) => {
   try {
+    // Check database (required)
     await prisma.$queryRaw`SELECT 1`;
-    await redis.ping();
+
+    const services: Record<string, string> = {
+      database: 'connected',
+    };
+
+    // Check redis (optional)
+    try {
+      await redis.ping();
+      services.redis = 'connected';
+    } catch (redisError) {
+      services.redis = 'unavailable';
+    }
 
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
-      services: {
-        database: 'connected',
-        redis: 'connected',
-      },
+      services,
     });
   } catch (error) {
     res.status(503).json({
