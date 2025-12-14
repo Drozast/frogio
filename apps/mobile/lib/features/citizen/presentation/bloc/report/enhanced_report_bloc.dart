@@ -43,7 +43,7 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
     on<SearchReportsEvent>(_onSearchReports);
     on<AddReportResponseEvent>(_onAddReportResponse);
     on<GetReportsByStatusEvent>(_onGetReportsByStatus);
-    on<_ReportsUpdatedEvent>((event, emit) => _onReportsUpdated(event.reports));
+    on<_ReportsUpdatedEvent>(_handleReportsUpdated);
   }
 
   Future<void> _onLoadReports(
@@ -257,20 +257,23 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
     );
   }
 
-  // Manejo interno de actualizaciones de stream
-  void _onReportsUpdated(List<ReportEntity> reports) {
+  // Event handler for stream updates
+  void _handleReportsUpdated(
+    _ReportsUpdatedEvent event,
+    Emitter<ReportState> emit,
+  ) {
     if (state is ReportsLoaded) {
       final currentState = state as ReportsLoaded;
-      
+
       // Aplicar filtros actuales a los nuevos datos
-      List<ReportEntity> filteredReports = reports;
-      
+      List<ReportEntity> filteredReports = event.reports;
+
       if (currentState.currentFilter != 'Todas') {
-        filteredReports = reports
+        filteredReports = event.reports
             .where((report) => report.status.displayName == currentState.currentFilter)
             .toList();
       }
-      
+
       if (currentState.searchQuery.isNotEmpty) {
         filteredReports = filteredReports
             .where((report) =>
@@ -279,10 +282,10 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
                 report.category.toLowerCase().contains(currentState.searchQuery.toLowerCase()))
             .toList();
       }
-      
+
       emit(ReportsStreaming(reports: filteredReports));
     } else {
-      emit(ReportsStreaming(reports: reports));
+      emit(ReportsStreaming(reports: event.reports));
     }
   }
 
