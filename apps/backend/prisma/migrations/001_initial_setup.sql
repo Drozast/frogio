@@ -308,3 +308,54 @@ CREATE TRIGGER update_vehicles_updated_at BEFORE UPDATE ON santa_juana.vehicles
 GRANT USAGE ON SCHEMA santa_juana TO frogio;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA santa_juana TO frogio;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA santa_juana TO frogio;
+
+-- =====================================================
+-- TEST USERS: One for each role
+-- =====================================================
+-- Password for all test users is their role + "123"
+-- citizen: citizen123
+-- inspector: inspector123
+-- admin: admin123
+
+INSERT INTO santa_juana.users (email, password_hash, rut, first_name, last_name, phone, address, role, email_verified, is_active)
+VALUES
+    -- Citizen test user
+    (
+        'ciudadano@test.cl',
+        '$2a$10$1uqudQUwdxMzdarAXzq6L.W44qfOhkIkbXh34noUR0ZVotrB8s466',
+        '12345678-9',
+        'María',
+        'González',
+        '+56912345678',
+        'Calle Principal 123, Santa Juana',
+        'citizen',
+        TRUE,
+        TRUE
+    ),
+    -- Inspector test user
+    (
+        'inspector@test.cl',
+        '$2a$10$Fgu4.rqr7Y2nlJxycgcKBuIe6vYKYUF9nS..NX0DTu7nWgaQ/ssly',
+        '98765432-1',
+        'Carlos',
+        'Ramírez',
+        '+56987654321',
+        'Avenida Municipal 456, Santa Juana',
+        'inspector',
+        TRUE,
+        TRUE
+    ),
+    -- Admin test user
+    (
+        'admin@test.cl',
+        '$2a$10$NKVPlxUnKZ98xLiMJdrqeeXBeMZawMhlXJGgokBE/qLmUfRMOW1RC',
+        '11223344-5',
+        'Ana',
+        'Soto',
+        '+56911223344',
+        'Plaza de Armas 1, Santa Juana',
+        'admin',
+        TRUE,
+        TRUE
+    )
+ON CONFLICT (email) DO NOTHING;
