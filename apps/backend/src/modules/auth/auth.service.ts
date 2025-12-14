@@ -1,9 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { prisma } from '../../config/database';
-import { redis } from '../../config/redis';
-import { env } from '../../config/env';
-import type { RegisterDto, LoginDto, AuthResponse } from './auth.types';
+import prisma from '../../config/database.js';
+import redis from '../../config/redis.js';
+import { env } from '../../config/env.js';
+import type { RegisterDto, LoginDto, AuthResponse } from './auth.types.js';
 
 export class AuthService {
   private readonly JWT_SECRET = env.JWT_SECRET;

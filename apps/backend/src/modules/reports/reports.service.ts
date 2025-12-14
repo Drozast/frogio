@@ -1,5 +1,5 @@
-import { prisma } from '../../config/database';
-import type { CreateReportDto, UpdateReportDto } from './reports.types';
+import prisma from '../../config/database.js';
+import type { CreateReportDto, UpdateReportDto } from './reports.types.js';
 
 export class ReportsService {
   async create(data: CreateReportDto, userId: string, tenantId: string) {

@@ -1,7 +1,7 @@
 import { Response } from 'express';
-import { ReportsService } from './reports.service';
-import type { AuthRequest } from '../../middleware/auth.middleware';
-import type { CreateReportDto, UpdateReportDto } from './reports.types';
+import { ReportsService } from './reports.service.js';
+import type { AuthRequest } from '../../middleware/auth.middleware.js';
+import type { CreateReportDto, UpdateReportDto } from './reports.types.js';
 
 const reportsService = new ReportsService();
 
