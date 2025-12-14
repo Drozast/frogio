@@ -173,11 +173,11 @@ class _LocationSelectorWidgetState extends State<LocationSelectorWidget> {
   }
 
   Future<void> _selectLocationFromMap() async {
-    final result = await Navigator.push<LatLng>(
+    await Navigator.push<LatLng>(
       context,
       MaterialPageRoute(
         builder: (_) => LocationPickerWidget(
-          initialLocation: _selectedLocation != null 
+          initialLocation: _selectedLocation != null
               ? LatLng(_selectedLocation!.latitude, _selectedLocation!.longitude)
               : null,
           onLocationSelected: (location, address) {

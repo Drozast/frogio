@@ -115,7 +115,7 @@ class AuthApiDataSource implements AuthRemoteDataSource {
   @override
   Future<void> signOut() async {
     try {
-      final response = await client.post(
+      await client.post(
         Uri.parse('$baseUrl/api/auth/logout'),
         headers: _authHeaders,
       );

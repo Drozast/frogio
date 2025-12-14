@@ -418,7 +418,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   }
 
   void _selectLocation() async {
-    final result = await Navigator.push<LatLng>(
+    await Navigator.push<LatLng>(
       context,
       MaterialPageRoute(
         builder: (_) => LocationPickerWidget(
