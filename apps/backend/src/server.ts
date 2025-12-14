@@ -12,6 +12,11 @@ import redis from './config/redis.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import reportsRoutes from './modules/reports/reports.routes.js';
 import infractionsRoutes from './modules/infractions/infractions.routes.js';
+import citationsRoutes from './modules/citations/citations.routes.js';
+import medicalRecordsRoutes from './modules/medical-records/medical-records.routes.js';
+import vehiclesRoutes from './modules/vehicles/vehicles.routes.js';
+import filesRoutes from './modules/files/files.routes.js';
+import notificationsRoutes from './modules/notifications/notifications.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -73,6 +78,11 @@ app.get('/api', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/infractions', infractionsRoutes);
+app.use('/api/citations', citationsRoutes);
+app.use('/api/medical-records', medicalRecordsRoutes);
+app.use('/api/vehicles', vehiclesRoutes);
+app.use('/api/files', filesRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Socket.io (notificaciones en tiempo real)
 io.on('connection', (socket) => {
