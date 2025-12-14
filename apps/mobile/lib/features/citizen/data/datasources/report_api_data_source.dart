@@ -192,7 +192,7 @@ class ReportApiDataSource implements ReportRemoteDataSource {
           final data = json.decode(response.body);
           uploadedUrls.add(data['id']); // ID del archivo en MinIO
         } else {
-          print('Error al subir imagen: ${response.body}');
+          // Error al subir imagen - se registra en el throw posterior si todas fallan
         }
       }
 

@@ -214,7 +214,7 @@ class InfractionApiDataSource implements InfractionRemoteDataSource {
         final id = await uploadEvidenceImage(infractionId, image);
         uploadedIds.add(id);
       } catch (e) {
-        print('Error al subir imagen: $e');
+        // Error al subir imagen - continúa con las demás
       }
     }
 

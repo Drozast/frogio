@@ -181,7 +181,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: _selectedCategory,
+          initialValue: _selectedCategory,
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
           ),
@@ -206,7 +206,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<Priority>(
-          value: _selectedPriority,
+          initialValue: _selectedPriority,
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
           ),
@@ -448,12 +448,14 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al seleccionar imagen: ${e.toString()}'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al seleccionar imagen: ${e.toString()}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
     }
   }
 
