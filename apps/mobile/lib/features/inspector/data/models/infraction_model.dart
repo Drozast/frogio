@@ -282,3 +282,36 @@ class InfractionModel extends Equatable {
         historyLog,
       ];
 }
+  /// Create model from REST API response
+  factory InfractionModel.fromApi(Map<String, dynamic> data) {
+    // Parsear ubicación
+    final locationStr = data['location'] as String? ?? '';
+    final location = {
+      'latitude': 0.0,
+      'longitude': 0.0,
+      'address': locationStr,
+    };
+
+    return InfractionModel(
+      id: data['id'] ?? '',
+      title: data['type'] ?? '',
+      description: data['description'] ?? '',
+      ordinanceRef: data['ordinance_reference'] ?? '',
+      location: location,
+      offenderId: data['user_id'] ?? '',
+      offenderName: '${data['user_first_name'] ?? ''} ${data['user_last_name'] ?? ''}',
+      offenderDocument: data['vehicle_plate'] ?? '',
+      inspectorId: data['inspector_id'] ?? '',
+      muniId: data['tenant_id'] ?? '',
+      evidence: [], // Evidencias se obtienen por separado
+      signatures: [],
+      status: data['status'] ?? 'pendiente',
+      createdAt: data['created_at'] != null
+          ? DateTime.parse(data['created_at'])
+          : DateTime.now(),
+      updatedAt: data['updated_at'] != null
+          ? DateTime.parse(data['updated_at'])
+          : null,
+      historyLog: [],
+    );
+  }

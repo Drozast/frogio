@@ -86,3 +86,46 @@ class ReportModel extends ReportEntity {
     };
   }
 }
+  /// Create model from REST API response
+  factory ReportModel.fromApi(Map<String, dynamic> data) {
+    // Parsear ubicación
+    final locationStr = data['location'] as String? ?? '0,0';
+    final locationParts = locationStr.split(',');
+    final latitude = double.tryParse(locationParts[0]) ?? 0.0;
+    final longitude = double.tryParse(locationParts.length > 1 ? locationParts[1] : '0') ?? 0.0;
+    
+    final location = LocationData(
+      latitude: latitude,
+      longitude: longitude,
+      address: data['location_details'],
+    );
+
+    // Historial (si existe)
+    final historyList = (data['history'] as List<dynamic>?)?.map((item) {
+      return HistoryLogItem(
+        timestamp: DateTime.parse(item['timestamp']),
+        status: item['status'],
+        comment: item['comment'],
+        userId: item['user_id'],
+      );
+    }).toList() ?? [];
+
+    return ReportModel(
+      id: data['id'] ?? '',
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      category: data['type'] ?? 'complaint',
+      location: location,
+      citizenId: data['user_id'] ?? '',
+      muniId: data['tenant_id'] ?? '',
+      status: data['status'] ?? 'pendiente',
+      imageUrls: [], // Las imágenes se obtienen por separado vía API /files
+      createdAt: data['created_at'] != null
+          ? DateTime.parse(data['created_at'])
+          : DateTime.now(),
+      updatedAt: data['updated_at'] != null
+          ? DateTime.parse(data['updated_at'])
+          : DateTime.now(),
+      historyLog: historyList,
+    );
+  }
