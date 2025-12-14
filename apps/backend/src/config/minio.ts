@@ -1,16 +1,24 @@
 import { Client } from 'minio';
 import { env } from './env.js';
 
-export const minioClient = new Client({
-  endPoint: env.MINIO_ENDPOINT,
-  port: env.MINIO_PORT,
-  useSSL: env.MINIO_USE_SSL,
-  accessKey: env.MINIO_ACCESS_KEY,
-  secretKey: env.MINIO_SECRET_KEY,
-});
+// MinIO is optional - only initialize if credentials are provided
+export const minioClient = env.MINIO_ENDPOINT && env.MINIO_ACCESS_KEY && env.MINIO_SECRET_KEY
+  ? new Client({
+      endPoint: env.MINIO_ENDPOINT,
+      port: env.MINIO_PORT,
+      useSSL: env.MINIO_USE_SSL,
+      accessKey: env.MINIO_ACCESS_KEY,
+      secretKey: env.MINIO_SECRET_KEY,
+    })
+  : null;
 
 // Inicializar bucket si no existe
 export async function initializeMinio() {
+  if (!minioClient) {
+    console.log('ℹ️  MinIO not configured (optional)');
+    return;
+  }
+
   try {
     const bucketExists = await minioClient.bucketExists(env.MINIO_BUCKET);
 
