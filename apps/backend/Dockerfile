@@ -10,8 +10,8 @@ COPY package*.json ./
 COPY tsconfig.json ./
 COPY prisma ./prisma/
 
-# Instalar dependencias
-RUN npm ci
+# Instalar dependencias (usar npm install en lugar de npm ci)
+RUN npm install
 
 # Copiar código fuente
 COPY src ./src
@@ -27,9 +27,9 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Instalar solo dependencias de producción
+# Instalar solo dependencias de producción (usar npm install en lugar de npm ci)
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Copiar Prisma schema y generated client
 COPY --from=builder /app/prisma ./prisma
