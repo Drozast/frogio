@@ -13,7 +13,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
 
   // Redis (optional)
-  REDIS_URL: z.string().url().optional(),
+  REDIS_URL: z.union([z.string().url(), z.literal('')]).optional(),
 
   // JWT
   JWT_SECRET: z.string(),
@@ -24,12 +24,12 @@ const envSchema = z.object({
   // OAuth Google
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
-  GOOGLE_CALLBACK_URL: z.string().url().optional(),
+  GOOGLE_CALLBACK_URL: z.union([z.string().url(), z.literal('')]).optional(),
 
   // OAuth Facebook
   FACEBOOK_APP_ID: z.string().optional(),
   FACEBOOK_APP_SECRET: z.string().optional(),
-  FACEBOOK_CALLBACK_URL: z.string().url().optional(),
+  FACEBOOK_CALLBACK_URL: z.union([z.string().url(), z.literal('')]).optional(),
 
   // MinIO (optional)
   MINIO_ENDPOINT: z.string().optional(),
@@ -40,7 +40,7 @@ const envSchema = z.object({
   MINIO_BUCKET: z.string().default('frogio-files'),
 
   // ntfy (optional)
-  NTFY_URL: z.string().url().optional(),
+  NTFY_URL: z.union([z.string().url(), z.literal('')]).optional(),
 
   // SMTP (optional)
   SMTP_HOST: z.string().optional(),
