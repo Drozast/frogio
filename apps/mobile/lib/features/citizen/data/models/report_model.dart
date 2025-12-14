@@ -61,31 +61,6 @@ class ReportModel extends ReportEntity {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'title': title,
-      'description': description,
-      'category': category,
-      'location': {
-        'latitude': location.latitude,
-        'longitude': location.longitude,
-        'address': location.address,
-      },
-      'citizenId': citizenId,
-      'muniId': muniId,
-      'status': status,
-      'images': imageUrls,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-      'historyLog': historyLog.map((item) => {
-        'timestamp': item.timestamp,
-        'status': item.status,
-        'comment': item.comment,
-        'userId': item.userId,
-      }).toList(),
-    };
-  }
-}
   /// Create model from REST API response
   factory ReportModel.fromApi(Map<String, dynamic> data) {
     // Parsear ubicación
@@ -129,3 +104,29 @@ class ReportModel extends ReportEntity {
       historyLog: historyList,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'description': description,
+      'category': category,
+      'location': {
+        'latitude': location.latitude,
+        'longitude': location.longitude,
+        'address': location.address,
+      },
+      'citizenId': citizenId,
+      'muniId': muniId,
+      'status': status,
+      'images': imageUrls,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
+      'historyLog': historyLog.map((item) => {
+        'timestamp': item.timestamp,
+        'status': item.status,
+        'comment': item.comment,
+        'userId': item.userId,
+      }).toList(),
+    };
+  }
+}

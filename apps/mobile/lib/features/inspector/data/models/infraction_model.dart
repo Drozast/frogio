@@ -281,7 +281,7 @@ class InfractionModel extends Equatable {
         updatedAt,
         historyLog,
       ];
-}
+
   /// Create model from REST API response
   factory InfractionModel.fromApi(Map<String, dynamic> data) {
     // Parsear ubicación
@@ -315,3 +315,4 @@ class InfractionModel extends Equatable {
       historyLog: [],
     );
   }
+}

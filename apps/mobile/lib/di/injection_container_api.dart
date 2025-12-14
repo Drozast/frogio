@@ -1,6 +1,16 @@
 // lib/di/injection_container_api.dart
-/// Nueva configuración de inyección de dependencias usando REST API
-/// en lugar de Firebase
+/// 🚧 ARCHIVO DE REFERENCIA - NO USAR DIRECTAMENTE 🚧
+/// 
+/// Este archivo es un template/ejemplo de cómo configurar la inyección de
+/// dependencias para usar las nuevas fuentes de datos REST API.
+/// 
+/// Para usar este archivo:
+/// 1. Revisar los constructores de los BLoCs para usar los parámetros correctos
+/// 2. Descomentar las secciones según sea necesario
+/// 3. Actualizar main.dart para usar initApi() en lugar de init()
+/// 
+/// NOTA: Actualmente contiene ejemplos de configuración que necesitan ajustarse
+/// a los constructores reales de cada BLoC.
 
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
@@ -21,16 +31,15 @@ import '../features/auth/domain/usecases/sign_out_user.dart';
 import '../features/auth/domain/usecases/get_current_user.dart';
 import '../features/auth/domain/usecases/update_user_profile.dart';
 import '../features/auth/domain/usecases/upload_profile_image.dart';
-import '../features/auth/presentation/bloc/auth_bloc.dart';
-import '../features/auth/presentation/bloc/profile/profile_bloc.dart';
+// import '../features/auth/presentation/bloc/auth_bloc.dart';
+// import '../features/auth/presentation/bloc/profile/profile_bloc.dart';
 
 // Citizen Reports Feature
 import '../features/citizen/data/datasources/report_api_data_source.dart';
 import '../features/citizen/data/datasources/report_remote_data_source.dart';
 import '../features/citizen/data/repositories/report_repository_impl.dart';
 import '../features/citizen/domain/repositories/report_repository.dart';
-// import '../features/citizen/domain/usecases/...'; // Agregar use cases según sean necesarios
-import '../features/citizen/presentation/bloc/report/report_bloc.dart';
+// import '../features/citizen/presentation/bloc/report/report_bloc.dart';
 
 // Inspector Infractions Feature
 import '../features/inspector/data/datasources/infraction_api_data_source.dart';
@@ -41,7 +50,7 @@ import '../features/inspector/domain/usecases/create_infraction.dart';
 import '../features/inspector/domain/usecases/get_infractions_by_inspector.dart';
 import '../features/inspector/domain/usecases/update_infraction_status.dart';
 import '../features/inspector/domain/usecases/upload_infraction_image.dart';
-import '../features/inspector/presentation/bloc/infraction_bloc.dart';
+// import '../features/inspector/presentation/bloc/infraction_bloc.dart';
 
 final sl = GetIt.instance;
 final logger = Logger();
@@ -89,23 +98,22 @@ Future<void> initApi() async {
   sl.registerLazySingleton(() => UpdateUserProfile(sl()));
   sl.registerLazySingleton(() => UploadProfileImage(sl()));
 
-  // BLoC
-  sl.registerFactory(
-    () => AuthBloc(
-      signInUser: sl(),
-      registerUser: sl(),
-      signOutUser: sl(),
-      getCurrentUser: sl(),
-    ),
-  );
+  // BLoC - COMENTADO: Necesita ajustarse a los constructores reales
+  // sl.registerFactory(
+  //   () => AuthBloc(
+  //     signInUser: sl(),
+  //     registerUser: sl(),
+  //     signOutUser: sl(),
+  //     getCurrentUser: sl(),
+  //     // Agregar parámetros faltantes según el constructor real
+  //   ),
+  // );
 
-  sl.registerFactory(
-    () => ProfileBloc(
-      getCurrentUser: sl(),
-      updateUserProfile: sl(),
-      uploadProfileImage: sl(),
-    ),
-  );
+  // sl.registerFactory(
+  //   () => ProfileBloc(
+  //     // Ajustar parámetros según el constructor real
+  //   ),
+  // );
 
   // ===== CITIZEN REPORTS FEATURE =====
   logger.i('  - Citizen reports feature');
@@ -126,17 +134,19 @@ Future<void> initApi() async {
     ),
   );
 
-  // Use cases - agregar según sean necesarios
+  // Use cases - Agregar según sean necesarios
   // sl.registerLazySingleton(() => CreateReport(sl()));
   // sl.registerLazySingleton(() => GetReportsByUser(sl()));
+  // sl.registerLazySingleton(() => GetReportById(sl()));
+  // sl.registerLazySingleton(() => UpdateReportStatus(sl()));
   // etc.
 
-  // BLoC
-  sl.registerFactory(
-    () => ReportBloc(
-      repository: sl(),
-    ),
-  );
+  // BLoC - COMENTADO: Necesita ajustarse a los constructores reales
+  // sl.registerFactory(
+  //   () => ReportBloc(
+  //     // Ajustar parámetros según el constructor real
+  //   ),
+  // );
 
   // ===== INSPECTOR INFRACTIONS FEATURE =====
   logger.i('  - Inspector infractions feature');
@@ -163,15 +173,15 @@ Future<void> initApi() async {
   sl.registerLazySingleton(() => UpdateInfractionStatus(sl()));
   sl.registerLazySingleton(() => UploadInfractionImage(sl()));
 
-  // BLoC
-  sl.registerFactory(
-    () => InfractionBloc(
-      createInfraction: sl(),
-      getInfractionsByInspector: sl(),
-      updateInfractionStatus: sl(),
-      uploadInfractionImage: sl(),
-    ),
-  );
+  // BLoC - COMENTADO: Necesita ajustarse a los constructores reales
+  // sl.registerFactory(
+  //   () => InfractionBloc(
+  //     createInfraction: sl(),
+  //     getInfractionsByInspector: sl(),
+  //     updateInfractionStatus: sl(),
+  //     uploadInfractionImage: sl(),
+  //   ),
+  // );
 
   logger.i('✅ FROGIO: Dependencies initialized successfully!');
   logger.i('🌐 API Base URL: ${ApiConfig.activeBaseUrl}');
