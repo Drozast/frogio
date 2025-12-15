@@ -1,29 +1,64 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import AppLayout from '@/components/layout/AppLayout';
+import StatCard from '@/components/ui/StatCard';
+import { StatusBadge, PriorityBadge } from '@/components/ui/Badge';
+import {
+  DocumentTextIcon,
+  ExclamationTriangleIcon,
+  UserGroupIcon,
+  TruckIcon,
+  ChartBarIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  HeartIcon,
+} from '@heroicons/react/24/outline';
+
+const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 async function getDashboardData(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
   try {
-    const [reportsRes, infractionsStatsRes] = await Promise.all([
+    const [reportsRes, infractionsRes, usersRes, vehiclesRes] = await Promise.all([
       fetch(`${API_URL}/api/reports`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': 'santa_juana',
+        },
         cache: 'no-store',
       }),
-      fetch(`${API_URL}/api/infractions/stats`, {
-        headers: { Authorization: `Bearer ${token}` },
+      fetch(`${API_URL}/api/infractions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': 'santa_juana',
+        },
+        cache: 'no-store',
+      }),
+      fetch(`${API_URL}/api/users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': 'santa_juana',
+        },
+        cache: 'no-store',
+      }),
+      fetch(`${API_URL}/api/vehicles`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Tenant-ID': 'santa_juana',
+        },
         cache: 'no-store',
       }),
     ]);
 
     const reports = reportsRes.ok ? await reportsRes.json() : [];
-    const infractionsStats = infractionsStatsRes.ok ? await infractionsStatsRes.json() : {};
+    const infractions = infractionsRes.ok ? await infractionsRes.json() : [];
+    const users = usersRes.ok ? await usersRes.json() : [];
+    const vehicles = vehiclesRes.ok ? await vehiclesRes.json() : [];
 
-    return { reports, infractionsStats };
+    return { reports, infractions, users, vehicles };
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
-    return { reports: [], infractionsStats: {} };
+    return { reports: [], infractions: [], users: [], vehicles: [] };
   }
 }
 
@@ -35,146 +70,223 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
-  const { reports, infractionsStats } = await getDashboardData(accessToken);
+  const { reports, infractions, users, vehicles } = await getDashboardData(accessToken);
 
-  const reportsByStatus = {
-    pendiente: reports.filter((r: any) => r.status === 'pendiente').length,
-    en_proceso: reports.filter((r: any) => r.status === 'en_proceso').length,
-    resuelto: reports.filter((r: any) => r.status === 'resuelto').length,
+  // Calcular estadísticas
+  const stats = {
+    totalReports: reports.length,
+    pendingReports: reports.filter((r: any) => r.status === 'pendiente').length,
+    resolvedReports: reports.filter((r: any) => r.status === 'resuelto').length,
+    totalInfractions: infractions.length,
+    pendingInfractions: infractions.filter((i: any) => i.status === 'pendiente').length,
+    totalUsers: users.length,
+    activeUsers: users.filter((u: any) => u.isActive).length,
+    totalVehicles: vehicles.length,
   };
 
+  // Reportes recientes
+  const recentReports = reports.slice(0, 5);
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">FROGIO Admin</h1>
-          <div className="flex items-center gap-4">
+    <AppLayout>
+      <div className="space-y-6">
+        {/* Page Header */}
+        <div className="md:flex md:items-center md:justify-between">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+              Dashboard
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Resumen general del sistema de gestión municipal
+            </p>
+          </div>
+          <div className="mt-4 flex md:mt-0 md:ml-4">
             <Link
-              href="/notifications"
-              className="text-gray-600 hover:text-gray-900 relative"
+              href="/reports/new"
+              className="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              <span className="text-xl">🔔</span>
+              Nuevo Reporte
             </Link>
-            <form action="/api/auth/logout" method="POST">
-              <button
-                type="submit"
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                Cerrar Sesión
-              </button>
-            </form>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            title="Reportes Totales"
-            value={reports.length}
+            title="Total Reportes"
+            value={stats.totalReports}
+            icon={<DocumentTextIcon className="h-6 w-6" />}
             color="blue"
           />
           <StatCard
             title="Reportes Pendientes"
-            value={reportsByStatus.pendiente}
+            value={stats.pendingReports}
+            icon={<ClockIcon className="h-6 w-6" />}
             color="yellow"
           />
           <StatCard
-            title="Multas Pendientes"
-            value={infractionsStats.pendientes || 0}
-            color="red"
+            title="Reportes Resueltos"
+            value={stats.resolvedReports}
+            icon={<CheckCircleIcon className="h-6 w-6" />}
+            color="green"
           />
           <StatCard
-            title="Multas Pagadas"
-            value={infractionsStats.pagadas || 0}
+            title="Total Infracciones"
+            value={stats.totalInfractions}
+            icon={<ExclamationTriangleIcon className="h-6 w-6" />}
+            color="red"
+          />
+        </div>
+
+        {/* Secondary Stats */}
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          <StatCard
+            title="Total Usuarios"
+            value={stats.totalUsers}
+            icon={<UserGroupIcon className="h-6 w-6" />}
+            color="indigo"
+          />
+          <StatCard
+            title="Usuarios Activos"
+            value={stats.activeUsers}
+            icon={<CheckCircleIcon className="h-6 w-6" />}
             color="green"
+          />
+          <StatCard
+            title="Total Vehículos"
+            value={stats.totalVehicles}
+            icon={<TruckIcon className="h-6 w-6" />}
+            color="purple"
           />
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white shadow rounded-lg p-6 mb-8">
-          <h2 className="text-lg font-semibold mb-4">Acciones Rápidas</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <Link
-              href="/reports"
-              className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-center"
-            >
-              <div className="text-2xl mb-2">📋</div>
-              <div className="text-sm font-medium">Reportes</div>
-            </Link>
-            <Link
-              href="/infractions"
-              className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-center"
-            >
-              <div className="text-2xl mb-2">🚨</div>
-              <div className="text-sm font-medium">Infracciones</div>
-            </Link>
-            <Link
-              href="/vehicles"
-              className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-center"
-            >
-              <div className="text-2xl mb-2">🚗</div>
-              <div className="text-sm font-medium">Vehículos</div>
-            </Link>
-            <Link
-              href="/citations"
-              className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-center"
-            >
-              <div className="text-2xl mb-2">⚖️</div>
-              <div className="text-sm font-medium">Citaciones</div>
-            </Link>
-            <Link
-              href="/medical-records"
-              className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-center"
-            >
-              <div className="text-2xl mb-2">🏥</div>
-              <div className="text-sm font-medium">Fichas Médicas</div>
-            </Link>
-            <Link
-              href="/users"
-              className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-center"
-            >
-              <div className="text-2xl mb-2">👥</div>
-              <div className="text-sm font-medium">Usuarios</div>
-            </Link>
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+              Acciones Rápidas
+            </h3>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+              <Link
+                href="/reports"
+                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
+              >
+                <div className="flex flex-col items-center">
+                  <DocumentTextIcon className="h-8 w-8 text-indigo-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-900 text-center">
+                    Reportes
+                  </span>
+                </div>
+              </Link>
+              <Link
+                href="/infractions"
+                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
+              >
+                <div className="flex flex-col items-center">
+                  <ExclamationTriangleIcon className="h-8 w-8 text-red-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-900 text-center">
+                    Infracciones
+                  </span>
+                </div>
+              </Link>
+              <Link
+                href="/vehicles"
+                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
+              >
+                <div className="flex flex-col items-center">
+                  <TruckIcon className="h-8 w-8 text-purple-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-900 text-center">
+                    Vehículos
+                  </span>
+                </div>
+              </Link>
+              <Link
+                href="/citations"
+                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
+              >
+                <div className="flex flex-col items-center">
+                  <ChartBarIcon className="h-8 w-8 text-green-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-900 text-center">
+                    Citaciones
+                  </span>
+                </div>
+              </Link>
+              <Link
+                href="/medical-records"
+                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
+              >
+                <div className="flex flex-col items-center">
+                  <HeartIcon className="h-8 w-8 text-pink-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-900 text-center">
+                    Fichas Médicas
+                  </span>
+                </div>
+              </Link>
+              <Link
+                href="/users"
+                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
+              >
+                <div className="flex flex-col items-center">
+                  <UserGroupIcon className="h-8 w-8 text-blue-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-900 text-center">
+                    Usuarios
+                  </span>
+                </div>
+              </Link>
+            </div>
           </div>
         </div>
 
-        {/* Recent Reports */}
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">Reportes Recientes</h2>
-          {reports.length === 0 ? (
-            <p className="text-gray-500">No hay reportes disponibles</p>
-          ) : (
-            <div className="overflow-x-auto">
+        {/* Recent Reports Table */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Reportes Recientes
+              </h3>
+              <Link
+                href="/reports"
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                Ver todos →
+              </Link>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            {recentReports.length === 0 ? (
+              <div className="px-6 py-12 text-center text-gray-500">
+                <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <p>No hay reportes disponibles</p>
+              </div>
+            ) : (
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Título
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Tipo
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Estado
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Prioridad
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Fecha
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {reports.slice(0, 5).map((report: any) => (
-                    <tr key={report.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {report.title}
+                  {recentReports.map((report: any) => (
+                    <tr key={report.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{report.title}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {report.type}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{report.type || 'General'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <StatusBadge status={report.status} />
@@ -182,85 +294,17 @@ export default async function DashboardPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <PriorityBadge priority={report.priority} />
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(report.createdAt).toLocaleDateString('es-CL')}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
-  );
-}
-
-function StatCard({
-  title,
-  value,
-  color,
-}: {
-  title: string;
-  value: number;
-  color: string;
-}) {
-  const colors: Record<string, string> = {
-    blue: 'bg-blue-500',
-    yellow: 'bg-yellow-500',
-    red: 'bg-red-500',
-    green: 'bg-green-500',
-  };
-
-  return (
-    <div className="bg-white overflow-hidden shadow rounded-lg">
-      <div className="p-5">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <div className={`h-12 w-12 ${colors[color]} rounded-md`}></div>
-          </div>
-          <div className="ml-5 w-0 flex-1">
-            <dl>
-              <dt className="text-sm font-medium text-gray-500 truncate">
-                {title}
-              </dt>
-              <dd className="text-3xl font-semibold text-gray-900">{value}</dd>
-            </dl>
+            )}
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    pendiente: 'bg-yellow-100 text-yellow-800',
-    en_proceso: 'bg-blue-100 text-blue-800',
-    resuelto: 'bg-green-100 text-green-800',
-    rechazado: 'bg-red-100 text-red-800',
-  };
-
-  return (
-    <span
-      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${colors[status] || 'bg-gray-100 text-gray-800'}`}
-    >
-      {status}
-    </span>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: string }) {
-  const colors: Record<string, string> = {
-    baja: 'bg-gray-100 text-gray-800',
-    media: 'bg-blue-100 text-blue-800',
-    alta: 'bg-orange-100 text-orange-800',
-    urgente: 'bg-red-100 text-red-800',
-  };
-
-  return (
-    <span
-      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${colors[priority] || 'bg-gray-100 text-gray-800'}`}
-    >
-      {priority}
-    </span>
+    </AppLayout>
   );
 }
