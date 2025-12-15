@@ -31,17 +31,18 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
 
     // Set HTTP-only cookies
+    // secure: false porque estamos usando HTTP (no HTTPS) en producción local
     const cookieStore = cookies();
     cookieStore.set('accessToken', data.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false,
       sameSite: 'lax',
       maxAge: 60 * 15, // 15 minutes
     });
 
     cookieStore.set('refreshToken', data.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false,
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 7 days
     });
