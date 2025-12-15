@@ -10,8 +10,10 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
   },
-  experimental: {
-    optimizeFonts: false,
+  // Asegurar que los archivos estáticos se copien correctamente
+  webpack: (config) => {
+    config.resolve.fallback = { fs: false, net: false, tls: false };
+    return config;
   },
 }
 
