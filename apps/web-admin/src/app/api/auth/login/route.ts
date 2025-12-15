@@ -7,6 +7,10 @@ const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID || 'santa_juana';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('📨 Login request received:', { body, API_URL, TENANT_ID });
+
+    const bodyString = JSON.stringify(body);
+    console.log('📤 Sending to backend:', bodyString);
 
     const response = await fetch(`${API_URL}/api/auth/login`, {
       method: 'POST',
@@ -14,7 +18,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         'X-Tenant-ID': TENANT_ID,
       },
-      body: JSON.stringify(body),
+      body: bodyString,
     });
 
     if (!response.ok) {

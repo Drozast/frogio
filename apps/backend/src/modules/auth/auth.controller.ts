@@ -26,8 +26,14 @@ export class AuthController {
 
   async login(req: Request, res: Response): Promise<void> {
     try {
+      console.log('🎯 Backend received login request');
+      console.log('📦 Raw body type:', typeof req.body);
+      console.log('📦 Raw body:', req.body);
+
       const data: LoginDto = req.body;
       const tenantId = req.headers['x-tenant-id'] as string;
+
+      console.log('🔑 Parsed data:', { email: data.email, password: data.password?.substring(0, 8) + '...', tenantId });
 
       if (!tenantId) {
         res.status(400).json({ error: 'Tenant ID requerido en headers' });
