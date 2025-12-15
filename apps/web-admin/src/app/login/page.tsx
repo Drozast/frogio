@@ -15,22 +15,40 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
+    console.log('🚀 Starting login...', { email });
+
     try {
+      console.log('📡 Fetching /api/auth/login...');
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+      console.log('✅ Got response:', response.status);
 
       if (!response.ok) {
         const data = await response.json();
+        console.error('❌ Login failed:', data);
         throw new Error(data.error || 'Error al iniciar sesión');
       }
 
+      console.log('🎉 Login successful, redirecting...');
       router.push('/dashboard');
       router.refresh();
     } catch (err: any) {
-      setError(err.message);
+      console.error('💥 Login error:', err);
+      if (err.name === 'AbortError') {
+        setError('La petición tardó demasiado. Verifica tu conexión.');
+      } else {
+        setError(err.message || 'Error al iniciar sesión');
+      }
     } finally {
       setLoading(false);
     }
