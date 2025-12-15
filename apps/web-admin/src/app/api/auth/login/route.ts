@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// Use API_URL for server-side requests (Docker service name)
+// Use NEXT_PUBLIC_API_URL for client-side requests (external IP)
+const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID || 'santa_juana';
 
 export async function POST(request: NextRequest) {
