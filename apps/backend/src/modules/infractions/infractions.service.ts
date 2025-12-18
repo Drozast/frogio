@@ -6,7 +6,7 @@ export class InfractionsService {
     const [infraction] = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO "${tenantId}".infractions
        (user_id, type, description, address, latitude, longitude, amount, vehicle_plate, status, issued_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10::uuid, NOW(), NOW())
        RETURNING *`,
       data.userId,
       data.type,

@@ -6,7 +6,7 @@ export class ReportsService {
     const [report] = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO "${tenantId}".reports
        (user_id, type, title, description, address, latitude, longitude, priority, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
        RETURNING *`,
       userId,
       data.type,
@@ -89,7 +89,7 @@ export class ReportsService {
     }
 
     if (data.assignedTo !== undefined) {
-      updates.push(`assigned_to = $${paramIndex}`);
+      updates.push(`assigned_to = $${paramIndex}::uuid`);
       params.push(data.assignedTo);
       paramIndex++;
     }
