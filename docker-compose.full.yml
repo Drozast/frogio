@@ -103,9 +103,10 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: frogio-cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token eyJhIjoiOGYxZDQyOWU5ZGViZmQzYmYzZTk3YWY1MWU5YjNhZjAiLCJzIjoiV3BqYzFtQnFBeVl1MDlKMEsvWXFIcU9FalpWN2xEakU3bitocG1GR1k5WT0iLCJ0IjoiOTZiNTZlNTItZTI2ZS00OWRjLTgzNzMtODIzMDFjMmI3YmE2In0=
-    networks:
-      - frogio_network
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflare:/etc/cloudflared:ro
+    network_mode: host
     depends_on:
       backend:
         condition: service_healthy
