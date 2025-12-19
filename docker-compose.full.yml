@@ -103,8 +103,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: frogio-cloudflared
     restart: unless-stopped
-    # Reemplaza YOUR_CLOUDFLARE_TUNNEL_TOKEN con el token de Cloudflare
-    command: tunnel --no-autoupdate run --token YOUR_CLOUDFLARE_TUNNEL_TOKEN
+    command: tunnel --no-autoupdate run --token eyJhIjoiOGYxZDQyOWU5ZGViZmQzYmYzZTk3YWY1MWU5YjNhZjAiLCJzIjoiV3BqYzFtQnFBeVl1MDlKMEsvWXFIcU9FalpWN2xEakU3bitocG1GR1k5WT0iLCJ0IjoiOTZiNTZlNTItZTI2ZS00OWRjLTgzNzMtODIzMDFjMmI3YmE2In0=
     networks:
       - frogio_network
     depends_on:
