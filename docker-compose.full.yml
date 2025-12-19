@@ -84,8 +84,8 @@ services:
       NODE_ENV: production
       # Server-side API URL (usa nombre del contenedor)
       API_URL: http://backend:3000
-      # Client-side API URL (usa IP del servidor)
-      NEXT_PUBLIC_API_URL: http://192.168.31.115:3000
+      # Client-side API URL (usa dominio de Cloudflare para acceso externo)
+      NEXT_PUBLIC_API_URL: https://api.frogio.drozast.xyz
       NEXT_PUBLIC_TENANT_ID: santa_juana
     ports:
       - "3010:3000"
@@ -97,6 +97,21 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  # Cloudflare Tunnel - Expone servicios con subdominios de drozast.xyz
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: frogio-cloudflared
+    restart: unless-stopped
+    # Reemplaza YOUR_CLOUDFLARE_TUNNEL_TOKEN con el token de Cloudflare
+    command: tunnel --no-autoupdate run --token YOUR_CLOUDFLARE_TUNNEL_TOKEN
+    networks:
+      - frogio_network
+    depends_on:
+      backend:
+        condition: service_healthy
+      web-admin:
+        condition: service_healthy
 
 volumes:
   postgres_data:
