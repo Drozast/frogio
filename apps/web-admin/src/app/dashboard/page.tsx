@@ -117,24 +117,28 @@ export default async function DashboardPage() {
             value={stats.totalReports}
             icon={<DocumentTextIcon className="h-6 w-6" />}
             color="blue"
+            href="/reports"
           />
           <StatCard
             title="Reportes Pendientes"
             value={stats.pendingReports}
             icon={<ClockIcon className="h-6 w-6" />}
             color="yellow"
+            href="/reports?status=pendiente"
           />
           <StatCard
             title="Reportes Resueltos"
             value={stats.resolvedReports}
             icon={<CheckCircleIcon className="h-6 w-6" />}
             color="green"
+            href="/reports?status=resuelto"
           />
           <StatCard
             title="Total Infracciones"
             value={stats.totalInfractions}
             icon={<ExclamationTriangleIcon className="h-6 w-6" />}
             color="red"
+            href="/infractions"
           />
         </div>
 
@@ -145,18 +149,21 @@ export default async function DashboardPage() {
             value={stats.totalUsers}
             icon={<UserGroupIcon className="h-6 w-6" />}
             color="indigo"
+            href="/users"
           />
           <StatCard
             title="Usuarios Activos"
             value={stats.activeUsers}
             icon={<CheckCircleIcon className="h-6 w-6" />}
             color="green"
+            href="/users?status=active"
           />
           <StatCard
             title="Total Vehículos"
             value={stats.totalVehicles}
             icon={<TruckIcon className="h-6 w-6" />}
             color="purple"
+            href="/vehicles"
           />
         </div>
 
