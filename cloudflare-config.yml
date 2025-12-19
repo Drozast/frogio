@@ -1,0 +1,28 @@
+# Cloudflare Tunnel Configuration for Frogio
+# This file defines the tunnel configuration for exposing Frogio services
+
+tunnel: frogio-tunnel
+credentials-file: /etc/cloudflared/credentials.json
+
+# Ingress rules - map subdomains to internal services
+ingress:
+  # API Backend
+  - hostname: api.frogio.drozast.xyz
+    service: http://frogio-backend:3000
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+
+  # Web Admin Panel
+  - hostname: admin.frogio.drozast.xyz
+    service: http://frogio-web-admin:3000
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+
+  # Alternative: expose directly from host
+  # - hostname: api.frogio.drozast.xyz
+  #   service: http://localhost:3000
+
+  # Catch-all rule (required)
+  - service: http_status:404

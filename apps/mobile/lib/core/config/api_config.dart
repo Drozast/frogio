@@ -1,10 +1,10 @@
 // lib/core/config/api_config.dart
 
 class ApiConfig {
-  // URLs de API - Apuntando al servidor de producción
+  // URLs de API - Using Cloudflare Tunnel for production
   static const String baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'http://192.168.31.115:3000',
+    defaultValue: 'https://api.frogio.drozast.xyz',
   );
 
   // Tenant ID (municipalidad)
@@ -29,9 +29,9 @@ class ApiConfig {
     'X-Tenant-ID': tenantId,
   };
 
-  // Para desarrollo local
-  static const String devBaseUrl = 'http://localhost:3000';
-  static const String devNtfyUrl = 'http://localhost:8089';
+  // Para desarrollo local / red interna
+  static const String devBaseUrl = 'http://192.168.31.115:3000';
+  static const String devNtfyUrl = 'http://192.168.31.115:8089';
 
   // Verificar si está en modo desarrollo
   static bool get isDevelopment => const bool.fromEnvironment(
