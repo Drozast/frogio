@@ -1,0 +1,107 @@
+version: '3.8'
+
+# FROGIO - Docker Compose COMPLETO Y AUTOCONTENIDO
+# Incluye PostgreSQL, Backend, Web Admin y todos los servicios necesarios
+# Todo aislado en su propia red, sin conflictos con otros servicios del servidor
+
+services:
+  # PostgreSQL Database - Contenedor propio de Frogio
+  postgres:
+    image: postgres:16-alpine
+    container_name: frogio-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: frogio
+      POSTGRES_USER: frogio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-N8H+JG/UTBQVE6G+qUJAil4n/MkLjks/o7LzMBnrU40=}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./apps/backend/prisma/migrations:/docker-entrypoint-initdb.d
+    ports:
+      # Cambiado a 5433 para evitar conflicto con PostgreSQL del host en 5432
+      - "5433:5432"
+    networks:
+      - frogio_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U frogio -d frogio"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Backend API
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: frogio-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Database conecta al contenedor postgres, NO al host
+      DATABASE_URL: postgresql://frogio:${POSTGRES_PASSWORD:-N8H+JG/UTBQVE6G+qUJAil4n/MkLjks/o7LzMBnrU40=}@postgres:5432/frogio
+      # API URLs
+      API_URL: http://backend:3000
+      CORS_ORIGIN: http://192.168.31.115:3010
+      # Tenant
+      DEFAULT_TENANT: santa_juana
+      # JWT Secrets
+      JWT_SECRET: ${JWT_SECRET:-P1Y6WIRSRrtvrA6lPZgGZRBeG6u3e6ZSMtUPiOCFecU=}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-L+nRTojTNZgr1SUqBfdKpeuZ0I/4ZzxxN8LYLxLI9vc=}
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+    ports:
+      - "3000:3000"
+    networks:
+      - frogio_network
+    volumes:
+      - ./apps/backend/logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Web Admin (Next.js)
+  web-admin:
+    build:
+      context: ./apps/web-admin
+      dockerfile: Dockerfile
+    container_name: frogio-web-admin
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      # Server-side API URL (usa nombre del contenedor)
+      API_URL: http://backend:3000
+      # Client-side API URL (usa IP del servidor)
+      NEXT_PUBLIC_API_URL: http://192.168.31.115:3000
+      NEXT_PUBLIC_TENANT_ID: santa_juana
+    ports:
+      - "3010:3000"
+    networks:
+      - frogio_network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  postgres_data:
+    driver: local
+    name: frogio_postgres_data
+
+networks:
+  frogio_network:
+    driver: bridge
+    name: frogio_network
