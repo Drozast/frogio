@@ -1,10 +1,10 @@
 // lib/core/config/api_config.dart
 
 class ApiConfig {
-  // URLs de API
+  // URLs de API - Apuntando al servidor de producción
   static const String baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'https://api.drozast.xyz',
+    defaultValue: 'http://192.168.31.115:3000',
   );
 
   // Tenant ID (municipalidad)
@@ -13,10 +13,10 @@ class ApiConfig {
     defaultValue: 'santa_juana',
   );
 
-  // Configuración de ntfy para notificaciones
+  // Configuración de ntfy para notificaciones (deshabilitado por ahora)
   static const String ntfyUrl = String.fromEnvironment(
     'NTFY_URL',
-    defaultValue: 'https://ntfy.drozast.xyz',
+    defaultValue: 'http://192.168.31.115:8089',
   );
 
   // Timeouts

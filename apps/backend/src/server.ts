@@ -20,9 +20,15 @@ import notificationsRoutes from './modules/notifications/notifications.routes.js
 
 const app = express();
 const httpServer = createServer(app);
+
+// Socket.IO with CORS
+const socketCorsOrigin = process.env.CORS_ORIGIN === '*'
+  ? '*'
+  : process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'];
+
 const io = new Server(httpServer, {
   cors: {
-    origin: env.CORS_ORIGINS,
+    origin: socketCorsOrigin,
     credentials: true,
   },
 });
@@ -30,8 +36,14 @@ const io = new Server(httpServer, {
 // Middleware de seguridad
 app.use(helmet());
 app.use(compression());
+
+// CORS configuration - Allow all origins if "*" is set, otherwise use specific origins
+const corsOrigin = env.CORS_ORIGINS[0] === '*'
+  ? true // Allow all origins
+  : env.CORS_ORIGINS;
+
 app.use(cors({
-  origin: env.CORS_ORIGINS,
+  origin: corsOrigin,
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
