@@ -1,7 +1,7 @@
 # Cloudflare Tunnel Configuration for Frogio
 # This file configures the tunnel to expose Frogio services via Cloudflare
 
-tunnel: frogio
+tunnel: 96b56e52-e26e-49dc-8373-82301c2b7ba6
 credentials-file: /etc/cloudflared/credentials.json
 
 ingress:
