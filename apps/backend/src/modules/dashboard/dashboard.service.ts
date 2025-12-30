@@ -71,7 +71,7 @@ export class DashboardService {
           u.id, u.first_name, u.last_name, u.email,
           COUNT(i.id) as infraction_count
          FROM "${tenantId}".users u
-         LEFT JOIN "${tenantId}".infractions i ON u.id = i.inspector_id
+         LEFT JOIN "${tenantId}".infractions i ON u.id = i.issued_by
          WHERE u.role = 'inspector'
          GROUP BY u.id, u.first_name, u.last_name, u.email
          ORDER BY infraction_count DESC
