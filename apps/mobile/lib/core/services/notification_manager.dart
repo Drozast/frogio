@@ -39,7 +39,7 @@ class NotificationManager {
   void _showInAppNotification(BuildContext context, Map<String, dynamic> data) {
     final notificationType = data['type'] ?? 'general';
     final title = data['title'] ?? 'FROGIO';
-    final body = data['body'] ?? 'Nueva notificación';
+    final body = data['body'] ?? 'Nueva notificacion';
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -129,7 +129,7 @@ class NotificationManager {
 
   void _handleReminder(BuildContext context, Map<String, dynamic> data) {
     final reminderType = data['reminderType'];
-    
+
     switch (reminderType) {
       case 'incomplete_profile':
         Navigator.of(context).pushNamed('/profile');
@@ -176,46 +176,41 @@ class NotificationManager {
     }
   }
 
-  // Métodos para suscripciones basadas en roles
-  Future<void> subscribeToUserTopics(String userId, String role) async {
+  // Metodos para suscripciones basadas en roles
+  Future<void> subscribeToUserTopics(String userId, String role, {String tenantId = 'santa_juana'}) async {
+    // Configurar topics para el usuario
+    await _notificationService.setupUserTopics(
+      userId: userId,
+      tenantId: tenantId,
+      role: role,
+    );
+
     // Suscribirse a notificaciones generales
-    await _notificationService.subscribeToTopic('all_users');
-    
-    // Suscribirse según rol
+    await _notificationService.subscribeToTopic('frogio_${tenantId}_all');
+
+    // Suscribirse segun rol
     switch (role) {
       case 'citizen':
-        await _notificationService.subscribeToTopic('citizens');
-        await _notificationService.subscribeToTopic('user_$userId');
+        await _notificationService.subscribeToTopic('frogio_${tenantId}_citizens');
         break;
       case 'inspector':
-        await _notificationService.subscribeToTopic('inspectors');
-        await _notificationService.subscribeToTopic('staff');
+        await _notificationService.subscribeToTopic('frogio_${tenantId}_inspectors');
         break;
       case 'admin':
-        await _notificationService.subscribeToTopic('admins');
-        await _notificationService.subscribeToTopic('staff');
+        await _notificationService.subscribeToTopic('frogio_${tenantId}_admins');
         break;
     }
-    
-    // Enviar token al servidor
-    await _notificationService.sendTokenToServer(userId, role);
   }
 
-  Future<void> unsubscribeFromAllTopics(String userId, String role) async {
-    await _notificationService.unsubscribeFromTopic('all_users');
-    await _notificationService.unsubscribeFromTopic('citizens');
-    await _notificationService.unsubscribeFromTopic('inspectors');
-    await _notificationService.unsubscribeFromTopic('admins');
-    await _notificationService.unsubscribeFromTopic('staff');
-    await _notificationService.unsubscribeFromTopic('user_$userId');
-    await _notificationService.clearToken();
+  Future<void> unsubscribeFromAllTopics() async {
+    await _notificationService.clearTopics();
   }
 
   // Mostrar notificaciones locales para acciones de la app
   Future<void> showReportStatusUpdate(String reportId, String newStatus) async {
-    await _notificationService.showCustomNotification(
+    await _notificationService.showLocalNotification(
       title: 'Estado actualizado',
-      body: 'Tu denuncia cambió a: $newStatus',
+      body: 'Tu denuncia cambio a: $newStatus',
       data: {
         'type': 'report_status_changed',
         'reportId': reportId,
@@ -224,9 +219,9 @@ class NotificationManager {
   }
 
   Future<void> showNewResponse(String reportId, String responderName) async {
-    await _notificationService.showCustomNotification(
+    await _notificationService.showLocalNotification(
       title: 'Nueva respuesta',
-      body: '$responderName respondió a tu denuncia',
+      body: '$responderName respondio a tu denuncia',
       data: {
         'type': 'report_response',
         'reportId': reportId,
@@ -235,7 +230,7 @@ class NotificationManager {
   }
 
   Future<void> showReportAssigned(String reportId, String inspectorName) async {
-    await _notificationService.showCustomNotification(
+    await _notificationService.showLocalNotification(
       title: 'Reporte asignado',
       body: 'Asignado a $inspectorName',
       data: {
@@ -246,7 +241,7 @@ class NotificationManager {
   }
 
   Future<void> showReminder(String title, String message, String type) async {
-    await _notificationService.showCustomNotification(
+    await _notificationService.showLocalNotification(
       title: title,
       body: message,
       data: {

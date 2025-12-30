@@ -1,6 +1,7 @@
 // lib/core/widgets/map_fallback_widget.dart
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_theme.dart';
 
@@ -51,22 +52,22 @@ class MapFallbackWidget extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              errorMessage ?? 'No se pudo cargar Google Maps',
+              errorMessage ?? 'No se pudo cargar el mapa',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey.shade600,
               ),
             ),
-            
+
             if (location != null) ...[
               const SizedBox(height: 20),
               _buildLocationInfo(),
             ],
-            
+
             const SizedBox(height: 20),
             _buildActionButtons(context),
-            
+
             const SizedBox(height: 16),
             _buildTroubleshootingTips(),
           ],
@@ -85,16 +86,16 @@ class MapFallbackWidget extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.location_on,
                 color: AppTheme.primaryColor,
                 size: 20,
               ),
-              const SizedBox(width: 8),
-              const Text(
-                'Ubicación seleccionada:',
+              SizedBox(width: 8),
+              Text(
+                'Ubicacion seleccionada:',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: AppTheme.primaryColor,
@@ -140,9 +141,9 @@ class MapFallbackWidget extends StatelessWidget {
               ),
             ),
           ),
-        
+
         const SizedBox(height: 12),
-        
+
         if (allowLocationSelection)
           SizedBox(
             width: double.infinity,
@@ -152,15 +153,15 @@ class MapFallbackWidget extends StatelessWidget {
               label: const Text('Ingresar coordenadas manualmente'),
             ),
           ),
-        
+
         const SizedBox(height: 8),
-        
+
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: () => _openExternalMap(),
             icon: const Icon(Icons.open_in_new),
-            label: const Text('Abrir en Google Maps'),
+            label: const Text('Abrir en OpenStreetMap'),
           ),
         ),
       ],
@@ -179,11 +180,10 @@ class MapFallbackWidget extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildTip('Verifica tu conexión a internet'),
-              _buildTip('Recarga la página (Ctrl+F5 en web)'),
-              _buildTip('Verifica que JavaScript esté habilitado'),
-              _buildTip('Prueba con otro navegador'),
-              _buildTip('Verifica la configuración de la API key de Google Maps'),
+              _buildTip('Verifica tu conexion a internet'),
+              _buildTip('Recarga la aplicacion'),
+              _buildTip('Verifica los permisos de ubicacion'),
+              _buildTip('Prueba reiniciar la aplicacion'),
             ],
           ),
         ),
@@ -221,7 +221,7 @@ class MapFallbackWidget extends StatelessWidget {
   void _showManualLocationDialog(BuildContext context) {
     final latController = TextEditingController();
     final lngController = TextEditingController();
-    
+
     if (location != null) {
       latController.text = location!.latitude.toString();
       lngController.text = location!.longitude.toString();
@@ -267,16 +267,16 @@ class MapFallbackWidget extends StatelessWidget {
             onPressed: () {
               final lat = double.tryParse(latController.text);
               final lng = double.tryParse(lngController.text);
-              
-              if (lat != null && lng != null && 
-                  lat >= -90 && lat <= 90 && 
+
+              if (lat != null && lng != null &&
+                  lat >= -90 && lat <= 90 &&
                   lng >= -180 && lng <= 180) {
                 Navigator.pop(context);
                 onLocationSelected?.call(LatLng(lat, lng));
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Coordenadas inválidas'),
+                    content: Text('Coordenadas invalidas'),
                     backgroundColor: AppTheme.errorColor,
                   ),
                 );
@@ -289,11 +289,12 @@ class MapFallbackWidget extends StatelessWidget {
     );
   }
 
-  void _openExternalMap() {
+  Future<void> _openExternalMap() async {
     if (location != null) {
-      final url = 'https://www.google.com/maps?q=${location!.latitude},${location!.longitude}';
-      // En una implementación real, usar url_launcher para abrir el enlace
-      debugPrint('Abrir enlace: $url');
+      final url = Uri.parse('https://www.openstreetmap.org/?mlat=${location!.latitude}&mlon=${location!.longitude}#map=15/${location!.latitude}/${location!.longitude}');
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      }
     }
   }
 }

@@ -1,21 +1,25 @@
 // lib/core/services/notification_service.dart
+import 'dart:convert';
 import 'dart:developer';
 
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+/// Servicio de notificaciones usando ntfy.sh (sin Firebase)
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
-  
-  String? _fcmToken;
-  String? get fcmToken => _fcmToken;
+  final Dio _dio = Dio();
+
+  // Configuracion de ntfy
+  static const String _ntfyBaseUrl = 'https://ntfy.sh';
+  String? _userTopic;
+  String? _tenantTopic;
 
   // Callback para manejar notificaciones recibidas
   Function(Map<String, dynamic>)? onNotificationReceived;
@@ -23,14 +27,10 @@ class NotificationService {
 
   Future<void> initialize() async {
     await _initializeLocalNotifications();
-    await _initializeFirebaseMessaging();
-    await _requestPermissions();
-    await _getFCMToken();
-    _setupMessageHandlers();
+    await _loadSavedTopics();
   }
 
   Future<void> _initializeLocalNotifications() async {
-    // Solo inicializar notificaciones locales en plataformas móviles
     if (kIsWeb) {
       log('Notificaciones locales no disponibles en web');
       return;
@@ -42,7 +42,7 @@ class NotificationService {
       requestBadgePermission: true,
       requestAlertPermission: true,
     );
-    
+
     const initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
@@ -54,94 +54,100 @@ class NotificationService {
     );
   }
 
-  Future<void> _initializeFirebaseMessaging() async {
-    // Configurar opciones para iOS
-    await _firebaseMessaging.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+  Future<void> _loadSavedTopics() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _userTopic = prefs.getString('ntfy_user_topic');
+      _tenantTopic = prefs.getString('ntfy_tenant_topic');
+    } catch (e) {
+      log('Error loading saved topics: $e');
+    }
   }
 
-  Future<void> _requestPermissions() async {
+  /// Configurar topics para el usuario
+  Future<void> setupUserTopics({
+    required String userId,
+    required String tenantId,
+    required String role,
+  }) async {
     try {
-      // En web, no necesitamos permisos de Platform
-      if (!kIsWeb) {
-        // Solo usar Permission.notification en plataformas móviles
-        await Permission.notification.request();
-      }
-      
-      await _firebaseMessaging.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
+      // Crear topics unicos para el usuario y tenant
+      _userTopic = 'frogio_${tenantId}_user_$userId';
+      _tenantTopic = 'frogio_${tenantId}_$role';
+
+      // Guardar topics
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('ntfy_user_topic', _userTopic!);
+      await prefs.setString('ntfy_tenant_topic', _tenantTopic!);
+
+      log('Topics configurados: user=$_userTopic, tenant=$_tenantTopic');
+    } catch (e) {
+      log('Error setting up topics: $e');
+    }
+  }
+
+  /// Enviar notificacion via ntfy
+  Future<bool> sendNotification({
+    required String topic,
+    required String title,
+    required String message,
+    Map<String, dynamic>? data,
+    int priority = 3, // 1-5, 3 es normal
+  }) async {
+    try {
+      final response = await _dio.post(
+        '$_ntfyBaseUrl/$topic',
+        data: message,
+        options: Options(
+          headers: {
+            'Title': title,
+            'Priority': priority.toString(),
+            'Tags': 'frogio',
+            if (data != null) 'X-Data': jsonEncode(data),
+          },
+        ),
       );
+
+      return response.statusCode == 200;
     } catch (e) {
-      log('Error requesting permissions: $e');
+      log('Error sending notification: $e');
+      return false;
     }
   }
 
-  Future<void> _getFCMToken() async {
-    try {
-      _fcmToken = await _firebaseMessaging.getToken();
-      log('FCM Token: $_fcmToken');
-    } catch (e) {
-      log('Error getting FCM token: $e');
-    }
+  /// Suscribirse a un topic y escuchar notificaciones
+  Future<void> subscribeToTopic(String topic) async {
+    log('Subscribed to topic: $topic');
+    // En una implementacion real, usar SSE o WebSocket para escuchar
+    // Por ahora, las notificaciones se manejan via polling o push del servidor
   }
 
-  void _setupMessageHandlers() {
-    // Mensaje recibido cuando la app está en primer plano
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-    
-    // Mensaje tocado cuando la app está en segundo plano
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessageTap);
-    
-    // Verificar si hay mensaje que abrió la app
-    _checkInitialMessage();
-  }
-
-  Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    log('Foreground message received: ${message.notification?.title}');
-    
-    final data = message.data;
-    onNotificationReceived?.call(data);
-    
-    // Mostrar notificación local en primer plano solo en plataformas móviles
-    if (!kIsWeb) {
-      await _showLocalNotification(message);
-    }
-  }
-
-  void _handleBackgroundMessageTap(RemoteMessage message) {
-    log('Background message tapped: ${message.notification?.title}');
-    onNotificationTapped?.call(message.data);
-  }
-
-  Future<void> _checkInitialMessage() async {
-    final RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
-    if (initialMessage != null) {
-      log('App opened from terminated state via notification');
-      onNotificationTapped?.call(initialMessage.data);
-    }
+  Future<void> unsubscribeFromTopic(String topic) async {
+    log('Unsubscribed from topic: $topic');
   }
 
   void _onNotificationTapped(NotificationResponse response) {
     final payload = response.payload;
     if (payload != null) {
-      // Parsear payload como JSON si es necesario
-      log('Local notification tapped: $payload');
-      // onNotificationTapped?.call(jsonDecode(payload));
+      try {
+        final data = jsonDecode(payload) as Map<String, dynamic>;
+        onNotificationTapped?.call(data);
+      } catch (e) {
+        log('Error parsing notification payload: $e');
+      }
     }
   }
 
-  Future<void> _showLocalNotification(RemoteMessage message) async {
-    // Solo funciona en plataformas móviles
-    if (kIsWeb) return;
+  /// Mostrar notificacion local
+  Future<void> showLocalNotification({
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    if (kIsWeb) {
+      log('Local notifications not supported on web');
+      return;
+    }
 
     const androidDetails = AndroidNotificationDetails(
       'frogio_channel',
@@ -153,93 +159,8 @@ class NotificationService {
     );
 
     const iosDetails = DarwinNotificationDetails();
-    
+
     const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await _localNotifications.show(
-      message.hashCode,
-      message.notification?.title ?? 'FROGIO',
-      message.notification?.body ?? 'Nueva notificación',
-      notificationDetails,
-      payload: message.data.toString(),
-    );
-  }
-
-  // Suscribirse a tópicos
-  Future<void> subscribeToTopic(String topic) async {
-    try {
-      await _firebaseMessaging.subscribeToTopic(topic);
-      log('Subscribed to topic: $topic');
-    } catch (e) {
-      log('Error subscribing to topic $topic: $e');
-    }
-  }
-
-  Future<void> unsubscribeFromTopic(String topic) async {
-    try {
-      await _firebaseMessaging.unsubscribeFromTopic(topic);
-      log('Unsubscribed from topic: $topic');
-    } catch (e) {
-      log('Error unsubscribing from topic $topic: $e');
-    }
-  }
-
-  // Enviar token al servidor
-  Future<void> sendTokenToServer(String userId, String userRole) async {
-    if (_fcmToken == null) return;
-    
-    try {
-      // En implementación real, enviar al backend
-      log('Sending token to server for user $userId with role $userRole');
-      
-      // Ejemplo de estructura de datos:
-      
-      // await apiService.saveUserToken(tokenData);
-      
-    } catch (e) {
-      log('Error sending token to server: $e');
-    }
-  }
-
-  // Limpiar token cuando el usuario cierre sesión
-  Future<void> clearToken() async {
-    try {
-      await _firebaseMessaging.deleteToken();
-      _fcmToken = null;
-      log('FCM token cleared');
-    } catch (e) {
-      log('Error clearing token: $e');
-    }
-  }
-
-  // Mostrar notificación local personalizada
-  Future<void> showCustomNotification({
-    required String title,
-    required String body,
-    Map<String, dynamic>? data,
-    String? icon,
-  }) async {
-    // Solo funciona en plataformas móviles
-    if (kIsWeb) {
-      log('Custom notifications not supported on web');
-      return;
-    }
-
-    final androidDetails = AndroidNotificationDetails(
-      'frogio_custom',
-      'FROGIO Custom',
-      channelDescription: 'Notificaciones personalizadas de FROGIO',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: icon ?? '@mipmap/ic_launcher',
-    );
-
-    const iosDetails = DarwinNotificationDetails();
-    
-    final notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
@@ -249,14 +170,25 @@ class NotificationService {
       title,
       body,
       notificationDetails,
-      payload: data?.toString(),
+      payload: data != null ? jsonEncode(data) : null,
     );
   }
-}
 
-// Handler para mensajes en background (debe estar en nivel global)
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  log('Background message received: ${message.notification?.title}');
-  // No hacer operaciones pesadas aquí
+  /// Limpiar cuando el usuario cierre sesion
+  Future<void> clearTopics() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('ntfy_user_topic');
+      await prefs.remove('ntfy_tenant_topic');
+      _userTopic = null;
+      _tenantTopic = null;
+      log('Topics cleared');
+    } catch (e) {
+      log('Error clearing topics: $e');
+    }
+  }
+
+  // Getters
+  String? get userTopic => _userTopic;
+  String? get tenantTopic => _tenantTopic;
 }

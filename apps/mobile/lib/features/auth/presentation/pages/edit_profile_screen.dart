@@ -9,7 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/text_formatters.dart';
 import '../../../../core/widgets/custom_button.dart';
-import '../../../../di/injection_container.dart' as di;
+import '../../../../di/injection_container_api.dart' as di;
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../bloc/auth_bloc.dart';

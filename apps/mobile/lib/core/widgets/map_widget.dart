@@ -1,20 +1,20 @@
 // lib/core/widgets/map_widget.dart
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../services/maps_service.dart';
 import '../theme/app_theme.dart';
 
 class MapWidget extends StatefulWidget {
   final LatLng? initialLocation;
-  final Set<Marker>? markers;
-  final Set<Polyline>? polylines;
+  final List<Marker>? markers;
+  final List<Polyline>? polylines;
   final Function(LatLng)? onLocationSelected;
-  final Function(GoogleMapController)? onMapCreated;
+  final Function(MapController)? onMapCreated;
   final bool showCurrentLocation;
   final bool allowLocationSelection;
   final double zoom;
-  final MapType mapType;
 
   const MapWidget({
     super.key,
@@ -26,7 +26,6 @@ class MapWidget extends StatefulWidget {
     this.showCurrentLocation = true,
     this.allowLocationSelection = false,
     this.zoom = 15.0,
-    this.mapType = MapType.normal,
   });
 
   @override
@@ -35,8 +34,9 @@ class MapWidget extends StatefulWidget {
 
 class _MapWidgetState extends State<MapWidget> {
   final MapsService _mapsService = MapsService();
+  late final MapController _mapController;
   LatLng? _currentLocation;
-  Set<Marker> _markers = {};
+  List<Marker> _markers = [];
   bool _isLoading = true;
 
   static const LatLng _defaultLocation = LatLng(-37.0636, -72.7306); // Santa Juana, Chile
@@ -44,6 +44,7 @@ class _MapWidgetState extends State<MapWidget> {
   @override
   void initState() {
     super.initState();
+    _mapController = MapController();
     _initializeMap();
   }
 
@@ -53,7 +54,7 @@ class _MapWidgetState extends State<MapWidget> {
         final position = await _mapsService.getCurrentLocation();
         _currentLocation = LatLng(position.latitude, position.longitude);
       } catch (e) {
-        // Usar ubicación por defecto si falla
+        // Usar ubicacion por defecto si falla
         _currentLocation = _defaultLocation;
       }
     } else {
@@ -64,19 +65,27 @@ class _MapWidgetState extends State<MapWidget> {
     setState(() {
       _isLoading = false;
     });
+
+    // Notify that map was created
+    widget.onMapCreated?.call(_mapController);
+    _mapsService.setController(_mapController);
   }
 
   void _updateMarkers() {
-    _markers = Set.from(widget.markers ?? {});
-    
-    // Agregar marcador de ubicación actual si está habilitado
+    _markers = List.from(widget.markers ?? []);
+
+    // Agregar marcador de ubicacion actual si esta habilitado
     if (widget.showCurrentLocation && _currentLocation != null) {
       _markers.add(
         Marker(
-          markerId: const MarkerId('current_location'),
-          position: _currentLocation!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-          infoWindow: const InfoWindow(title: 'Tu ubicación'),
+          point: _currentLocation!,
+          width: 40,
+          height: 40,
+          child: const Icon(
+            Icons.my_location,
+            color: Colors.blue,
+            size: 30,
+          ),
         ),
       );
     }
@@ -105,50 +114,47 @@ class _MapWidgetState extends State<MapWidget> {
 
     return Stack(
       children: [
-        GoogleMap(
-          onMapCreated: _onMapCreated,
-          initialCameraPosition: CameraPosition(
-            target: _currentLocation ?? _defaultLocation,
-            zoom: widget.zoom,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _currentLocation ?? _defaultLocation,
+              initialZoom: widget.zoom,
+              onTap: widget.allowLocationSelection
+                  ? (tapPosition, point) => widget.onLocationSelected?.call(point)
+                  : null,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.frogio.santajuana',
+              ),
+              if (_markers.isNotEmpty) MarkerLayer(markers: _markers),
+              if (widget.polylines != null && widget.polylines!.isNotEmpty)
+                PolylineLayer(polylines: widget.polylines!),
+            ],
           ),
-          markers: _markers,
-          polylines: widget.polylines ?? {},
-          mapType: widget.mapType,
-          onTap: widget.allowLocationSelection ? _onMapTap : null,
-          myLocationEnabled: widget.showCurrentLocation,
-          myLocationButtonEnabled: false, // Usar botón personalizado
-          zoomControlsEnabled: false,
-          compassEnabled: true,
-          mapToolbarEnabled: false,
         ),
-        
+
         // Controles personalizados
         Positioned(
           top: 16,
           right: 16,
           child: Column(
             children: [
-              // Botón de ubicación actual
+              // Boton de ubicacion actual
               if (widget.showCurrentLocation)
                 _buildControlButton(
                   icon: Icons.my_location,
                   onPressed: _goToCurrentLocation,
-                  tooltip: 'Mi ubicación',
+                  tooltip: 'Mi ubicacion',
                 ),
-              
-              const SizedBox(height: 8),
-              
-              // Selector de tipo de mapa
-              _buildControlButton(
-                icon: Icons.layers,
-                onPressed: _showMapTypeDialog,
-                tooltip: 'Tipo de mapa',
-              ),
             ],
           ),
         ),
-        
-        // Indicador de selección de ubicación
+
+        // Indicador de seleccion de ubicacion
         if (widget.allowLocationSelection)
           const Center(
             child: Icon(
@@ -186,79 +192,27 @@ class _MapWidgetState extends State<MapWidget> {
     );
   }
 
-  void _onMapCreated(GoogleMapController controller) {
-  _mapsService.setController(controller);
-  widget.onMapCreated?.call(controller);
-}
-
-  void _onMapTap(LatLng location) {
-    if (widget.allowLocationSelection) {
-      widget.onLocationSelected?.call(location);
-    }
-  }
-
   Future<void> _goToCurrentLocation() async {
     try {
       final position = await _mapsService.getCurrentLocation();
       final location = LatLng(position.latitude, position.longitude);
-      
-      await _mapsService.moveToLocation(location);
-      
+
+      _mapController.move(location, widget.zoom);
+
       setState(() {
         _currentLocation = location;
         _updateMarkers();
       });
     } catch (e) {
       if (mounted) {
-  ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al obtener ubicación: ${e.toString()}'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al obtener ubicacion: ${e.toString()}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
     }
-  }
-  }
-
-  void _showMapTypeDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Tipo de mapa'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildMapTypeOption(MapType.normal, 'Normal'),
-            _buildMapTypeOption(MapType.satellite, 'Satélite'),
-            _buildMapTypeOption(MapType.hybrid, 'Híbrido'),
-            _buildMapTypeOption(MapType.terrain, 'Terreno'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMapTypeOption(MapType type, String name) {
-    return ListTile(
-      title: Text(name),
-      leading: Radio<MapType>(
-        value: type,
-        groupValue: widget.mapType,
-        onChanged: (value) {
-          Navigator.pop(context);
-          _changeMapType(value!);
-        },
-      ),
-      onTap: () {
-        Navigator.pop(context);
-        _changeMapType(type);
-      },
-    );
-  }
-
-  void _changeMapType(MapType type) {
-    // Esto requeriría un callback para notificar el cambio al widget padre
-    // En una implementación completa, se manejaría con estado
   }
 
   @override

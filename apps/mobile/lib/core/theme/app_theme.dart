@@ -1,26 +1,25 @@
 // lib/core/theme/app_theme.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Colores primarios (verde sapo)
   static const Color primaryColor = Color(0xFF2E8B57);     // Verde esmeralda
   static const Color secondaryColor = Color(0xFF50C878);   // Verde menta
-  static const Color accentColor = Color(0xFF98FB98);      // Verde pálido
+  static const Color accentColor = Color(0xFF98FB98);      // Verde palido
   static const Color darkGreen = Color(0xFF006400);        // Verde oscuro
-  
+
   // Colores neutrales
   static const Color backgroundLight = Color(0xFFF5F5F5);
   static const Color backgroundDark = Color(0xFF121212);
   static const Color textDark = Color(0xFF333333);
   static const Color textLight = Color(0xFFF5F5F5);
-  
+
   // Estado
   static const Color successColor = Color(0xFF4CAF50);
   static const Color warningColor = Color(0xFFFF9800);
   static const Color errorColor = Color(0xFFE53935);
-  
+
   static ThemeData get lightTheme {
     return ThemeData(
       primaryColor: primaryColor,
@@ -51,7 +50,7 @@ class AppTheme {
           foregroundColor: primaryColor,
         ),
       ),
-      textTheme: GoogleFonts.montserratTextTheme(),
+      fontFamily: 'Roboto',
       scaffoldBackgroundColor: backgroundLight,
       cardTheme: CardThemeData(
         elevation: 2,

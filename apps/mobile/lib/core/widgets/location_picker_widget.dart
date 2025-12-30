@@ -1,11 +1,11 @@
 // lib/core/widgets/location_picker_widget.dart
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../services/maps_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_button.dart';
-import 'map_widget.dart';
 
 class LocationPickerWidget extends StatefulWidget {
   final LatLng? initialLocation;
@@ -17,8 +17,8 @@ class LocationPickerWidget extends StatefulWidget {
     super.key,
     this.initialLocation,
     required this.onLocationSelected,
-    this.title = 'Seleccionar ubicación',
-    this.confirmButtonText = 'Confirmar ubicación',
+    this.title = 'Seleccionar ubicacion',
+    this.confirmButtonText = 'Confirmar ubicacion',
   });
 
   @override
@@ -27,13 +27,17 @@ class LocationPickerWidget extends StatefulWidget {
 
 class _LocationPickerWidgetState extends State<LocationPickerWidget> {
   final MapsService _mapsService = MapsService();
+  late final MapController _mapController;
   LatLng? _selectedLocation;
   String? _selectedAddress;
   bool _isLoadingAddress = false;
 
+  static const LatLng _defaultLocation = LatLng(-37.0636, -72.7306);
+
   @override
   void initState() {
     super.initState();
+    _mapController = MapController();
     _selectedLocation = widget.initialLocation;
     if (_selectedLocation != null) {
       _loadAddress(_selectedLocation!);
@@ -49,19 +53,42 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
       ),
       body: Column(
         children: [
-          // Información de ubicación seleccionada
+          // Informacion de ubicacion seleccionada
           _buildLocationInfo(),
-          
+
           // Mapa
           Expanded(
-            child: MapWidget(
-              initialLocation: _selectedLocation,
-              allowLocationSelection: true,
-              onLocationSelected: _onLocationSelected,
-              showCurrentLocation: true,
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: _selectedLocation ?? _defaultLocation,
+                initialZoom: 15,
+                onTap: (tapPosition, point) => _onLocationSelected(point),
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.frogio.santajuana',
+                ),
+                if (_selectedLocation != null)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _selectedLocation!,
+                        width: 40,
+                        height: 40,
+                        child: const Icon(
+                          Icons.location_on,
+                          color: AppTheme.primaryColor,
+                          size: 40,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
             ),
           ),
-          
+
           // Controles inferiores
           _buildBottomControls(),
         ],
@@ -90,13 +117,13 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
               Icon(Icons.info_outline, color: AppTheme.primaryColor),
               SizedBox(width: 8),
               Text(
-                'Toca en el mapa para seleccionar ubicación',
+                'Toca en el mapa para seleccionar ubicacion',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          
+
           if (_selectedLocation != null) ...[
             Container(
               padding: const EdgeInsets.all(12),
@@ -113,7 +140,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                       Icon(Icons.location_on, color: AppTheme.primaryColor, size: 16),
                       SizedBox(width: 8),
                       Text(
-                        'Ubicación seleccionada:',
+                        'Ubicacion seleccionada:',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: AppTheme.primaryColor,
@@ -122,7 +149,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  
+
                   if (_isLoadingAddress)
                     const Row(
                       children: [
@@ -132,7 +159,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                         SizedBox(width: 8),
-                        Text('Obteniendo dirección...'),
+                        Text('Obteniendo direccion...'),
                       ],
                     )
                   else if (_selectedAddress != null)
@@ -159,7 +186,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                   Icon(Icons.touch_app, color: Colors.grey),
                   SizedBox(width: 8),
                   Text(
-                    'Ninguna ubicación seleccionada',
+                    'Ninguna ubicacion seleccionada',
                     style: TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -191,7 +218,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                 child: OutlinedButton.icon(
                   onPressed: _useCurrentLocation,
                   icon: const Icon(Icons.my_location),
-                  label: const Text('Usar mi ubicación'),
+                  label: const Text('Usar mi ubicacion'),
                 ),
               ),
               const SizedBox(width: 16),
@@ -199,7 +226,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                 child: OutlinedButton.icon(
                   onPressed: _showAddressDialog,
                   icon: const Icon(Icons.search),
-                  label: const Text('Buscar dirección'),
+                  label: const Text('Buscar direccion'),
                 ),
               ),
             ],
@@ -235,16 +262,16 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
         location.latitude,
         location.longitude,
       );
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _selectedAddress = address;
         _isLoadingAddress = false;
       });
     } catch (e) {
       if (!mounted) return;
-      
+
       setState(() {
         _isLoadingAddress = false;
       });
@@ -255,17 +282,17 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
     try {
       final position = await _mapsService.getCurrentLocation();
       final location = LatLng(position.latitude, position.longitude);
-      
+
       if (!mounted) return;
-      
+
       _onLocationSelected(location);
-      await _mapsService.moveToLocation(location);
+      _mapController.move(location, 15);
     } catch (e) {
       if (!mounted) return;
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al obtener ubicación: ${e.toString()}'),
+          content: Text('Error al obtener ubicacion: ${e.toString()}'),
           backgroundColor: AppTheme.errorColor,
         ),
       );
@@ -274,15 +301,15 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
 
   void _showAddressDialog() {
     final controller = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Buscar dirección'),
+        title: const Text('Buscar direccion'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(
-            hintText: 'Ingresa una dirección...',
+            hintText: 'Ingresa una direccion...',
             border: OutlineInputBorder(),
           ),
           autofocus: true,
@@ -307,26 +334,26 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
   Future<void> _searchAddress(String address) async {
     try {
       final location = await _mapsService.getCoordinatesFromAddress(address);
-      
+
       if (!mounted) return;
-      
+
       if (location != null) {
         _onLocationSelected(location);
-        await _mapsService.moveToLocation(location);
+        _mapController.move(location, 15);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se pudo encontrar la dirección'),
+            content: Text('No se pudo encontrar la direccion'),
             backgroundColor: AppTheme.errorColor,
           ),
         );
       }
     } catch (e) {
       if (!mounted) return;
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error en búsqueda: ${e.toString()}'),
+          content: Text('Error en busqueda: ${e.toString()}'),
           backgroundColor: AppTheme.errorColor,
         ),
       );

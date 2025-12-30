@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../di/injection_container.dart' as di;
+import '../../../../di/injection_container_api.dart' as di;
 import '../../domain/entities/enhanced_report_entity.dart';
 import '../bloc/report/enhanced_report_bloc.dart';
 import '../bloc/report/enhanced_report_event.dart';

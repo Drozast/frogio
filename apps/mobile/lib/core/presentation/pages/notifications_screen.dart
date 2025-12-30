@@ -17,7 +17,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<NotificationBloc>().add(LoadNotificationsEvent());
+    // Cargar notificaciones despues de que el widget este montado
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationBloc>().add(LoadNotificationsEvent());
+    });
   }
 
   @override
@@ -38,7 +41,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         children: [
                           Icon(Icons.done_all),
                           SizedBox(width: 8),
-                          Text('Marcar todas como leídas'),
+                          Text('Marcar todas como leidas'),
                         ],
                       ),
                     ),
@@ -101,10 +104,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _onNotificationTap(AppNotification notification) {
-    // Marcar como leída
+    // Marcar como leida
     context.read<NotificationBloc>().add(MarkAsReadEvent(notification.id));
-    
-    // Navegar según el tipo
+
+    // Navegar segun el tipo
     _navigateBasedOnNotification(notification);
   }
 
@@ -137,17 +140,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void _showClearAllDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Limpiar notificaciones'),
-        content: const Text('¿Estás seguro de que quieres eliminar todas las notificaciones?'),
+        content: const Text('Estas seguro de que quieres eliminar todas las notificaciones?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               context.read<NotificationBloc>().add(ClearAllNotificationsEvent());
             },
             child: const Text('Eliminar todas'),
@@ -159,7 +162,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   void _navigateBasedOnNotification(AppNotification notification) {
     final data = notification.data;
-    
+
     switch (notification.type) {
       case NotificationType.reportStatusChanged:
       case NotificationType.reportResponse:

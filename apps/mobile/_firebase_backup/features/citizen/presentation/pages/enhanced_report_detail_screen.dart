@@ -11,7 +11,7 @@ import 'package:timeline_tile/timeline_tile.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../di/injection_container.dart' as di;
+import '../../../../di/injection_container_api.dart' as di;
 import '../../domain/entities/report_entity.dart';
 import '../bloc/report/report_bloc.dart';
 import '../bloc/report/report_event.dart';
