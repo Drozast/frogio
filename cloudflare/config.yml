@@ -15,11 +15,11 @@ ingress:
 
   # MinIO S3 API (para subir/descargar archivos)
   - hostname: files.frogio.drozast.xyz
-    service: http://localhost:9000
+    service: http://localhost:9010
 
   # MinIO Console (admin de archivos)
   - hostname: minio.frogio.drozast.xyz
-    service: http://localhost:9001
+    service: http://localhost:9011
 
   # ntfy Notifications
   - hostname: ntfy.frogio.drozast.xyz

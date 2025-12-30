@@ -120,8 +120,9 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      # Puertos cambiados para evitar conflicto con Portainer/MinIO del host
+      - "9010:9000"
+      - "9011:9001"
     networks:
       - frogio_network
     healthcheck:
