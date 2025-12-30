@@ -2,7 +2,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 
@@ -465,24 +464,9 @@ class _MediaAttachmentWidgetState extends State<MediaAttachmentWidget> {
   }
 
   Future<File> _compressImage(File file) async {
-    try {
-      final dir = path.dirname(file.path);
-      final ext = path.extension(file.path);
-      final fileName = path.basenameWithoutExtension(file.path);
-      final targetPath = path.join(dir, '${fileName}_compressed$ext');
-
-      final result = await FlutterImageCompress.compressAndGetFile(
-        file.absolute.path,
-        targetPath,
-        quality: 70,
-        minWidth: 1024,
-        minHeight: 1024,
-      );
-
-      return result != null ? File(result.path) : file;
-    } catch (e) {
-      return file; // Return original if compression fails
-    }
+    // Image compression is handled by image_picker's imageQuality parameter
+    // Return the file as-is since we already set imageQuality: 85 when picking
+    return file;
   }
 
   void _removeFile(int index) {

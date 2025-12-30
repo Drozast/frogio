@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/infraction_entity.dart';
@@ -55,14 +54,12 @@ class InfractionModel extends Equatable {
       evidence: List<String>.from(json['evidence'] ?? []),
       signatures: List<String>.from(json['signatures'] ?? []),
       status: json['status'] ?? 'created',
-      createdAt: json['createdAt'] is Timestamp
-          ? (json['createdAt'] as Timestamp).toDate()
-          : DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt: json['updatedAt'] is Timestamp
-          ? (json['updatedAt'] as Timestamp).toDate()
-          : json['updatedAt'] != null
-              ? DateTime.parse(json['updatedAt'])
-              : null,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'].toString())
+          : DateTime.now(),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'].toString())
+          : null,
       historyLog: List<Map<String, dynamic>>.from(json['historyLog'] ?? []),
     );
   }
@@ -144,9 +141,9 @@ class InfractionModel extends Equatable {
       createdAt: createdAt,
       updatedAt: updatedAt ?? createdAt,
       historyLog: historyLog.map((item) => InfractionHistoryItem(
-        timestamp: item['timestamp'] is Timestamp
-            ? (item['timestamp'] as Timestamp).toDate()
-            : DateTime.parse(item['timestamp'] ?? DateTime.now().toIso8601String()),
+        timestamp: item['timestamp'] != null
+            ? DateTime.parse(item['timestamp'].toString())
+            : DateTime.now(),
         status: _stringToInfractionStatus(item['status'] ?? 'created'),
         comment: item['comment'],
         userId: item['userId'],

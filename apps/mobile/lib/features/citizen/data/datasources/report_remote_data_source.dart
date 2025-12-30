@@ -1,7 +1,7 @@
 // lib/features/citizen/data/datasources/report_remote_data_source.dart
 import 'dart:io';
 
-import '../../domain/entities/report_entity.dart';
+import '../../domain/entities/enhanced_report_entity.dart';
 import '../models/report_model.dart';
 
 abstract class ReportRemoteDataSource {

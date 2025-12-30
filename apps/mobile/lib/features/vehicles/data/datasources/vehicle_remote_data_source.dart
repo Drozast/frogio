@@ -1,5 +1,6 @@
 // lib/features/vehicles/data/datasources/vehicle_remote_data_source.dart
 import '../models/vehicle_model.dart';
+import '../models/vehicle_log_model.dart';
 
 abstract class VehicleRemoteDataSource {
   Future<List<VehicleModel>> getVehicles(String muniId);

@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { VehiclesService } from './vehicles.service.js';
 import type { AuthRequest } from '../../middleware/auth.middleware.js';
-import type { CreateVehicleDto, UpdateVehicleDto } from './vehicles.types.js';
+import type { CreateVehicleDto, UpdateVehicleDto, StartVehicleUsageDto, EndVehicleUsageDto } from './vehicles.types.js';
 
 const vehiclesService = new VehiclesService();
 
@@ -119,6 +119,120 @@ export class VehiclesController {
       res.json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al eliminar vehículo';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  // ===== VEHICLE LOGS =====
+
+  async startUsage(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const data: StartVehicleUsageDto = {
+        ...req.body,
+        driverId: req.user!.userId,
+        driverName: `${req.body.driverName || req.user!.email}`,
+      };
+      const tenantId = req.user!.tenantId;
+
+      const log = await vehiclesService.startVehicleUsage(data, tenantId);
+
+      res.status(201).json(log);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al iniciar uso del vehículo';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  async endUsage(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { logId } = req.params;
+      const data: EndVehicleUsageDto = req.body;
+      const tenantId = req.user!.tenantId;
+
+      const log = await vehiclesService.endVehicleUsage(logId, data, tenantId);
+
+      res.json(log);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al finalizar uso del vehículo';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  async getVehicleLogs(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { vehicleId } = req.params;
+      const { limit } = req.query;
+      const tenantId = req.user!.tenantId;
+
+      const logs = await vehiclesService.getVehicleLogs(
+        vehicleId,
+        tenantId,
+        limit ? parseInt(limit as string) : 50
+      );
+
+      res.json(logs);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al obtener registros';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  async getMyLogs(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { limit } = req.query;
+      const tenantId = req.user!.tenantId;
+      const driverId = req.user!.userId;
+
+      const logs = await vehiclesService.getLogsByDriver(
+        driverId,
+        tenantId,
+        limit ? parseInt(limit as string) : 50
+      );
+
+      res.json(logs);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al obtener mis registros';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  async getActiveUsage(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const tenantId = req.user!.tenantId;
+
+      const logs = await vehiclesService.getActiveVehicleUsage(tenantId);
+
+      res.json(logs);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al obtener usos activos';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  async getLogById(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { logId } = req.params;
+      const tenantId = req.user!.tenantId;
+
+      const log = await vehiclesService.getLogById(logId, tenantId);
+
+      res.json(log);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al obtener registro';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  async cancelUsage(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { logId } = req.params;
+      const tenantId = req.user!.tenantId;
+
+      const log = await vehiclesService.cancelVehicleUsage(logId, tenantId);
+
+      res.json(log);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al cancelar uso';
       res.status(400).json({ error: message });
     }
   }

@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:equatable/equatable.dart';
 
-import '../../../domain/entities/report_entity.dart';
+import '../../../domain/entities/enhanced_report_entity.dart';
 
 abstract class ReportEvent extends Equatable {
   const ReportEvent();

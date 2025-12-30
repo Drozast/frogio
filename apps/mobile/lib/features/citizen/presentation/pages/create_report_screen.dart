@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/custom_button.dart';
@@ -34,12 +34,12 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _referencesController = TextEditingController();
-  
+
   String _selectedCategory = 'Infraestructura';
   Priority _selectedPriority = Priority.medium;
   LocationData? _selectedLocation;
   final List<File> _selectedImages = [];
-  
+
   late ReportBloc _reportBloc;
 
   final List<String> _categories = [
@@ -173,7 +173,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        
+
         // Categoría
         const Text(
           'Categoría',
@@ -198,7 +198,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           },
         ),
         const SizedBox(height: 16),
-        
+
         // Prioridad
         const Text(
           'Prioridad',
@@ -255,9 +255,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _selectedLocation!.address ?? 
-                  'Lat: ${_selectedLocation!.latitude.toStringAsFixed(6)}, '
-                  'Lng: ${_selectedLocation!.longitude.toStringAsFixed(6)}',
+                  _selectedLocation!.address ??
+                      'Lat: ${_selectedLocation!.latitude.toStringAsFixed(6)}, '
+                          'Lng: ${_selectedLocation!.longitude.toStringAsFixed(6)}',
                   style: const TextStyle(fontSize: 12),
                 ),
               ] else
@@ -271,8 +271,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _selectLocation,
                   icon: const Icon(Icons.map),
-                  label: Text(_selectedLocation != null 
-                      ? 'Cambiar ubicación' 
+                  label: Text(_selectedLocation != null
+                      ? 'Cambiar ubicación'
                       : 'Seleccionar ubicación'),
                 ),
               ),
@@ -292,7 +292,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        
         if (_selectedImages.isNotEmpty) ...[
           SizedBox(
             height: 100,
@@ -340,7 +339,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           ),
           const SizedBox(height: 16),
         ],
-        
         Row(
           children: [
             Expanded(
@@ -441,7 +439,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: source);
-      
+
       if (pickedFile != null) {
         setState(() {
           _selectedImages.add(File(pickedFile.path));
@@ -484,8 +482,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim(),
       category: _selectedCategory,
-      references: _referencesController.text.trim().isNotEmpty 
-          ? _referencesController.text.trim() 
+      references: _referencesController.text.trim().isNotEmpty
+          ? _referencesController.text.trim()
           : null,
       location: _selectedLocation!,
       userId: widget.userId,

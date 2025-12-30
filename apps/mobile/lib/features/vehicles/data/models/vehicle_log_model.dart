@@ -1,5 +1,4 @@
 // lib/features/vehicles/data/models/vehicle_log_model.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/vehicle_log_entity.dart';
@@ -15,7 +14,7 @@ class VehicleLogModel extends Equatable {
   final DateTime? endTime;
   final List<LocationPointModel> route;
   final String? observations;
-  final String usageType;
+  final UsageType usageType;
   final String? purpose;
   final List<String> attachments;
   final DateTime createdAt;
@@ -41,44 +40,36 @@ class VehicleLogModel extends Equatable {
 
   factory VehicleLogModel.fromJson(Map<String, dynamic> json) {
     return VehicleLogModel(
-      id: json['id'] ?? '',
-      vehicleId: json['vehicleId'] ?? '',
-      driverId: json['driverId'] ?? '',
-      driverName: json['driverName'] ?? '',
-      startKm: (json['startKm'] ?? 0).toDouble(),
-      endKm: json['endKm'] != null ? (json['endKm']).toDouble() : null,
-      startTime: json['startTime'] is Timestamp
-          ? (json['startTime'] as Timestamp).toDate()
-          : DateTime.parse(json['startTime'] ?? DateTime.now().toIso8601String()),
+      id: json['id'] as String? ?? '',
+      vehicleId: json['vehicleId'] as String? ?? '',
+      driverId: json['driverId'] as String? ?? '',
+      driverName: json['driverName'] as String? ?? '',
+      startKm: (json['startKm'] as num?)?.toDouble() ?? 0.0,
+      endKm: (json['endKm'] as num?)?.toDouble(),
+      startTime: json['startTime'] != null
+          ? DateTime.parse(json['startTime'].toString())
+          : DateTime.now(),
       endTime: json['endTime'] != null
-          ? json['endTime'] is Timestamp
-              ? (json['endTime'] as Timestamp).toDate()
-              : DateTime.parse(json['endTime'])
+          ? DateTime.parse(json['endTime'].toString())
           : null,
-      route: json['route'] != null
-          ? (json['route'] as List)
-              .map((item) => LocationPointModel.fromMap(item as Map<String, dynamic>))
-              .toList()
-          : <LocationPointModel>[],
-      observations: json['observations'],
-      usageType: json['usageType'] ?? 'other',
-      purpose: json['purpose'],
-      attachments: List<String>.from(json['attachments'] ?? []),
-      createdAt: json['createdAt'] is Timestamp
-          ? (json['createdAt'] as Timestamp).toDate()
-          : DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt: json['updatedAt'] is Timestamp
-          ? (json['updatedAt'] as Timestamp).toDate()
-          : DateTime.parse(json['updatedAt'] ?? DateTime.now().toIso8601String()),
+      route: (json['route'] as List<dynamic>?)
+              ?.map((e) => LocationPointModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      observations: json['observations'] as String?,
+      usageType: _parseUsageType(json['usageType'] as String?),
+      purpose: json['purpose'] as String?,
+      attachments: (json['attachments'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'].toString())
+          : DateTime.now(),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'].toString())
+          : DateTime.now(),
     );
-  }
-
-  factory VehicleLogModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return VehicleLogModel.fromJson({
-      ...data,
-      'id': doc.id,
-    });
   }
 
   Map<String, dynamic> toJson() {
@@ -89,34 +80,15 @@ class VehicleLogModel extends Equatable {
       'driverName': driverName,
       'startKm': startKm,
       'endKm': endKm,
-      'startTime': startTime,
-      'endTime': endTime,
-      'route': route.map((point) => point.toMap()).toList(),
+      'startTime': startTime.toIso8601String(),
+      'endTime': endTime?.toIso8601String(),
+      'route': route.map((e) => e.toJson()).toList(),
       'observations': observations,
-      'usageType': usageType,
+      'usageType': usageType.name,
       'purpose': purpose,
       'attachments': attachments,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-    };
-  }
-
-  Map<String, dynamic> toFirestore() {
-    return {
-      'vehicleId': vehicleId,
-      'driverId': driverId,
-      'driverName': driverName,
-      'startKm': startKm,
-      'endKm': endKm,
-      'startTime': startTime,
-      'endTime': endTime,
-      'route': route.map((point) => point.toMap()).toList(),
-      'observations': observations,
-      'usageType': usageType,
-      'purpose': purpose,
-      'attachments': attachments,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
@@ -130,17 +102,29 @@ class VehicleLogModel extends Equatable {
       endKm: endKm,
       startTime: startTime,
       endTime: endTime,
-      route: route.map((point) => point.toEntity()).toList(),
+      route: route.map((e) => e.toEntity()).toList(),
       observations: observations,
-      usageType: UsageType.values.firstWhere(
-        (type) => type.name == usageType,
-        orElse: () => UsageType.other,
-      ),
+      usageType: usageType,
       purpose: purpose,
       attachments: attachments,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
+  }
+
+  static UsageType _parseUsageType(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'patrol':
+        return UsageType.patrol;
+      case 'emergency':
+        return UsageType.emergency;
+      case 'maintenance':
+        return UsageType.maintenance;
+      case 'transport':
+        return UsageType.transport;
+      default:
+        return UsageType.other;
+    }
   }
 
   factory VehicleLogModel.fromEntity(VehicleLogEntity entity) {
@@ -153,9 +137,9 @@ class VehicleLogModel extends Equatable {
       endKm: entity.endKm,
       startTime: entity.startTime,
       endTime: entity.endTime,
-      route: entity.route.map((point) => LocationPointModel.fromEntity(point)).toList(),
+      route: entity.route.map((e) => LocationPointModel.fromEntity(e)).toList(),
       observations: entity.observations,
-      usageType: entity.usageType.name,
+      usageType: entity.usageType,
       purpose: entity.purpose,
       attachments: entity.attachments,
       createdAt: entity.createdAt,
@@ -198,33 +182,23 @@ class LocationPointModel extends Equatable {
     this.accuracy,
   });
 
-  factory LocationPointModel.fromMap(Map<String, dynamic> map) {
+  factory LocationPointModel.fromJson(Map<String, dynamic> json) {
     return LocationPointModel(
-      latitude: (map['latitude'] ?? 0).toDouble(),
-      longitude: (map['longitude'] ?? 0).toDouble(),
-      timestamp: map['timestamp'] is Timestamp
-          ? (map['timestamp'] as Timestamp).toDate()
-          : DateTime.parse(map['timestamp'] ?? DateTime.now().toIso8601String()),
-      speed: map['speed']?.toDouble(),
-      accuracy: map['accuracy']?.toDouble(),
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'].toString())
+          : DateTime.now(),
+      speed: (json['speed'] as num?)?.toDouble(),
+      accuracy: (json['accuracy'] as num?)?.toDouble(),
     );
   }
 
-  factory LocationPointModel.fromEntity(LocationPoint entity) {
-    return LocationPointModel(
-      latitude: entity.latitude,
-      longitude: entity.longitude,
-      timestamp: entity.timestamp,
-      speed: entity.speed,
-      accuracy: entity.accuracy,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'latitude': latitude,
       'longitude': longitude,
-      'timestamp': timestamp,
+      'timestamp': timestamp.toIso8601String(),
       'speed': speed,
       'accuracy': accuracy,
     };
@@ -237,6 +211,16 @@ class LocationPointModel extends Equatable {
       timestamp: timestamp,
       speed: speed,
       accuracy: accuracy,
+    );
+  }
+
+  factory LocationPointModel.fromEntity(LocationPoint entity) {
+    return LocationPointModel(
+      latitude: entity.latitude,
+      longitude: entity.longitude,
+      timestamp: entity.timestamp,
+      speed: entity.speed,
+      accuracy: entity.accuracy,
     );
   }
 

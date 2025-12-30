@@ -44,7 +44,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.frogio_santa_juana"
-        minSdkVersion 23
+        minSdkVersion flutter.minSdkVersion
         targetSdkVersion 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName

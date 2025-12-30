@@ -1,7 +1,7 @@
 // lib/features/citizen/presentation/bloc/report/report_state.dart
 import 'package:equatable/equatable.dart';
 
-import '../../../domain/entities/report_entity.dart';
+import '../../../domain/entities/enhanced_report_entity.dart';
 
 abstract class ReportState extends Equatable {
   const ReportState();

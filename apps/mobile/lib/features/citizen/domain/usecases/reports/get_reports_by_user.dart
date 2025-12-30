@@ -3,7 +3,7 @@ import 'package:dartz/dartz.dart';
 
 import '../../../../../core/error/failures.dart';
 import '../../../../../core/usecases/usecase.dart';
-import '../../entities/report_entity.dart';
+import '../../entities/enhanced_report_entity.dart';
 import '../../repositories/report_repository.dart';
 
 class GetReportsByUser implements UseCase<List<ReportEntity>, String> {

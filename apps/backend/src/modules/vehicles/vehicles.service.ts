@@ -1,5 +1,5 @@
 import prisma from '../../config/database.js';
-import type { CreateVehicleDto, UpdateVehicleDto } from './vehicles.types.js';
+import type { CreateVehicleDto, UpdateVehicleDto, StartVehicleUsageDto, EndVehicleUsageDto } from './vehicles.types.js';
 
 export class VehiclesService {
   async create(data: CreateVehicleDto, tenantId: string) {
@@ -176,5 +176,160 @@ export class VehiclesService {
     }
 
     return { message: 'Vehículo eliminado exitosamente' };
+  }
+
+  // ===== VEHICLE LOGS =====
+
+  async startVehicleUsage(data: StartVehicleUsageDto, tenantId: string) {
+    // Check if vehicle exists
+    const [vehicle] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, plate FROM "${tenantId}".vehicles WHERE id = $1 LIMIT 1`,
+      data.vehicleId
+    );
+
+    if (!vehicle) {
+      throw new Error('Vehículo no encontrado');
+    }
+
+    // Check if there's already an active log for this vehicle
+    const [activeLog] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM "${tenantId}".vehicle_logs WHERE vehicle_id = $1 AND status = 'active' LIMIT 1`,
+      data.vehicleId
+    );
+
+    if (activeLog) {
+      throw new Error('Este vehículo ya tiene un uso activo. Debe finalizarlo primero.');
+    }
+
+    const [log] = await prisma.$queryRawUnsafe<any[]>(
+      `INSERT INTO "${tenantId}".vehicle_logs
+       (vehicle_id, driver_id, driver_name, usage_type, purpose, start_km, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW(), NOW())
+       RETURNING *`,
+      data.vehicleId,
+      data.driverId,
+      data.driverName,
+      data.usageType,
+      data.purpose || null,
+      data.startKm
+    );
+
+    return log;
+  }
+
+  async endVehicleUsage(logId: string, data: EndVehicleUsageDto, tenantId: string) {
+    // Check if log exists and is active
+    const [log] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT * FROM "${tenantId}".vehicle_logs WHERE id = $1 LIMIT 1`,
+      logId
+    );
+
+    if (!log) {
+      throw new Error('Registro de uso no encontrado');
+    }
+
+    if (log.status !== 'active') {
+      throw new Error('Este registro de uso ya fue finalizado');
+    }
+
+    if (data.endKm < log.start_km) {
+      throw new Error('El kilometraje final no puede ser menor al inicial');
+    }
+
+    const [updatedLog] = await prisma.$queryRawUnsafe<any[]>(
+      `UPDATE "${tenantId}".vehicle_logs
+       SET end_km = $1, end_time = NOW(), observations = $2, status = 'completed', updated_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      data.endKm,
+      data.observations || null,
+      logId
+    );
+
+    return updatedLog;
+  }
+
+  async getVehicleLogs(vehicleId: string, tenantId: string, limit: number = 50) {
+    const logs = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT vl.*,
+       v.plate, v.brand, v.model,
+       u.first_name as driver_first_name, u.last_name as driver_last_name
+       FROM "${tenantId}".vehicle_logs vl
+       LEFT JOIN "${tenantId}".vehicles v ON vl.vehicle_id = v.id
+       LEFT JOIN "${tenantId}".users u ON vl.driver_id = u.id
+       WHERE vl.vehicle_id = $1
+       ORDER BY vl.start_time DESC
+       LIMIT $2`,
+      vehicleId,
+      limit
+    );
+
+    return logs;
+  }
+
+  async getLogsByDriver(driverId: string, tenantId: string, limit: number = 50) {
+    const logs = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT vl.*,
+       v.plate, v.brand, v.model
+       FROM "${tenantId}".vehicle_logs vl
+       LEFT JOIN "${tenantId}".vehicles v ON vl.vehicle_id = v.id
+       WHERE vl.driver_id = $1
+       ORDER BY vl.start_time DESC
+       LIMIT $2`,
+      driverId,
+      limit
+    );
+
+    return logs;
+  }
+
+  async getActiveVehicleUsage(tenantId: string) {
+    const logs = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT vl.*,
+       v.plate, v.brand, v.model,
+       u.first_name as driver_first_name, u.last_name as driver_last_name
+       FROM "${tenantId}".vehicle_logs vl
+       LEFT JOIN "${tenantId}".vehicles v ON vl.vehicle_id = v.id
+       LEFT JOIN "${tenantId}".users u ON vl.driver_id = u.id
+       WHERE vl.status = 'active'
+       ORDER BY vl.start_time DESC`
+    );
+
+    return logs;
+  }
+
+  async getLogById(logId: string, tenantId: string) {
+    const [log] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT vl.*,
+       v.plate, v.brand, v.model,
+       u.first_name as driver_first_name, u.last_name as driver_last_name
+       FROM "${tenantId}".vehicle_logs vl
+       LEFT JOIN "${tenantId}".vehicles v ON vl.vehicle_id = v.id
+       LEFT JOIN "${tenantId}".users u ON vl.driver_id = u.id
+       WHERE vl.id = $1 LIMIT 1`,
+      logId
+    );
+
+    if (!log) {
+      throw new Error('Registro de uso no encontrado');
+    }
+
+    return log;
+  }
+
+  async cancelVehicleUsage(logId: string, tenantId: string) {
+    const [log] = await prisma.$queryRawUnsafe<any[]>(
+      `UPDATE "${tenantId}".vehicle_logs
+       SET status = 'cancelled', updated_at = NOW()
+       WHERE id = $1 AND status = 'active'
+       RETURNING *`,
+      logId
+    );
+
+    if (!log) {
+      throw new Error('Registro de uso no encontrado o ya finalizado');
+    }
+
+    return log;
   }
 }

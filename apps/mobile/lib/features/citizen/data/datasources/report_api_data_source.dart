@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../domain/entities/report_entity.dart';
+import '../../domain/entities/enhanced_report_entity.dart';
 import '../models/report_model.dart';
 import 'report_remote_data_source.dart';
 

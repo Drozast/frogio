@@ -2,7 +2,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../../domain/entities/report_entity.dart';
+import '../../../domain/entities/enhanced_report_entity.dart';
 import '../../../domain/usecases/reports/create_report.dart';
 import '../../../domain/usecases/reports/get_report_by_id.dart';
 import '../../../domain/usecases/reports/get_reports_by_user.dart';
@@ -70,6 +70,7 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
           latitude: position.latitude,
           longitude: position.longitude,
           address: event.location.address,
+          source: LocationSource.gps,
         );
       } catch (e) {
         emit(ReportError(message: 'Error al obtener ubicación: $e'));
@@ -103,7 +104,7 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
     if (currentState is ReportsLoaded) {
       final filteredReports = event.filter == 'Todas'
           ? currentState.reports
-          : currentState.reports.where((report) => report.status == event.filter).toList();
+          : currentState.reports.where((report) => report.status.name == event.filter.toLowerCase()).toList();
       
       emit(ReportsLoaded(
         reports: currentState.reports, 

@@ -40,6 +40,16 @@ import '../features/inspector/domain/usecases/get_infractions_by_inspector.dart'
 import '../features/inspector/domain/usecases/update_infraction_status.dart';
 import '../features/inspector/domain/usecases/upload_infraction_image.dart';
 
+// Vehicles Feature
+import '../features/vehicles/data/datasources/vehicle_api_data_source.dart';
+import '../features/vehicles/data/datasources/vehicle_remote_data_source.dart';
+import '../features/vehicles/data/repositories/vehicle_repository_impl.dart';
+import '../features/vehicles/data/repositories/vehicle_repository.dart';
+import '../features/vehicles/domain/usecases/get_vehicles.dart';
+import '../features/vehicles/domain/usecases/start_vehicle_usage.dart';
+import '../features/vehicles/domain/usecases/end_vehicle_usage.dart';
+import '../features/vehicles/presentation/bloc/vehicle_bloc.dart';
+
 final sl = GetIt.instance;
 final logger = Logger();
 
@@ -141,6 +151,39 @@ Future<void> initApi() async {
   sl.registerLazySingleton(() => GetInfractionsByInspector(sl()));
   sl.registerLazySingleton(() => UpdateInfractionStatus(sl()));
   sl.registerLazySingleton(() => UploadInfractionImage(sl()));
+
+  // ===== VEHICLES FEATURE =====
+  logger.i('  - Vehicles feature');
+
+  // Data sources
+  sl.registerLazySingleton<VehicleRemoteDataSource>(
+    () => VehicleApiDataSource(
+      client: sl(),
+      prefs: sl(),
+      baseUrl: ApiConfig.activeBaseUrl,
+    ),
+  );
+
+  // Repository
+  sl.registerLazySingleton<VehicleRepository>(
+    () => VehicleRepositoryImpl(
+      remoteDataSource: sl(),
+    ),
+  );
+
+  // Use cases
+  sl.registerLazySingleton(() => GetVehicles(sl()));
+  sl.registerLazySingleton(() => StartVehicleUsage(repository: sl()));
+  sl.registerLazySingleton(() => EndVehicleUsage(repository: sl()));
+
+  // BLoC
+  sl.registerFactory(
+    () => VehicleBloc(
+      getVehicles: sl(),
+      startVehicleUsage: sl(),
+      endVehicleUsage: sl(),
+    ),
+  );
 
   logger.i('FROGIO: Dependencies initialized successfully!');
   logger.i('API Base URL: ${ApiConfig.activeBaseUrl}');

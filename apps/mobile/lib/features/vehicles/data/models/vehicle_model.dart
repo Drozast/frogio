@@ -1,132 +1,92 @@
 // lib/features/vehicles/data/models/vehicle_model.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/vehicle_entity.dart';
-import '../../domain/entities/vehicle_log_entity.dart';
 
-class VehicleModel extends VehicleEntity {
+class VehicleModel extends Equatable {
+  final String id;
+  final String plate;
+  final String brand;
+  final String model;
+  final int year;
+  final VehicleType type;
+  final VehicleStatus status;
+  final double currentKm;
+  final String muniId;
+  final DateTime? lastMaintenance;
+  final DateTime? nextMaintenance;
+  final String? currentDriverId;
+  final String? currentDriverName;
+  final List<String> assignedAreas;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final VehicleSpecs specs;
+
   const VehicleModel({
-    required super.id,
-    required super.plate,
-    required super.model,
-    required super.brand,
-    required super.year,
-    required super.muniId,
-    required super.status,
-    required super.type,
-    required super.currentKm,
-    super.lastMaintenance,
-    super.nextMaintenance,
-    super.currentDriverId,
-    super.currentDriverName,
-    required super.assignedAreas,
-    required super.createdAt,
-    required super.updatedAt,
-    required super.specs,
+    required this.id,
+    required this.plate,
+    required this.brand,
+    required this.model,
+    required this.year,
+    required this.type,
+    required this.status,
+    required this.currentKm,
+    required this.muniId,
+    this.lastMaintenance,
+    this.nextMaintenance,
+    this.currentDriverId,
+    this.currentDriverName,
+    required this.assignedAreas,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.specs,
   });
 
-  factory VehicleModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    
+  factory VehicleModel.fromJson(Map<String, dynamic> json) {
     return VehicleModel(
-      id: doc.id,
-      plate: data['plate'] ?? '',
-      model: data['model'] ?? '',
-      brand: data['brand'] ?? '',
-      year: data['year']?.toInt() ?? DateTime.now().year,
-      muniId: data['muniId'] ?? '',
-      status: VehicleStatus.values.firstWhere(
-        (status) => status.name == data['status'],
-        orElse: () => VehicleStatus.available,
-      ),
-      type: VehicleType.values.firstWhere(
-        (type) => type.name == data['type'],
-        orElse: () => VehicleType.car,
-      ),
-      currentKm: (data['currentKm'] ?? 0).toDouble(),
-      lastMaintenance: (data['lastMaintenance'] as Timestamp?)?.toDate(),
-      nextMaintenance: (data['nextMaintenance'] as Timestamp?)?.toDate(),
-      currentDriverId: data['currentDriverId'],
-      currentDriverName: data['currentDriverName'],
-      assignedAreas: List<String>.from(data['assignedAreas'] ?? []),
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      specs: VehicleSpecsModel.fromMap(data['specs'] ?? {}),
+      id: json['id'] as String? ?? '',
+      plate: json['plate'] as String? ?? '',
+      brand: json['brand'] as String? ?? '',
+      model: json['model'] as String? ?? '',
+      year: json['year'] as int? ?? 0,
+      type: _parseVehicleType(json['type'] as String?),
+      status: _parseVehicleStatus(json['status'] as String?),
+      currentKm: (json['currentKm'] as num?)?.toDouble() ?? 0.0,
+      muniId: json['muniId'] as String? ?? json['tenantId'] as String? ?? '',
+      lastMaintenance: json['lastMaintenance'] != null
+          ? DateTime.parse(json['lastMaintenance'].toString())
+          : null,
+      nextMaintenance: json['nextMaintenance'] != null
+          ? DateTime.parse(json['nextMaintenance'].toString())
+          : null,
+      currentDriverId: json['currentDriverId'] as String?,
+      currentDriverName: json['currentDriverName'] as String?,
+      assignedAreas: (json['assignedAreas'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'].toString())
+          : DateTime.now(),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'].toString())
+          : DateTime.now(),
+      specs: VehicleSpecsModel.fromJson(
+          json['specs'] as Map<String, dynamic>? ?? {}),
     );
   }
 
-  factory VehicleModel.fromMap(Map<String, dynamic> map) {
-    return VehicleModel(
-      id: map['id'] ?? '',
-      plate: map['plate'] ?? '',
-      model: map['model'] ?? '',
-      brand: map['brand'] ?? '',
-      year: map['year']?.toInt() ?? DateTime.now().year,
-      muniId: map['muniId'] ?? '',
-      status: VehicleStatus.values.firstWhere(
-        (status) => status.name == map['status'],
-        orElse: () => VehicleStatus.available,
-      ),
-      type: VehicleType.values.firstWhere(
-        (type) => type.name == map['type'],
-        orElse: () => VehicleType.car,
-      ),
-      currentKm: (map['currentKm'] ?? 0).toDouble(),
-      lastMaintenance: map['lastMaintenance'] is Timestamp
-          ? (map['lastMaintenance'] as Timestamp).toDate()
-          : map['lastMaintenance'] != null
-              ? DateTime.parse(map['lastMaintenance'])
-              : null,
-      nextMaintenance: map['nextMaintenance'] is Timestamp
-          ? (map['nextMaintenance'] as Timestamp).toDate()
-          : map['nextMaintenance'] != null
-              ? DateTime.parse(map['nextMaintenance'])
-              : null,
-      currentDriverId: map['currentDriverId'],
-      currentDriverName: map['currentDriverName'],
-      assignedAreas: List<String>.from(map['assignedAreas'] ?? []),
-      createdAt: map['createdAt'] is Timestamp
-          ? (map['createdAt'] as Timestamp).toDate()
-          : DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt: map['updatedAt'] is Timestamp
-          ? (map['updatedAt'] as Timestamp).toDate()
-          : DateTime.parse(map['updatedAt'] ?? DateTime.now().toIso8601String()),
-      specs: VehicleSpecsModel.fromMap(map['specs'] ?? {}),
-    );
-  }
-
-  Map<String, dynamic> toFirestore() {
-    return {
-      'plate': plate,
-      'model': model,
-      'brand': brand,
-      'year': year,
-      'muniId': muniId,
-      'status': status.name,
-      'type': type.name,
-      'currentKm': currentKm,
-      'lastMaintenance': lastMaintenance,
-      'nextMaintenance': nextMaintenance,
-      'currentDriverId': currentDriverId,
-      'currentDriverName': currentDriverName,
-      'assignedAreas': assignedAreas,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-      'specs': (specs as VehicleSpecsModel).toMap(),
-    };
-  }
-
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
       'plate': plate,
-      'model': model,
       'brand': brand,
+      'model': model,
       'year': year,
-      'muniId': muniId,
-      'status': status.name,
       'type': type.name,
+      'status': status.name,
       'currentKm': currentKm,
+      'muniId': muniId,
       'lastMaintenance': lastMaintenance?.toIso8601String(),
       'nextMaintenance': nextMaintenance?.toIso8601String(),
       'currentDriverId': currentDriverId,
@@ -134,9 +94,108 @@ class VehicleModel extends VehicleEntity {
       'assignedAreas': assignedAreas,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
-      'specs': (specs as VehicleSpecsModel).toMap(),
+      'specs': VehicleSpecsModel.fromSpecs(specs).toJson(),
     };
   }
+
+  VehicleEntity toEntity() {
+    return VehicleEntity(
+      id: id,
+      plate: plate,
+      brand: brand,
+      model: model,
+      year: year,
+      type: type,
+      status: status,
+      currentKm: currentKm,
+      muniId: muniId,
+      lastMaintenance: lastMaintenance,
+      nextMaintenance: nextMaintenance,
+      currentDriverId: currentDriverId,
+      currentDriverName: currentDriverName,
+      assignedAreas: assignedAreas,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      specs: specs,
+    );
+  }
+
+  static VehicleStatus _parseVehicleStatus(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'available':
+        return VehicleStatus.available;
+      case 'in_use':
+      case 'inuse':
+        return VehicleStatus.inUse;
+      case 'maintenance':
+        return VehicleStatus.maintenance;
+      case 'out_of_service':
+      case 'outofservice':
+        return VehicleStatus.outOfService;
+      default:
+        return VehicleStatus.available;
+    }
+  }
+
+  static VehicleType _parseVehicleType(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'car':
+        return VehicleType.car;
+      case 'motorcycle':
+        return VehicleType.motorcycle;
+      case 'truck':
+        return VehicleType.truck;
+      case 'van':
+        return VehicleType.van;
+      case 'bicycle':
+        return VehicleType.bicycle;
+      default:
+        return VehicleType.car;
+    }
+  }
+
+  factory VehicleModel.fromEntity(VehicleEntity entity) {
+    return VehicleModel(
+      id: entity.id,
+      plate: entity.plate,
+      brand: entity.brand,
+      model: entity.model,
+      year: entity.year,
+      type: entity.type,
+      status: entity.status,
+      currentKm: entity.currentKm,
+      muniId: entity.muniId,
+      lastMaintenance: entity.lastMaintenance,
+      nextMaintenance: entity.nextMaintenance,
+      currentDriverId: entity.currentDriverId,
+      currentDriverName: entity.currentDriverName,
+      assignedAreas: entity.assignedAreas,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+      specs: entity.specs,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        id,
+        plate,
+        brand,
+        model,
+        year,
+        type,
+        status,
+        currentKm,
+        muniId,
+        lastMaintenance,
+        nextMaintenance,
+        currentDriverId,
+        currentDriverName,
+        assignedAreas,
+        createdAt,
+        updatedAt,
+        specs,
+      ];
 }
 
 class VehicleSpecsModel extends VehicleSpecs {
@@ -150,33 +209,19 @@ class VehicleSpecsModel extends VehicleSpecs {
     super.additionalInfo,
   });
 
-  factory VehicleSpecsModel.fromMap(Map<String, dynamic> map) {
+  factory VehicleSpecsModel.fromJson(Map<String, dynamic> json) {
     return VehicleSpecsModel(
-      color: map['color'],
-      engine: map['engine'],
-      transmission: map['transmission'],
-      fuelType: map['fuelType'],
-      fuelCapacity: map['fuelCapacity']?.toDouble(),
-      seatingCapacity: map['seatingCapacity']?.toInt(),
-      additionalInfo: map['additionalInfo'] != null 
-          ? Map<String, dynamic>.from(map['additionalInfo'])
-          : null,
+      color: json['color'] as String?,
+      engine: json['engine'] as String?,
+      transmission: json['transmission'] as String?,
+      fuelType: json['fuelType'] as String?,
+      fuelCapacity: (json['fuelCapacity'] as num?)?.toDouble(),
+      seatingCapacity: json['seatingCapacity'] as int?,
+      additionalInfo: json['additionalInfo'] as Map<String, dynamic>?,
     );
   }
 
-  factory VehicleSpecsModel.fromEntity(VehicleSpecs entity) {
-    return VehicleSpecsModel(
-      color: entity.color,
-      engine: entity.engine,
-      transmission: entity.transmission,
-      fuelType: entity.fuelType,
-      fuelCapacity: entity.fuelCapacity,
-      seatingCapacity: entity.seatingCapacity,
-      additionalInfo: entity.additionalInfo,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'color': color,
       'engine': engine,
@@ -187,171 +232,16 @@ class VehicleSpecsModel extends VehicleSpecs {
       'additionalInfo': additionalInfo,
     };
   }
-}
 
-class VehicleLogModel extends VehicleLogEntity {
-  const VehicleLogModel({
-    required super.id,
-    required super.vehicleId,
-    required super.driverId,
-    required super.driverName,
-    required super.startKm,
-    super.endKm,
-    required super.startTime,
-    super.endTime,
-    required super.route,
-    super.observations,
-    required super.usageType,
-    super.purpose,
-    required super.attachments,
-    required super.createdAt,
-    required super.updatedAt,
-  });
-
-  factory VehicleLogModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    
-    return VehicleLogModel(
-      id: doc.id,
-      vehicleId: data['vehicleId'] ?? '',
-      driverId: data['driverId'] ?? '',
-      driverName: data['driverName'] ?? '',
-      startKm: (data['startKm'] ?? 0).toDouble(),
-      endKm: data['endKm']?.toDouble(),
-      startTime: (data['startTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      endTime: (data['endTime'] as Timestamp?)?.toDate(),
-      route: _parseRoute(data['route']),
-      observations: data['observations'],
-      usageType: UsageType.values.firstWhere(
-        (type) => type.name == data['usageType'],
-        orElse: () => UsageType.other,
-      ),
-      purpose: data['purpose'],
-      attachments: List<String>.from(data['attachments'] ?? []),
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+  factory VehicleSpecsModel.fromSpecs(VehicleSpecs specs) {
+    return VehicleSpecsModel(
+      color: specs.color,
+      engine: specs.engine,
+      transmission: specs.transmission,
+      fuelType: specs.fuelType,
+      fuelCapacity: specs.fuelCapacity,
+      seatingCapacity: specs.seatingCapacity,
+      additionalInfo: specs.additionalInfo,
     );
-  }
-
-  factory VehicleLogModel.fromMap(Map<String, dynamic> map) {
-    return VehicleLogModel(
-      id: map['id'] ?? '',
-      vehicleId: map['vehicleId'] ?? '',
-      driverId: map['driverId'] ?? '',
-      driverName: map['driverName'] ?? '',
-      startKm: (map['startKm'] ?? 0).toDouble(),
-      endKm: map['endKm']?.toDouble(),
-      startTime: map['startTime'] is Timestamp
-          ? (map['startTime'] as Timestamp).toDate()
-          : DateTime.parse(map['startTime'] ?? DateTime.now().toIso8601String()),
-      endTime: map['endTime'] is Timestamp
-          ? (map['endTime'] as Timestamp).toDate()
-          : map['endTime'] != null
-              ? DateTime.parse(map['endTime'])
-              : null,
-      route: _parseRoute(map['route']),
-      observations: map['observations'],
-      usageType: UsageType.values.firstWhere(
-        (type) => type.name == map['usageType'],
-        orElse: () => UsageType.other,
-      ),
-      purpose: map['purpose'],
-      attachments: List<String>.from(map['attachments'] ?? []),
-      createdAt: map['createdAt'] is Timestamp
-          ? (map['createdAt'] as Timestamp).toDate()
-          : DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt: map['updatedAt'] is Timestamp
-          ? (map['updatedAt'] as Timestamp).toDate()
-          : DateTime.parse(map['updatedAt'] ?? DateTime.now().toIso8601String()),
-    );
-  }
-
-  Map<String, dynamic> toFirestore() {
-    return {
-      'vehicleId': vehicleId,
-      'driverId': driverId,
-      'driverName': driverName,
-      'startKm': startKm,
-      'endKm': endKm,
-      'startTime': startTime,
-      'endTime': endTime,
-      'route': route.map((point) => LocationPointModel.fromEntity(point).toMap()).toList(),
-      'observations': observations,
-      'usageType': usageType.name,
-      'purpose': purpose,
-      'attachments': attachments,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-    };
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'vehicleId': vehicleId,
-      'driverId': driverId,
-      'driverName': driverName,
-      'startKm': startKm,
-      'endKm': endKm,
-      'startTime': startTime.toIso8601String(),
-      'endTime': endTime?.toIso8601String(),
-      'route': route.map((point) => LocationPointModel.fromEntity(point).toMap()).toList(),
-      'observations': observations,
-      'usageType': usageType.name,
-      'purpose': purpose,
-      'attachments': attachments,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
-
-  static List<LocationPoint> _parseRoute(dynamic routeData) {
-    if (routeData == null) return [];
-    
-    return (routeData as List)
-        .map((data) => LocationPointModel.fromMap(data as Map<String, dynamic>))
-        .toList();
-  }
-}
-
-class LocationPointModel extends LocationPoint {
-  const LocationPointModel({
-    required super.latitude,
-    required super.longitude,
-    required super.timestamp,
-    super.speed,
-    super.accuracy,
-  });
-
-  factory LocationPointModel.fromMap(Map<String, dynamic> map) {
-    return LocationPointModel(
-      latitude: (map['latitude'] ?? 0).toDouble(),
-      longitude: (map['longitude'] ?? 0).toDouble(),
-      timestamp: map['timestamp'] is Timestamp
-          ? (map['timestamp'] as Timestamp).toDate()
-          : DateTime.parse(map['timestamp'] ?? DateTime.now().toIso8601String()),
-      speed: map['speed']?.toDouble(),
-      accuracy: map['accuracy']?.toDouble(),
-    );
-  }
-
-  factory LocationPointModel.fromEntity(LocationPoint entity) {
-    return LocationPointModel(
-      latitude: entity.latitude,
-      longitude: entity.longitude,
-      timestamp: entity.timestamp,
-      speed: entity.speed,
-      accuracy: entity.accuracy,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'latitude': latitude,
-      'longitude': longitude,
-      'timestamp': timestamp,
-      'speed': speed,
-      'accuracy': accuracy,
-    };
   }
 }

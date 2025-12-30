@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/error/failures.dart';
-import '../../domain/entities/report_entity.dart';
+import '../../domain/entities/enhanced_report_entity.dart';
 import '../../domain/repositories/report_repository.dart';
 import '../datasources/report_remote_data_source.dart';
 
@@ -17,7 +17,8 @@ class ReportRepositoryImpl implements ReportRepository {
   Future<Either<Failure, List<ReportEntity>>> getReportsByUser(String userId) async {
     try {
       final reports = await remoteDataSource.getReportsByUser(userId);
-      return Right(reports);
+      // ReportModel extends ReportEntity, so no conversion needed
+      return Right(reports.cast<ReportEntity>());
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }
@@ -27,6 +28,7 @@ class ReportRepositoryImpl implements ReportRepository {
   Future<Either<Failure, ReportEntity>> getReportById(String reportId) async {
     try {
       final report = await remoteDataSource.getReportById(reportId);
+      // ReportModel extends ReportEntity, so no conversion needed
       return Right(report);
     } catch (e) {
       return Left(ServerFailure(e.toString()));

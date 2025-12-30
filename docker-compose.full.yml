@@ -57,6 +57,16 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-L+nRTojTNZgr1SUqBfdKpeuZ0I/4ZzxxN8LYLxLI9vc=}
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
+      # MinIO Configuration
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-frogio_admin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-frogio_secret_key_2024}
+      MINIO_BUCKET: frogio-files
+      MINIO_USE_SSL: "false"
+      # ntfy Configuration
+      NTFY_URL: http://ntfy:80
+      NTFY_TOPIC: frogio-notifications
     ports:
       - "3000:3000"
     networks:
@@ -98,6 +108,50 @@ services:
       retries: 3
       start_period: 60s
 
+  # MinIO - Almacenamiento de archivos S3-compatible
+  minio:
+    image: minio/minio:latest
+    container_name: frogio-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-frogio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-frogio_secret_key_2024}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - frogio_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
+
+  # ntfy - Notificaciones Push
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: frogio-ntfy
+    restart: unless-stopped
+    command: serve
+    environment:
+      NTFY_BASE_URL: ${NTFY_BASE_URL:-https://ntfy.frogio.drozast.xyz}
+    volumes:
+      - ntfy_data:/var/cache/ntfy
+    ports:
+      - "8080:80"
+    networks:
+      - frogio_network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
   # Cloudflare Tunnel - Expone servicios con subdominios de drozast.xyz
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -112,11 +166,19 @@ services:
         condition: service_healthy
       web-admin:
         condition: service_healthy
+      minio:
+        condition: service_healthy
 
 volumes:
   postgres_data:
     driver: local
     name: frogio_postgres_data
+  minio_data:
+    driver: local
+    name: frogio_minio_data
+  ntfy_data:
+    driver: local
+    name: frogio_ntfy_data
 
 networks:
   frogio_network:

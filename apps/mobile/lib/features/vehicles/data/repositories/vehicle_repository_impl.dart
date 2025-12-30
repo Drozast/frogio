@@ -17,7 +17,7 @@ class VehicleRepositoryImpl implements VehicleRepository {
   Future<Either<Failure, List<VehicleEntity>>> getVehicles(String muniId) async {
     try {
       final vehicles = await remoteDataSource.getVehicles(muniId);
-      return Right(vehicles);
+      return Right(vehicles.map((v) => v.toEntity()).toList());
     } catch (e) {
       return Left(ServerFailure('Error al obtener vehículos: ${e.toString()}'));
     }
@@ -27,7 +27,7 @@ class VehicleRepositoryImpl implements VehicleRepository {
   Future<Either<Failure, VehicleEntity>> getVehicleById(String vehicleId) async {
     try {
       final vehicle = await remoteDataSource.getVehicleById(vehicleId);
-      return Right(vehicle);
+      return Right(vehicle.toEntity());
     } catch (e) {
       return Left(ServerFailure('Error al obtener vehículo: ${e.toString()}'));
     }
@@ -37,7 +37,7 @@ class VehicleRepositoryImpl implements VehicleRepository {
   Future<Either<Failure, List<VehicleEntity>>> getAvailableVehicles(String muniId) async {
     try {
       final vehicles = await remoteDataSource.getAvailableVehicles(muniId);
-      return Right(vehicles);
+      return Right(vehicles.map((v) => v.toEntity()).toList());
     } catch (e) {
       return Left(ServerFailure('Error al obtener vehículos disponibles: ${e.toString()}'));
     }
@@ -45,12 +45,12 @@ class VehicleRepositoryImpl implements VehicleRepository {
 
   @override
   Future<Either<Failure, List<VehicleEntity>>> getVehiclesByStatus(
-    VehicleStatus status, 
+    VehicleStatus status,
     String muniId,
   ) async {
     try {
       final vehicles = await remoteDataSource.getVehiclesByStatus(status.name, muniId);
-      return Right(vehicles);
+      return Right(vehicles.map((v) => v.toEntity()).toList());
     } catch (e) {
       return Left(ServerFailure('Error al obtener vehículos por estado: ${e.toString()}'));
     }
@@ -124,7 +124,7 @@ class VehicleRepositoryImpl implements VehicleRepository {
   Future<Either<Failure, List<VehicleLogEntity>>> getVehicleLogs(String vehicleId) async {
     try {
       final logs = await remoteDataSource.getVehicleLogs(vehicleId);
-      return Right(logs);
+      return Right(logs.map((l) => l.toEntity()).toList());
     } catch (e) {
       return Left(ServerFailure('Error al obtener historial del vehículo: ${e.toString()}'));
     }
@@ -134,7 +134,7 @@ class VehicleRepositoryImpl implements VehicleRepository {
   Future<Either<Failure, List<VehicleLogEntity>>> getDriverLogs(String driverId) async {
     try {
       final logs = await remoteDataSource.getDriverLogs(driverId);
-      return Right(logs);
+      return Right(logs.map((l) => l.toEntity()).toList());
     } catch (e) {
       return Left(ServerFailure('Error al obtener historial del conductor: ${e.toString()}'));
     }
@@ -144,7 +144,7 @@ class VehicleRepositoryImpl implements VehicleRepository {
   Future<Either<Failure, VehicleLogEntity?>> getCurrentVehicleUsage(String vehicleId) async {
     try {
       final log = await remoteDataSource.getCurrentVehicleUsage(vehicleId);
-      return Right(log);
+      return Right(log?.toEntity());
     } catch (e) {
       return Left(ServerFailure('Error al obtener uso actual del vehículo: ${e.toString()}'));
     }
@@ -154,7 +154,7 @@ class VehicleRepositoryImpl implements VehicleRepository {
   Future<Either<Failure, List<VehicleLogEntity>>> getActiveUsages(String muniId) async {
     try {
       final logs = await remoteDataSource.getActiveUsages(muniId);
-      return Right(logs);
+      return Right(logs.map((l) => l.toEntity()).toList());
     } catch (e) {
       return Left(ServerFailure('Error al obtener usos activos: ${e.toString()}'));
     }
@@ -222,16 +222,22 @@ class VehicleRepositoryImpl implements VehicleRepository {
 
   @override
   Stream<List<VehicleEntity>> watchVehicles(String muniId) {
-    return remoteDataSource.watchVehicles(muniId);
+    return remoteDataSource.watchVehicles(muniId).map(
+      (vehicles) => vehicles.map((v) => v.toEntity()).toList(),
+    );
   }
 
   @override
   Stream<List<VehicleLogEntity>> watchActiveUsages(String muniId) {
-    return remoteDataSource.watchActiveUsages(muniId);
+    return remoteDataSource.watchActiveUsages(muniId).map(
+      (logs) => logs.map((l) => l.toEntity()).toList(),
+    );
   }
 
   @override
   Stream<VehicleLogEntity?> watchVehicleUsage(String vehicleId) {
-    return remoteDataSource.watchVehicleUsage(vehicleId);
+    return remoteDataSource.watchVehicleUsage(vehicleId).map(
+      (log) => log?.toEntity(),
+    );
   }
 }

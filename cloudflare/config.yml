@@ -1,0 +1,29 @@
+# Cloudflare Tunnel Configuration for Frogio
+# This file configures the tunnel to expose Frogio services via Cloudflare
+
+tunnel: frogio
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  # API Backend
+  - hostname: api.frogio.drozast.xyz
+    service: http://localhost:3000
+
+  # Web Admin Dashboard
+  - hostname: admin.frogio.drozast.xyz
+    service: http://localhost:3010
+
+  # MinIO S3 API (para subir/descargar archivos)
+  - hostname: files.frogio.drozast.xyz
+    service: http://localhost:9000
+
+  # MinIO Console (admin de archivos)
+  - hostname: minio.frogio.drozast.xyz
+    service: http://localhost:9001
+
+  # ntfy Notifications
+  - hostname: ntfy.frogio.drozast.xyz
+    service: http://localhost:8080
+
+  # Catch-all rule (required)
+  - service: http_status:404

@@ -6,7 +6,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../../core/error/failures.dart';
 import '../../../../../core/usecases/usecase.dart';
-import '../../entities/report_entity.dart';
+import '../../entities/enhanced_report_entity.dart';
 import '../../repositories/report_repository.dart';
 
 class CreateReport implements UseCase<String, CreateReportParams> {
