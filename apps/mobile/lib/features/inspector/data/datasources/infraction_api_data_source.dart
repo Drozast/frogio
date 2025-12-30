@@ -181,7 +181,7 @@ class InfractionApiDataSource implements InfractionRemoteDataSource {
 
   @override
   Future<String> uploadSignature(String infractionId, String signatureData) async {
-    // TODO: Implementar subida de firma como archivo
+    // NOTE: Subida de firma como archivo pendiente - usar MinIO para archivos
     throw UnimplementedError('Subida de firma no implementada aún');
   }
 
@@ -243,7 +243,7 @@ class InfractionApiDataSource implements InfractionRemoteDataSource {
     required double radiusKm,
     String? muniId,
   }) async {
-    // TODO: Implementar búsqueda geográfica en backend
+    // NOTE: Búsqueda geográfica pendiente - requiere índice espacial en PostgreSQL
     throw UnimplementedError('Búsqueda por ubicación no implementada aún');
   }
 

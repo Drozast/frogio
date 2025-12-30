@@ -157,7 +157,7 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
     required double longitude,
     double? speed,
   }) async {
-    // TODO: Implementar tracking de ubicación en backend
+    // NOTE: Tracking de ubicación pendiente - requiere WebSocket o endpoint dedicado
   }
 
   @override
@@ -251,17 +251,17 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
 
   @override
   Future<void> updateVehicleKm(String vehicleId, double km) async {
-    // TODO: Agregar campo de kilometraje en backend
+    // NOTE: Campo de kilometraje pendiente para futuras versiones
   }
 
   @override
   Future<void> scheduleMaintenance(String vehicleId, DateTime maintenanceDate) async {
-    // TODO: Implementar en backend
+    // NOTE: Mantenimiento programado pendiente para futuras versiones
   }
 
   @override
   Future<void> completeMaintenance(String vehicleId, String observations) async {
-    // TODO: Implementar en backend
+    // NOTE: Completar mantenimiento pendiente para futuras versiones
   }
 
   @override
@@ -281,7 +281,7 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
 
   @override
   Future<Map<String, dynamic>> getDriverStatistics(String driverId) async {
-    // TODO: Implementar en backend
+    // NOTE: Estadísticas de conductor pendiente para futuras versiones
     return {'totalTrips': 0, 'totalKm': 0, 'totalHours': 0};
   }
 

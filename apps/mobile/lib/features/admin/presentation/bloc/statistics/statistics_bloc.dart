@@ -222,7 +222,7 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
     FilterStatisticsByDateEvent event,
     Emitter<StatisticsState> emit,
   ) async {
-    // TODO: Implementar filtrado por fecha en el repository/use case
+    // NOTE: Filtrado por fecha pendiente para futuras versiones
     // Por ahora solo recargar las estadísticas
     if (state is StatisticsLoaded) {
       final currentState = state as StatisticsLoaded;
@@ -270,7 +270,7 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       
       await Future.delayed(const Duration(milliseconds: 300));
       
-      // TODO: Implementar exportación real con el repository
+      // NOTE: Exportación real pendiente para futuras versiones
       final fileName = _generateFileName(event.exportType, event.startDate, event.endDate);
       
       emit(StatisticsExported(

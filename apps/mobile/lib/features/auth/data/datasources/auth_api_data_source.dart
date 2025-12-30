@@ -179,8 +179,21 @@ class AuthApiDataSource implements AuthRemoteDataSource {
 
   @override
   Future<void> forgotPassword(String email) async {
-    // TODO: Implementar endpoint de recuperación de contraseña en backend
-    throw UnimplementedError('Recuperación de contraseña no implementada aún');
+    try {
+      final response = await client.post(
+        Uri.parse('$baseUrl/api/auth/forgot-password'),
+        headers: _headers,
+        body: json.encode({'email': email}),
+      );
+
+      if (response.statusCode != 200) {
+        final error = json.decode(response.body);
+        throw Exception(error['error'] ?? 'Error al solicitar recuperación');
+      }
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Error de conexión: ${e.toString()}');
+    }
   }
 
   @override
