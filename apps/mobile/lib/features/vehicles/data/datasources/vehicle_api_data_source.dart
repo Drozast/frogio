@@ -98,12 +98,26 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
     String? purpose,
   }) async {
     try {
-      // TODO: Implementar endpoint en backend para vehicle logs
-      // Por ahora, actualizar el estado del vehículo a "in_use"
-      await updateVehicleStatus(vehicleId, 'in_use');
+      final response = await client.post(
+        Uri.parse('$baseUrl/api/vehicles/logs/start'),
+        headers: _authHeaders,
+        body: json.encode({
+          'vehicleId': vehicleId,
+          'driverId': driverId,
+          'driverName': driverName,
+          'startKm': startKm,
+          'usageType': usageType,
+          'purpose': purpose,
+        }),
+      );
 
-      // Retornar un ID temporal
-      return 'log_${DateTime.now().millisecondsSinceEpoch}';
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['id'] as String;
+      } else {
+        final error = json.decode(response.body);
+        throw Exception(error['error'] ?? 'Error al iniciar uso de vehículo');
+      }
     } catch (e) {
       throw Exception('Error al iniciar uso de vehículo: ${e.toString()}');
     }
@@ -117,9 +131,20 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
     List<String>? attachments,
   }) async {
     try {
-      // TODO: Implementar endpoint en backend para finalizar uso
-      // Por ahora solo marcamos como disponible
-      // Necesitaríamos el vehicleId del log
+      final response = await client.patch(
+        Uri.parse('$baseUrl/api/vehicles/logs/$logId/end'),
+        headers: _authHeaders,
+        body: json.encode({
+          'endKm': endKm,
+          'observations': observations,
+          'attachments': attachments,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        final error = json.decode(response.body);
+        throw Exception(error['error'] ?? 'Error al finalizar uso de vehículo');
+      }
     } catch (e) {
       throw Exception('Error al finalizar uso de vehículo: ${e.toString()}');
     }
@@ -137,26 +162,71 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
 
   @override
   Future<List<VehicleLogModel>> getVehicleLogs(String vehicleId) async {
-    // TODO: Implementar endpoint en backend
-    return [];
+    try {
+      final response = await client.get(
+        Uri.parse('$baseUrl/api/vehicles/$vehicleId/logs'),
+        headers: _authHeaders,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((item) => VehicleLogModel.fromJson(_mapLogApiToModel(item))).toList();
+      } else {
+        throw Exception('Error al obtener historial de uso');
+      }
+    } catch (e) {
+      throw Exception('Error de conexión: ${e.toString()}');
+    }
   }
 
   @override
   Future<List<VehicleLogModel>> getDriverLogs(String driverId) async {
-    // TODO: Implementar endpoint en backend
-    return [];
+    try {
+      final response = await client.get(
+        Uri.parse('$baseUrl/api/vehicles/logs/my'),
+        headers: _authHeaders,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((item) => VehicleLogModel.fromJson(_mapLogApiToModel(item))).toList();
+      } else {
+        throw Exception('Error al obtener mis usos');
+      }
+    } catch (e) {
+      throw Exception('Error de conexión: ${e.toString()}');
+    }
   }
 
   @override
   Future<VehicleLogModel?> getCurrentVehicleUsage(String vehicleId) async {
-    // TODO: Implementar endpoint en backend
-    return null;
+    try {
+      final logs = await getVehicleLogs(vehicleId);
+      // Find active log for this vehicle
+      final activeLogs = logs.where((log) => log.endTime == null).toList();
+      return activeLogs.isNotEmpty ? activeLogs.first : null;
+    } catch (e) {
+      return null;
+    }
   }
 
   @override
   Future<List<VehicleLogModel>> getActiveUsages(String muniId) async {
-    // TODO: Implementar endpoint en backend
-    return [];
+    try {
+      final response = await client.get(
+        Uri.parse('$baseUrl/api/vehicles/logs/active'),
+        headers: _authHeaders,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((item) => VehicleLogModel.fromJson(_mapLogApiToModel(item))).toList();
+      } else {
+        throw Exception('Error al obtener usos activos');
+      }
+    } catch (e) {
+      throw Exception('Error de conexión: ${e.toString()}');
+    }
   }
 
   @override
@@ -277,5 +347,27 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
       default:
         return 'car';
     }
+  }
+
+  /// Mapear respuesta de API de logs a formato esperado por el modelo
+  Map<String, dynamic> _mapLogApiToModel(Map<String, dynamic> apiData) {
+    return {
+      'id': apiData['id'],
+      'vehicleId': apiData['vehicle_id'] ?? apiData['vehicleId'],
+      'driverId': apiData['driver_id'] ?? apiData['driverId'],
+      'driverName': apiData['driver_name'] ?? apiData['driverName'] ??
+                    '${apiData['driver_first_name'] ?? ''} ${apiData['driver_last_name'] ?? ''}'.trim(),
+      'startKm': apiData['start_km'] ?? apiData['startKm'] ?? 0.0,
+      'endKm': apiData['end_km'] ?? apiData['endKm'],
+      'startTime': apiData['start_time'] ?? apiData['startTime'] ?? apiData['created_at'],
+      'endTime': apiData['end_time'] ?? apiData['endTime'],
+      'route': apiData['route'] ?? [],
+      'observations': apiData['observations'],
+      'usageType': apiData['usage_type'] ?? apiData['usageType'] ?? 'other',
+      'purpose': apiData['purpose'],
+      'attachments': apiData['attachments'] ?? [],
+      'createdAt': apiData['created_at'] ?? apiData['createdAt'],
+      'updatedAt': apiData['updated_at'] ?? apiData['updatedAt'],
+    };
   }
 }

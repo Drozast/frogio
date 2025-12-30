@@ -37,3 +37,12 @@ export interface JwtPayload {
   role: string;
   tenantId?: string;
 }
+
+export interface ForgotPasswordDto {
+  email: string;
+}
+
+export interface ResetPasswordDto {
+  token: string;
+  password: string;
+}

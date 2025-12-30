@@ -155,11 +155,18 @@ services:
       start_period: 10s
 
   # Cloudflare Tunnel - Expone servicios con subdominios de drozast.xyz
+  # Usa token del túnel en lugar de archivo de credenciales
+  # Obtener token: Cloudflare Dashboard > Zero Trust > Access > Tunnels > Create
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: frogio-cloudflared
     restart: unless-stopped
-    command: tunnel --config /etc/cloudflared/config.yml run
+    # Método 1: Con archivo de config (requiere credentials.json)
+    # command: tunnel --config /etc/cloudflared/config.yml run
+    # Método 2: Con token (más simple, se configura desde Cloudflare Dashboard)
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN:-YOUR_TUNNEL_TOKEN_HERE}
+    environment:
+      - TUNNEL_ORIGIN_CERT=/etc/cloudflared/cert.pem
     volumes:
       - ./cloudflare:/etc/cloudflared:ro
     network_mode: host

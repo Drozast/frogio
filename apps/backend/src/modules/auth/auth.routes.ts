@@ -11,6 +11,10 @@ router.post('/login', (req, res) => authController.login(req, res));
 router.post('/refresh', (req, res) => authController.refreshToken(req, res));
 router.post('/logout', (req, res) => authController.logout(req, res));
 
+// Password recovery (public)
+router.post('/forgot-password', (req, res) => authController.forgotPassword(req, res));
+router.post('/reset-password', (req, res) => authController.resetPassword(req, res));
+
 // Protected routes
 router.get('/me', authMiddleware, (req, res) => authController.me(req as AuthRequest, res));
 

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service.js';
-import type { RegisterDto, LoginDto } from './auth.types.js';
+import type { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './auth.types.js';
 
 const authService = new AuthService();
 
@@ -88,5 +88,50 @@ export class AuthController {
   async me(req: Request, res: Response): Promise<void> {
     // User data is already attached by auth middleware
     res.json({ user: (req as any).user });
+  }
+
+  async forgotPassword(req: Request, res: Response): Promise<void> {
+    try {
+      const data: ForgotPasswordDto = req.body;
+      const tenantId = req.headers['x-tenant-id'] as string;
+
+      if (!tenantId) {
+        res.status(400).json({ error: 'Tenant ID requerido en headers' });
+        return;
+      }
+
+      if (!data.email) {
+        res.status(400).json({ error: 'Email requerido' });
+        return;
+      }
+
+      const result = await authService.forgotPassword(data, tenantId);
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al procesar solicitud';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  async resetPassword(req: Request, res: Response): Promise<void> {
+    try {
+      const data: ResetPasswordDto = req.body;
+
+      if (!data.token || !data.password) {
+        res.status(400).json({ error: 'Token y nueva contraseña requeridos' });
+        return;
+      }
+
+      if (data.password.length < 8) {
+        res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+        return;
+      }
+
+      const result = await authService.resetPassword(data);
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al restablecer contraseña';
+      res.status(400).json({ error: message });
+    }
   }
 }

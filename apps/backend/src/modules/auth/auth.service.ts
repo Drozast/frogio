@@ -3,7 +3,8 @@ import jwt from 'jsonwebtoken';
 import prisma from '../../config/database.js';
 import redis from '../../config/redis.js';
 import { env } from '../../config/env.js';
-import type { RegisterDto, LoginDto, AuthResponse } from './auth.types.js';
+import { logger } from '../../config/logger.js';
+import type { RegisterDto, LoginDto, AuthResponse, ForgotPasswordDto, ResetPasswordDto } from './auth.types.js';
 
 export class AuthService {
   private readonly JWT_SECRET = env.JWT_SECRET;
@@ -189,5 +190,103 @@ export class AuthService {
       calculatedDV === 11 ? '0' : calculatedDV === 10 ? 'k' : calculatedDV.toString();
 
     return dv === expectedDV;
+  }
+
+  async forgotPassword(data: ForgotPasswordDto, tenantId: string): Promise<{ message: string }> {
+    // Find user by email
+    const [user] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, email, first_name FROM "${tenantId}".users WHERE email = $1 LIMIT 1`,
+      data.email
+    );
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      logger.info(`Password reset requested for non-existent email: ${data.email}`);
+      return { message: 'Si el correo existe, recibirás instrucciones para recuperar tu contraseña' };
+    }
+
+    // Generate reset token (valid for 1 hour)
+    const resetToken = jwt.sign(
+      { userId: user.id, email: user.email, tenantId, type: 'password_reset' },
+      this.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // Store token in redis if available (for invalidation)
+    if (redis) {
+      await redis.setex(`password_reset:${user.id}`, 3600, resetToken);
+    }
+
+    // Log the token (in production, this would be sent via email/ntfy)
+    logger.info(`Password reset token generated for ${user.email}: ${resetToken.substring(0, 20)}...`);
+
+    // TODO: Send email/notification with reset link
+    // For now, we'll use ntfy if configured
+    if (env.NTFY_URL) {
+      try {
+        await fetch(`${env.NTFY_URL}/frogio-password-reset`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic: 'frogio-password-reset',
+            title: 'Recuperación de Contraseña - FROGIO',
+            message: `Se solicitó recuperación de contraseña para: ${user.email}`,
+            tags: ['key', 'lock'],
+          }),
+        });
+      } catch (e) {
+        logger.warn('Could not send ntfy notification for password reset');
+      }
+    }
+
+    return { message: 'Si el correo existe, recibirás instrucciones para recuperar tu contraseña' };
+  }
+
+  async resetPassword(data: ResetPasswordDto): Promise<{ message: string }> {
+    try {
+      // Verify token
+      const decoded = jwt.verify(data.token, this.JWT_SECRET) as {
+        userId: string;
+        email: string;
+        tenantId: string;
+        type: string;
+      };
+
+      if (decoded.type !== 'password_reset') {
+        throw new Error('Token inválido');
+      }
+
+      // Check if token is still valid in redis (if available)
+      if (redis) {
+        const storedToken = await redis.get(`password_reset:${decoded.userId}`);
+        if (!storedToken || storedToken !== data.token) {
+          throw new Error('Token expirado o ya utilizado');
+        }
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(data.password, 12);
+
+      // Update password
+      await prisma.$queryRawUnsafe(
+        `UPDATE "${decoded.tenantId}".users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+        hashedPassword,
+        decoded.userId
+      );
+
+      // Invalidate token in redis
+      if (redis) {
+        await redis.del(`password_reset:${decoded.userId}`);
+      }
+
+      logger.info(`Password reset successful for user ${decoded.userId}`);
+
+      return { message: 'Contraseña actualizada exitosamente' };
+    } catch (error) {
+      if (error instanceof jwt.TokenExpiredError) {
+        throw new Error('El enlace de recuperación ha expirado');
+      }
+      throw new Error('Token de recuperación inválido');
+    }
   }
 }
