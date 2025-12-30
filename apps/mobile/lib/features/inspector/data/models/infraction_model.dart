@@ -300,8 +300,8 @@ class InfractionModel extends Equatable {
       offenderDocument: data['vehicle_plate'] ?? '',
       inspectorId: data['inspector_id'] ?? '',
       muniId: data['tenant_id'] ?? '',
-      evidence: [], // Evidencias se obtienen por separado
-      signatures: [],
+      evidence: const [], // Evidencias se obtienen por separado
+      signatures: const [],
       status: data['status'] ?? 'pendiente',
       createdAt: data['created_at'] != null
           ? DateTime.parse(data['created_at'])
@@ -309,7 +309,7 @@ class InfractionModel extends Equatable {
       updatedAt: data['updated_at'] != null
           ? DateTime.parse(data['updated_at'])
           : null,
-      historyLog: [],
+      historyLog: const [],
     );
   }
 }

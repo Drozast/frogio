@@ -133,13 +133,3 @@ class GetReportsByStatusEvent extends ReportEvent {
   @override
   List<Object?> get props => [status, muniId, assignedTo];
 }
-
-// Internal event for stream updates
-class _ReportsUpdatedEvent extends ReportEvent {
-  final List reports;
-
-  const _ReportsUpdatedEvent({required this.reports});
-
-  @override
-  List<Object> get props => [reports];
-}

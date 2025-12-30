@@ -79,7 +79,7 @@ class InfractionApiDataSource implements InfractionRemoteDataSource {
           'location': infraction.location['address'] ?? '',
           'amount': 0, // Debe ser configurado según la ordenanza
           'vehiclePlate': infraction.offenderDocument, // Asumiendo que es patente
-          'dueDate': DateTime.now().add(Duration(days: 30)).toIso8601String(),
+          'dueDate': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
         }),
       );
 

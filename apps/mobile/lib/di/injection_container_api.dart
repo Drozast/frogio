@@ -1,6 +1,7 @@
-// lib/di/injection_container_api.dart
-/// Container de inyeccion de dependencias para REST API
-/// Usa Dio para HTTP y SharedPreferences para almacenamiento local
+/// Container de inyeccion de dependencias para REST API.
+///
+/// Usa Dio para HTTP y SharedPreferences para almacenamiento local.
+library;
 
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
