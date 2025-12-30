@@ -23,7 +23,7 @@ ingress:
 
   # ntfy Notifications
   - hostname: ntfy.frogio.drozast.xyz
-    service: http://localhost:8080
+    service: http://localhost:8085
 
   # Catch-all rule (required)
   - service: http_status:404
