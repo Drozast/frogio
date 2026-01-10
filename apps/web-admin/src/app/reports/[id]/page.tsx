@@ -21,8 +21,8 @@ interface Report {
   status: string;
   priority: string;
   address: string | null;
-  latitude: number | null;
-  longitude: number | null;
+  latitude: string | number | null;
+  longitude: string | number | null;
   created_at: string;
   updated_at: string;
   first_name?: string;
@@ -162,7 +162,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-gray-500">
-                      Coordenadas: {report.latitude?.toFixed(6)}, {report.longitude?.toFixed(6)}
+                      Coordenadas: {Number(report.latitude).toFixed(6)}, {Number(report.longitude).toFixed(6)}
                     </p>
                     <a
                       href={googleMapsUrl || '#'}
