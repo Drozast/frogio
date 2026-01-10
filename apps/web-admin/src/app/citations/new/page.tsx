@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import AppLayout from '@/components/layout/AppLayout';
 import {
   ArrowLeftIcon,
@@ -18,6 +19,19 @@ import {
   DocumentTextIcon,
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
+
+// Dynamic import to avoid SSR issues with Leaflet
+const LocationPicker = dynamic(() => import('@/components/LocationPicker'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+      <div className="flex items-center gap-2 text-gray-500">
+        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+        <span>Cargando mapa...</span>
+      </div>
+    </div>
+  ),
+});
 
 type CitationType = 'advertencia' | 'citacion';
 type TargetType = 'persona' | 'domicilio' | 'vehiculo' | 'comercio' | 'otro';
@@ -50,8 +64,8 @@ export default function NewCitationPage() {
     targetPhone: '',
     targetPlate: '',
     locationAddress: '',
-    latitude: '' as string,
-    longitude: '' as string,
+    latitude: null as number | null,
+    longitude: null as number | null,
     citationNumber: '',
     reason: '',
     notes: '',
@@ -59,7 +73,6 @@ export default function NewCitationPage() {
   });
 
   const [previewPhotos, setPreviewPhotos] = useState<string[]>([]);
-  const [gettingLocation, setGettingLocation] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,8 +88,8 @@ export default function NewCitationPage() {
     try {
       const payload = {
         ...formData,
-        latitude: formData.latitude ? parseFloat(formData.latitude) : null,
-        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
       };
 
       const response = await fetch('/api/citations', {
@@ -105,29 +118,20 @@ export default function NewCitationPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      setError('La geolocalización no está soportada en este navegador');
-      return;
-    }
+  const handleLocationChange = (lat: number, lng: number, address?: string) => {
+    setFormData(prev => ({
+      ...prev,
+      latitude: lat === 0 ? null : lat,
+      longitude: lng === 0 ? null : lng,
+      ...(address ? { locationAddress: address } : {}),
+    }));
+  };
 
-    setGettingLocation(true);
-    setError('');
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setFormData(prev => ({
-          ...prev,
-          latitude: position.coords.latitude.toFixed(8),
-          longitude: position.coords.longitude.toFixed(8),
-        }));
-        setGettingLocation(false);
-      },
-      (err) => {
-        setError(`Error obteniendo ubicación: ${err.message}`);
-        setGettingLocation(false);
-      },
-      { enableHighAccuracy: true }
-    );
+  const handleLocationAddressChange = (address: string) => {
+    setFormData(prev => ({
+      ...prev,
+      locationAddress: address,
+    }));
   };
 
   const handleReuseTargetAddress = () => {
@@ -163,14 +167,6 @@ export default function NewCitationPage() {
       ...prev,
       photos: prev.photos.filter((_, i) => i !== index),
     }));
-  };
-
-  const openGoogleMaps = () => {
-    if (formData.latitude && formData.longitude) {
-      window.open(`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`, '_blank');
-    } else if (formData.locationAddress) {
-      window.open(`https://www.google.com/maps/search/${encodeURIComponent(formData.locationAddress)}`, '_blank');
-    }
   };
 
   const getTargetFields = () => {
@@ -560,92 +556,30 @@ export default function NewCitationPage() {
 
           {/* Ubicación */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <MapPinIcon className="h-5 w-5 text-gray-500" />
-              Ubicación del Hecho
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label htmlFor="locationAddress" className="block text-sm font-medium text-gray-700">
-                    Dirección donde ocurrió el hecho
-                  </label>
-                  {formData.targetAddress && (
-                    <button
-                      type="button"
-                      onClick={handleReuseTargetAddress}
-                      className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
-                    >
-                      <ArrowPathIcon className="h-3 w-3" />
-                      Usar dirección del destinatario
-                    </button>
-                  )}
-                </div>
-                <input
-                  type="text"
-                  id="locationAddress"
-                  name="locationAddress"
-                  value={formData.locationAddress}
-                  onChange={handleChange}
-                  placeholder="Ej: Calle Principal 123, Santa Juana"
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                />
-              </div>
-
-              {/* Coordenadas manuales */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="latitude" className="block text-sm font-medium text-gray-700">
-                    Latitud
-                  </label>
-                  <input
-                    type="text"
-                    id="latitude"
-                    name="latitude"
-                    value={formData.latitude}
-                    onChange={handleChange}
-                    placeholder="-37.04676"
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="longitude" className="block text-sm font-medium text-gray-700">
-                    Longitud
-                  </label>
-                  <input
-                    type="text"
-                    id="longitude"
-                    name="longitude"
-                    value={formData.longitude}
-                    onChange={handleChange}
-                    placeholder="-72.93839"
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <MapPinIcon className="h-5 w-5 text-gray-500" />
+                Ubicación del Hecho
+              </h2>
+              {formData.targetAddress && (
                 <button
                   type="button"
-                  onClick={handleGetLocation}
-                  disabled={gettingLocation}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors disabled:opacity-50"
+                  onClick={handleReuseTargetAddress}
+                  className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
                 >
-                  <MapPinIcon className="h-4 w-4" />
-                  {gettingLocation ? 'Obteniendo...' : 'Obtener ubicación actual'}
+                  <ArrowPathIcon className="h-3 w-3" />
+                  Usar dirección del destinatario
                 </button>
-                {(formData.latitude || formData.locationAddress) && (
-                  <button
-                    type="button"
-                    onClick={openGoogleMaps}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 rounded-lg text-sm font-medium text-blue-700 transition-colors"
-                  >
-                    <MapPinIcon className="h-4 w-4" />
-                    Ver en Google Maps
-                  </button>
-                )}
-              </div>
+              )}
             </div>
+
+            <LocationPicker
+              latitude={formData.latitude}
+              longitude={formData.longitude}
+              address={formData.locationAddress}
+              onLocationChange={handleLocationChange}
+              onAddressChange={handleLocationAddressChange}
+            />
           </div>
 
           {/* Motivo */}
