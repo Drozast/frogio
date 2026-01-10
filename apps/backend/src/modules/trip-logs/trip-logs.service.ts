@@ -5,7 +5,7 @@ export class TripLogsService {
   async create(data: CreateTripLogDto, inspectorId: string, tenantId: string) {
     // Check if inspector has an active trip
     const [activeTrip] = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id FROM "${tenantId}".trip_logs WHERE inspector_id = $1 AND status = 'active' LIMIT 1`,
+      `SELECT id FROM "${tenantId}".trip_logs WHERE inspector_id = $1::uuid AND status = 'active' LIMIT 1`,
       inspectorId
     );
 
@@ -16,7 +16,7 @@ export class TripLogsService {
     const [trip] = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO "${tenantId}".trip_logs
        (inspector_id, vehicle_id, title, description, purpose, start_location_lat, start_location_lng, start_address, start_km, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', NOW(), NOW())
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, 'active', NOW(), NOW())
        RETURNING *`,
       inspectorId,
       data.vehicleId || null,
@@ -76,7 +76,7 @@ export class TripLogsService {
        FROM "${tenantId}".trip_logs tl
        LEFT JOIN "${tenantId}".users u ON tl.inspector_id = u.id
        LEFT JOIN "${tenantId}".vehicles v ON tl.vehicle_id = v.id
-       WHERE tl.id = $1`,
+       WHERE tl.id = $1::uuid`,
       id
     );
 
@@ -86,7 +86,7 @@ export class TripLogsService {
 
     // Get entries
     const entries = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM "${tenantId}".trip_log_entries WHERE trip_id = $1 ORDER BY created_at ASC`,
+      `SELECT * FROM "${tenantId}".trip_log_entries WHERE trip_id = $1::uuid ORDER BY created_at ASC`,
       id
     );
 
@@ -99,7 +99,7 @@ export class TripLogsService {
        v.plate as vehicle_plate, v.brand as vehicle_brand, v.model as vehicle_model
        FROM "${tenantId}".trip_logs tl
        LEFT JOIN "${tenantId}".vehicles v ON tl.vehicle_id = v.id
-       WHERE tl.inspector_id = $1 AND tl.status = 'active'
+       WHERE tl.inspector_id = $1::uuid AND tl.status = 'active'
        LIMIT 1`,
       inspectorId
     );
@@ -110,7 +110,7 @@ export class TripLogsService {
 
     // Get entries
     const entries = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM "${tenantId}".trip_log_entries WHERE trip_id = $1 ORDER BY created_at ASC`,
+      `SELECT * FROM "${tenantId}".trip_log_entries WHERE trip_id = $1::uuid ORDER BY created_at ASC`,
       trip.id
     );
 
@@ -128,7 +128,7 @@ export class TripLogsService {
            end_km = $4,
            notes = $5,
            updated_at = NOW()
-       WHERE id = $6 AND inspector_id = $7 AND status = 'active'
+       WHERE id = $6::uuid AND inspector_id = $7::uuid AND status = 'active'
        RETURNING *`,
       data.endLocationLat || null,
       data.endLocationLng || null,
@@ -150,7 +150,7 @@ export class TripLogsService {
     const [trip] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".trip_logs
        SET status = 'cancelled', updated_at = NOW()
-       WHERE id = $1 AND inspector_id = $2 AND status = 'active'
+       WHERE id = $1::uuid AND inspector_id = $2::uuid AND status = 'active'
        RETURNING *`,
       id,
       inspectorId
@@ -166,7 +166,7 @@ export class TripLogsService {
   async addEntry(tripId: string, data: CreateTripEntryDto, inspectorId: string, tenantId: string) {
     // Verify trip belongs to inspector and is active
     const [trip] = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id FROM "${tenantId}".trip_logs WHERE id = $1 AND inspector_id = $2 AND status = 'active'`,
+      `SELECT id FROM "${tenantId}".trip_logs WHERE id = $1::uuid AND inspector_id = $2::uuid AND status = 'active'`,
       tripId,
       inspectorId
     );
@@ -178,7 +178,7 @@ export class TripLogsService {
     const [entry] = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO "${tenantId}".trip_log_entries
        (trip_id, entry_type, latitude, longitude, address, description, linked_report_id, linked_infraction_id, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::uuid, $8::uuid, NOW())
        RETURNING *`,
       tripId,
       data.entryType,
@@ -206,7 +206,7 @@ export class TripLogsService {
     const params: any[] = [];
 
     if (inspectorId) {
-      query += ` WHERE inspector_id = $1`;
+      query += ` WHERE inspector_id = $1::uuid`;
       params.push(inspectorId);
     }
 

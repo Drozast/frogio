@@ -9,7 +9,7 @@ export class PanicService {
     const [alert] = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO "${tenantId}".panic_alerts
        (user_id, latitude, longitude, address, message, contact_phone, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW(), NOW())
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, 'active', NOW(), NOW())
        RETURNING *`,
       userId,
       data.latitude,
@@ -21,7 +21,7 @@ export class PanicService {
 
     // Get user info for notification
     const [user] = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT first_name, last_name, phone FROM "${tenantId}".users WHERE id = $1`,
+      `SELECT first_name, last_name, phone FROM "${tenantId}".users WHERE id = $1::uuid`,
       userId
     );
 
