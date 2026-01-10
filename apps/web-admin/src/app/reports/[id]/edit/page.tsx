@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import AppLayout from '@/components/layout/AppLayout';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 
 interface Report {
   id: string;
@@ -54,6 +54,7 @@ export default function EditReportPage() {
     status: 'pendiente',
     priority: 'media',
     address: '',
+    changeReason: '',
   });
 
   useEffect(() => {
@@ -71,6 +72,7 @@ export default function EditReportPage() {
           status: report.status || 'pendiente',
           priority: report.priority || 'media',
           address: report.address || '',
+          changeReason: '',
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -86,6 +88,12 @@ export default function EditReportPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.changeReason.trim()) {
+      setError('Debe indicar la razón del cambio para mantener la trazabilidad');
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
@@ -257,6 +265,31 @@ export default function EditReportPage() {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Razón del cambio - Requerido para trazabilidad */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <InformationCircleIcon className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <label htmlFor="changeReason" className="block text-sm font-medium text-amber-800 mb-1">
+                  Razón del cambio (Obligatorio)
+                </label>
+                <p className="text-xs text-amber-700 mb-2">
+                  Este campo es obligatorio para mantener la trazabilidad. Se guardará un historial de todas las versiones del reporte.
+                </p>
+                <textarea
+                  id="changeReason"
+                  name="changeReason"
+                  value={formData.changeReason}
+                  onChange={handleChange}
+                  rows={2}
+                  required
+                  placeholder="Ej: Corrección de dirección, Actualización de estado por inspección en terreno..."
+                  className="w-full px-3 py-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                />
+              </div>
             </div>
           </div>
 

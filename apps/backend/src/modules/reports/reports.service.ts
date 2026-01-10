@@ -1,8 +1,75 @@
 import prisma from '../../config/database.js';
 import { alertsService } from '../../services/alerts.service.js';
-import type { CreateReportDto, UpdateReportDto } from './reports.types.js';
+import type { CreateReportDto, UpdateReportDto, ReportVersion } from './reports.types.js';
 
 export class ReportsService {
+  // Save current state as a version before updating
+  private async saveVersion(reportId: string, modifiedBy: string, tenantId: string, changeReason?: string): Promise<void> {
+    // Get next version number
+    const [versionCount] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT COALESCE(MAX(version_number), 0) + 1 as next_version
+       FROM "${tenantId}".report_versions WHERE report_id = $1::uuid`,
+      reportId
+    );
+    const nextVersion = parseInt(versionCount?.next_version || '1');
+
+    // Get current report state
+    const [currentReport] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT * FROM "${tenantId}".reports WHERE id = $1::uuid`,
+      reportId
+    );
+
+    if (!currentReport) return;
+
+    // Insert version snapshot
+    await prisma.$queryRawUnsafe(
+      `INSERT INTO "${tenantId}".report_versions
+       (report_id, version_number, title, description, type, status, priority, address,
+        latitude, longitude, assigned_to, resolution, modified_by, modified_at, change_reason)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::uuid, $12, $13::uuid, NOW(), $14)`,
+      reportId,
+      nextVersion,
+      currentReport.title,
+      currentReport.description,
+      currentReport.type,
+      currentReport.status,
+      currentReport.priority,
+      currentReport.address,
+      currentReport.latitude,
+      currentReport.longitude,
+      currentReport.assigned_to,
+      currentReport.resolution,
+      modifiedBy,
+      changeReason || null
+    );
+  }
+
+  // Get version history for a report
+  async getVersionHistory(reportId: string, tenantId: string): Promise<ReportVersion[]> {
+    const versions = await prisma.$queryRawUnsafe<ReportVersion[]>(
+      `SELECT rv.*, u.first_name as modifier_first_name, u.last_name as modifier_last_name
+       FROM "${tenantId}".report_versions rv
+       LEFT JOIN "${tenantId}".users u ON rv.modified_by = u.id
+       WHERE rv.report_id = $1::uuid
+       ORDER BY rv.version_number DESC`,
+      reportId
+    );
+    return versions;
+  }
+
+  // Get a specific version
+  async getVersion(reportId: string, versionNumber: number, tenantId: string): Promise<ReportVersion | null> {
+    const [version] = await prisma.$queryRawUnsafe<ReportVersion[]>(
+      `SELECT rv.*, u.first_name as modifier_first_name, u.last_name as modifier_last_name
+       FROM "${tenantId}".report_versions rv
+       LEFT JOIN "${tenantId}".users u ON rv.modified_by = u.id
+       WHERE rv.report_id = $1::uuid AND rv.version_number = $2`,
+      reportId,
+      versionNumber
+    );
+    return version || null;
+  }
+
   async create(data: CreateReportDto, userId: string, tenantId: string) {
     const [report] = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO "${tenantId}".reports
@@ -77,14 +144,35 @@ export class ReportsService {
     return report;
   }
 
-  async update(id: string, data: UpdateReportDto, tenantId: string) {
+  async update(id: string, data: UpdateReportDto, modifiedBy: string, tenantId: string) {
     // Get current status for comparison
     const currentReport = await this.findById(id, tenantId);
     const oldStatus = currentReport.status;
 
+    // Save current state as a version before updating
+    await this.saveVersion(id, modifiedBy, tenantId, data.changeReason);
+
     const updates: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
+
+    if (data.title !== undefined) {
+      updates.push(`title = $${paramIndex}`);
+      params.push(data.title);
+      paramIndex++;
+    }
+
+    if (data.description !== undefined) {
+      updates.push(`description = $${paramIndex}`);
+      params.push(data.description);
+      paramIndex++;
+    }
+
+    if (data.type !== undefined) {
+      updates.push(`type = $${paramIndex}`);
+      params.push(data.type);
+      paramIndex++;
+    }
 
     if (data.status !== undefined) {
       updates.push(`status = $${paramIndex}`);
@@ -98,10 +186,20 @@ export class ReportsService {
       paramIndex++;
     }
 
-    if (data.assignedTo !== undefined) {
-      updates.push(`assigned_to = $${paramIndex}::uuid`);
-      params.push(data.assignedTo);
+    if (data.address !== undefined) {
+      updates.push(`address = $${paramIndex}`);
+      params.push(data.address);
       paramIndex++;
+    }
+
+    if (data.assignedTo !== undefined) {
+      if (data.assignedTo === null || data.assignedTo === '') {
+        updates.push(`assigned_to = NULL`);
+      } else {
+        updates.push(`assigned_to = $${paramIndex}::uuid`);
+        params.push(data.assignedTo);
+        paramIndex++;
+      }
     }
 
     if (data.resolution !== undefined) {
@@ -120,7 +218,7 @@ export class ReportsService {
     const [updatedReport] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".reports
        SET ${updates.join(', ')}
-       WHERE id = $${paramIndex}
+       WHERE id = $${paramIndex}::uuid
        RETURNING *`,
       ...params
     );

@@ -11,6 +11,7 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import InspectorSelector from './InspectorSelector';
+import VersionHistory from './VersionHistory';
 
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -297,6 +298,9 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                   : undefined
               }
             />
+
+            {/* Historial de Versiones */}
+            <VersionHistory reportId={report.id} />
 
             {/* Acciones */}
             <div className="bg-white rounded-lg shadow p-6">
