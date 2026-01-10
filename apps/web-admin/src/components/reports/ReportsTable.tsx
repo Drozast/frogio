@@ -173,15 +173,15 @@ export default function ReportsTable({ reports, inspectors }: ReportsTableProps)
                           disabled={assigningInspector}
                           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-green-50 transition-colors disabled:opacity-50 text-left"
                         >
-                          <div className="flex-shrink-0">
+                          <span className="flex-shrink-0">
                             <UserCircleIcon className="h-10 w-10 text-green-500" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900">
+                          </span>
+                          <span className="flex-1 min-w-0 flex flex-col">
+                            <span className="text-sm font-medium text-gray-900">
                               {inspector.firstName} {inspector.lastName}
-                            </p>
-                            <p className="text-sm text-gray-500 truncate">{inspector.email}</p>
-                          </div>
+                            </span>
+                            <span className="text-sm text-gray-500 truncate">{inspector.email}</span>
+                          </span>
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Disponible
                           </span>
@@ -205,15 +205,15 @@ export default function ReportsTable({ reports, inspectors }: ReportsTableProps)
                           disabled={assigningInspector}
                           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-50 text-left opacity-60"
                         >
-                          <div className="flex-shrink-0">
+                          <span className="flex-shrink-0">
                             <UserCircleIcon className="h-10 w-10 text-gray-400" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-700">
+                          </span>
+                          <span className="flex-1 min-w-0 flex flex-col">
+                            <span className="text-sm font-medium text-gray-700">
                               {inspector.firstName} {inspector.lastName}
-                            </p>
-                            <p className="text-sm text-gray-400 truncate">{inspector.email}</p>
-                          </div>
+                            </span>
+                            <span className="text-sm text-gray-400 truncate">{inspector.email}</span>
+                          </span>
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                             No disponible
                           </span>

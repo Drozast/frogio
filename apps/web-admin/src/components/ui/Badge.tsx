@@ -1,3 +1,5 @@
+'use client';
+
 type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'default';
 
 interface BadgeProps {
