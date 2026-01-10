@@ -11,6 +11,12 @@ router.use(authMiddleware);
 // Get upcoming citations
 router.get('/upcoming', (req, res) => citationsController.getUpcoming(req as AuthRequest, res));
 
+// Get statistics
+router.get('/stats', roleGuard('inspector', 'admin'), (req, res) => citationsController.getStats(req as AuthRequest, res));
+
+// Bulk import from Excel
+router.post('/import', roleGuard('admin'), (req, res) => citationsController.bulkImport(req as AuthRequest, res));
+
 // Only Inspectors and Admins can create citations
 router.post('/', roleGuard('inspector', 'admin'), (req, res) => citationsController.create(req as AuthRequest, res));
 

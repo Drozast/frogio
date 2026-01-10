@@ -9,7 +9,7 @@ export class CitationsService {
         location_address, latitude, longitude, citation_number, reason, notes, photos,
         user_id, infraction_id, court_name, hearing_date, address, notification_method,
         status, issued_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, NOW(), NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::uuid, NOW(), NOW())
        RETURNING *`,
       data.citationType || 'citacion',
       data.targetType || 'persona',
@@ -306,5 +306,66 @@ export class CitationsService {
 
     const citations = await prisma.$queryRawUnsafe<Citation[]>(query, ...params);
     return citations;
+  }
+
+  async bulkImport(
+    records: Array<{
+      citationType?: string;
+      targetType?: string;
+      targetName?: string;
+      targetRut?: string;
+      targetAddress?: string;
+      targetPhone?: string;
+      targetPlate?: string;
+      locationAddress?: string;
+      citationNumber: string;
+      reason: string;
+      notes?: string;
+      status?: string;
+      createdAt?: string;
+    }>,
+    tenantId: string,
+    issuedBy: string
+  ): Promise<{ imported: number; errors: string[] }> {
+    const errors: string[] = [];
+    let imported = 0;
+
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
+      try {
+        if (!record.citationNumber || !record.reason) {
+          errors.push(`Fila ${i + 1}: Número de notificación y motivo son requeridos`);
+          continue;
+        }
+
+        await prisma.$queryRawUnsafe(
+          `INSERT INTO "${tenantId}".court_citations
+           (citation_type, target_type, target_name, target_rut, target_address, target_phone, target_plate,
+            location_address, citation_number, reason, notes, status, issued_by, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::uuid,
+                   COALESCE($14::timestamp, NOW()), NOW())`,
+          record.citationType || 'citacion',
+          record.targetType || 'persona',
+          record.targetName || null,
+          record.targetRut || null,
+          record.targetAddress || null,
+          record.targetPhone || null,
+          record.targetPlate || null,
+          record.locationAddress || null,
+          record.citationNumber,
+          record.reason,
+          record.notes || null,
+          record.status || 'pendiente',
+          issuedBy,
+          record.createdAt || null
+        );
+        imported++;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Error desconocido';
+        errors.push(`Fila ${i + 1}: ${message}`);
+      }
+    }
+
+    return { imported, errors };
   }
 }

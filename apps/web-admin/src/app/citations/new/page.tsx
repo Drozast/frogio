@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppLayout from '@/components/layout/AppLayout';
@@ -16,6 +16,7 @@ import {
   XMarkIcon,
   ExclamationTriangleIcon,
   DocumentTextIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 
 type CitationType = 'advertencia' | 'citacion';
@@ -49,8 +50,8 @@ export default function NewCitationPage() {
     targetPhone: '',
     targetPlate: '',
     locationAddress: '',
-    latitude: null as number | null,
-    longitude: null as number | null,
+    latitude: '' as string,
+    longitude: '' as string,
     citationNumber: '',
     reason: '',
     notes: '',
@@ -60,24 +61,28 @@ export default function NewCitationPage() {
   const [previewPhotos, setPreviewPhotos] = useState<string[]>([]);
   const [gettingLocation, setGettingLocation] = useState(false);
 
-  // Generate citation number on mount
-  useEffect(() => {
-    const prefix = formData.citationType === 'advertencia' ? 'ADV' : 'CIT';
-    const year = new Date().getFullYear();
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    setFormData(prev => ({ ...prev, citationNumber: `${prefix}-${year}-${random}` }));
-  }, [formData.citationType]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!formData.citationNumber.trim()) {
+      setError('Debe ingresar el número de notificación según la papeleta');
+      return;
+    }
+
     setLoading(true);
 
     try {
+      const payload = {
+        ...formData,
+        latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+      };
+
       const response = await fetch('/api/citations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -107,12 +112,13 @@ export default function NewCitationPage() {
     }
 
     setGettingLocation(true);
+    setError('');
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setFormData(prev => ({
           ...prev,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
+          latitude: position.coords.latitude.toFixed(8),
+          longitude: position.coords.longitude.toFixed(8),
         }));
         setGettingLocation(false);
       },
@@ -122,6 +128,15 @@ export default function NewCitationPage() {
       },
       { enableHighAccuracy: true }
     );
+  };
+
+  const handleReuseTargetAddress = () => {
+    if (formData.targetAddress) {
+      setFormData(prev => ({
+        ...prev,
+        locationAddress: prev.targetAddress,
+      }));
+    }
   };
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,6 +163,14 @@ export default function NewCitationPage() {
       ...prev,
       photos: prev.photos.filter((_, i) => i !== index),
     }));
+  };
+
+  const openGoogleMaps = () => {
+    if (formData.latitude && formData.longitude) {
+      window.open(`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`, '_blank');
+    } else if (formData.locationAddress) {
+      window.open(`https://www.google.com/maps/search/${encodeURIComponent(formData.locationAddress)}`, '_blank');
+    }
   };
 
   const getTargetFields = () => {
@@ -472,6 +495,29 @@ export default function NewCitationPage() {
             </div>
           </div>
 
+          {/* Número de Notificación */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Número de Papeleta</h2>
+            <div>
+              <label htmlFor="citationNumber" className="block text-sm font-medium text-gray-700">
+                Número de Notificación (según papeleta física) *
+              </label>
+              <input
+                type="text"
+                id="citationNumber"
+                name="citationNumber"
+                required
+                placeholder="Ej: 001234, ADV-2024-001, etc."
+                value={formData.citationNumber}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Ingrese el número exacto que aparece en la papeleta física
+              </p>
+            </div>
+          </div>
+
           {/* Tipo de Objetivo */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">¿A quién va dirigida?</h2>
@@ -520,9 +566,21 @@ export default function NewCitationPage() {
             </h2>
             <div className="space-y-4">
               <div>
-                <label htmlFor="locationAddress" className="block text-sm font-medium text-gray-700">
-                  Dirección donde ocurrió el hecho
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="locationAddress" className="block text-sm font-medium text-gray-700">
+                    Dirección donde ocurrió el hecho
+                  </label>
+                  {formData.targetAddress && (
+                    <button
+                      type="button"
+                      onClick={handleReuseTargetAddress}
+                      className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+                    >
+                      <ArrowPathIcon className="h-3 w-3" />
+                      Usar dirección del destinatario
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   id="locationAddress"
@@ -533,7 +591,40 @@ export default function NewCitationPage() {
                   className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
-              <div className="flex items-center gap-4">
+
+              {/* Coordenadas manuales */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="latitude" className="block text-sm font-medium text-gray-700">
+                    Latitud
+                  </label>
+                  <input
+                    type="text"
+                    id="latitude"
+                    name="latitude"
+                    value={formData.latitude}
+                    onChange={handleChange}
+                    placeholder="-37.04676"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="longitude" className="block text-sm font-medium text-gray-700">
+                    Longitud
+                  </label>
+                  <input
+                    type="text"
+                    id="longitude"
+                    name="longitude"
+                    value={formData.longitude}
+                    onChange={handleChange}
+                    placeholder="-72.93839"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleGetLocation}
@@ -543,10 +634,15 @@ export default function NewCitationPage() {
                   <MapPinIcon className="h-4 w-4" />
                   {gettingLocation ? 'Obteniendo...' : 'Obtener ubicación actual'}
                 </button>
-                {formData.latitude && formData.longitude && (
-                  <span className="text-sm text-green-600">
-                    Ubicación: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
-                  </span>
+                {(formData.latitude || formData.locationAddress) && (
+                  <button
+                    type="button"
+                    onClick={openGoogleMaps}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 rounded-lg text-sm font-medium text-blue-700 transition-colors"
+                  >
+                    <MapPinIcon className="h-4 w-4" />
+                    Ver en Google Maps
+                  </button>
                 )}
               </div>
             </div>
@@ -556,20 +652,6 @@ export default function NewCitationPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Detalles</h2>
             <div className="space-y-4">
-              <div>
-                <label htmlFor="citationNumber" className="block text-sm font-medium text-gray-700">
-                  Número de Notificación
-                </label>
-                <input
-                  type="text"
-                  id="citationNumber"
-                  name="citationNumber"
-                  value={formData.citationNumber}
-                  onChange={handleChange}
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 bg-gray-50 shadow-sm"
-                  readOnly
-                />
-              </div>
               <div>
                 <label htmlFor="reason" className="block text-sm font-medium text-gray-700">
                   Motivo de la {formData.citationType === 'advertencia' ? 'Advertencia' : 'Citación'} *

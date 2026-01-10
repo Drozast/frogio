@@ -123,4 +123,24 @@ export class CitationsController {
       res.status(400).json({ error: message });
     }
   }
+
+  async bulkImport(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const tenantId = req.user!.tenantId;
+      const issuedBy = req.user!.userId;
+      const { records } = req.body;
+
+      if (!Array.isArray(records) || records.length === 0) {
+        res.status(400).json({ error: 'Se requiere un array de registros' });
+        return;
+      }
+
+      const result = await citationsService.bulkImport(records, tenantId, issuedBy);
+
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al importar citaciones';
+      res.status(400).json({ error: message });
+    }
+  }
 }
