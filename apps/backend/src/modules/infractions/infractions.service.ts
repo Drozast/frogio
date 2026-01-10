@@ -1,4 +1,5 @@
 import { prisma } from '../../config/database.js';
+import { alertsService } from '../../services/alerts.service.js';
 import type { CreateInfractionDto, UpdateInfractionDto } from './infractions.types.js';
 
 export class InfractionsService {
@@ -19,6 +20,12 @@ export class InfractionsService {
       'pendiente',
       issuedBy
     );
+
+    // Send automatic alert
+    await alertsService.onNewInfraction(tenantId, {
+      ...infraction,
+      userId: data.userId,
+    });
 
     return infraction;
   }
@@ -123,6 +130,11 @@ export class InfractionsService {
 
     if (!updatedInfraction) {
       throw new Error('Infracción no encontrada');
+    }
+
+    // Send alert if marked as paid
+    if (data.status === 'pagada') {
+      await alertsService.onInfractionPaid(tenantId, updatedInfraction);
     }
 
     return updatedInfraction;

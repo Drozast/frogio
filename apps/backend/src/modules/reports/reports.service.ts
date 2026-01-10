@@ -1,4 +1,5 @@
 import prisma from '../../config/database.js';
+import { alertsService } from '../../services/alerts.service.js';
 import type { CreateReportDto, UpdateReportDto } from './reports.types.js';
 
 export class ReportsService {
@@ -18,6 +19,9 @@ export class ReportsService {
       data.priority || 'media',
       'pendiente'
     );
+
+    // Send automatic alert
+    await alertsService.onNewReport(tenantId, report);
 
     return report;
   }
@@ -72,6 +76,10 @@ export class ReportsService {
   }
 
   async update(id: string, data: UpdateReportDto, tenantId: string) {
+    // Get current status for comparison
+    const currentReport = await this.findById(id, tenantId);
+    const oldStatus = currentReport.status;
+
     const updates: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -117,6 +125,14 @@ export class ReportsService {
 
     if (!updatedReport) {
       throw new Error('Reporte no encontrado');
+    }
+
+    // Send alert if status changed
+    if (data.status && data.status !== oldStatus) {
+      await alertsService.onReportStatusChange(tenantId, {
+        ...updatedReport,
+        reporterId: currentReport.user_id,
+      }, oldStatus, data.status);
     }
 
     return updatedReport;

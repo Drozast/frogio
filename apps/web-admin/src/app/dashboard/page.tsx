@@ -5,6 +5,11 @@ import AppLayout from '@/components/layout/AppLayout';
 import StatCard from '@/components/ui/StatCard';
 import { StatusBadge, PriorityBadge } from '@/components/ui/Badge';
 import {
+  ReportsByStatusChart,
+  InfractionsByTypeChart,
+  UsersByRoleChart,
+} from '@/components/charts/DashboardCharts';
+import {
   DocumentTextIcon,
   ExclamationTriangleIcon,
   UserGroupIcon,
@@ -13,6 +18,8 @@ import {
   ClockIcon,
   CheckCircleIcon,
   HeartIcon,
+  BellAlertIcon,
+  MapIcon,
 } from '@heroicons/react/24/outline';
 
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -242,6 +249,34 @@ export default async function DashboardPage() {
               </Link>
             </div>
           </div>
+        </div>
+
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <ReportsByStatusChart
+            data={[
+              { name: 'Pendientes', value: stats.pendingReports, color: '#F59E0B' },
+              { name: 'En Proceso', value: reports.filter((r: any) => r.status === 'en_proceso').length, color: '#3B82F6' },
+              { name: 'Resueltos', value: stats.resolvedReports, color: '#10B981' },
+              { name: 'Rechazados', value: reports.filter((r: any) => r.status === 'rechazado').length, color: '#EF4444' },
+            ].filter(d => d.value > 0)}
+          />
+          <InfractionsByTypeChart
+            data={Object.entries(
+              infractions.reduce((acc: Record<string, number>, inf: any) => {
+                const type = inf.type || 'Otro';
+                acc[type] = (acc[type] || 0) + 1;
+                return acc;
+              }, {})
+            ).map(([name, value]) => ({ name, value: value as number })).slice(0, 5)}
+          />
+          <UsersByRoleChart
+            data={[
+              { name: 'Ciudadanos', value: users.filter((u: any) => u.role === 'citizen').length, color: '#3B82F6' },
+              { name: 'Inspectores', value: users.filter((u: any) => u.role === 'inspector').length, color: '#10B981' },
+              { name: 'Administradores', value: users.filter((u: any) => u.role === 'admin').length, color: '#8B5CF6' },
+            ].filter(d => d.value > 0)}
+          />
         </div>
 
         {/* Recent Reports Table */}

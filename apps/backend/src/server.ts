@@ -19,6 +19,9 @@ import vehiclesRoutes from './modules/vehicles/vehicles.routes.js';
 import filesRoutes from './modules/files/files.routes.js';
 import notificationsRoutes from './modules/notifications/notifications.routes.js';
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
+import panicRoutes from './modules/panic/panic.routes.js';
+import tripLogsRoutes from './modules/trip-logs/trip-logs.routes.js';
+import exportsRoutes from './modules/exports/exports.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -112,6 +115,9 @@ app.use('/api/vehicles', vehiclesRoutes);
 app.use('/api/files', filesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/panic', panicRoutes);
+app.use('/api/trip-logs', tripLogsRoutes);
+app.use('/api/exports', exportsRoutes);
 
 // Socket.io (notificaciones en tiempo real)
 io.on('connection', (socket) => {
