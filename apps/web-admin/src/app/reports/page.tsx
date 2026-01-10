@@ -2,8 +2,6 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import AppLayout from '@/components/layout/AppLayout';
 import ReportsTable from '@/components/reports/ReportsTable';
-import { PlusIcon } from '@heroicons/react/24/outline';
-import Link from 'next/link';
 
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -68,15 +66,6 @@ export default async function ReportsPage() {
             <p className="mt-1 text-sm text-gray-500">
               Gestiona reportes, asigna inspectores y actualiza estados
             </p>
-          </div>
-          <div className="mt-4 flex md:mt-0 md:ml-4">
-            <Link
-              href="/reports/new"
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              Nuevo Reporte
-            </Link>
           </div>
         </div>
 
