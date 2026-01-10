@@ -54,7 +54,7 @@ export class PanicService {
     // Also create internal notification for all inspectors
     await prisma.$queryRawUnsafe(
       `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
-       SELECT id, $1, $2, 'panic_alert', $3, NOW()
+       SELECT id, $1, $2, 'panic_alert', $3::jsonb, NOW()
        FROM "${tenantId}".users WHERE role IN ('inspector', 'admin')`,
       '🚨 ALERTA DE PÁNICO',
       `Un ciudadano necesita ayuda urgente`,
@@ -142,7 +142,7 @@ export class PanicService {
     // Notify the user that help is on the way
     await prisma.$queryRawUnsafe(
       `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
-       VALUES ($1::uuid, $2, $3, 'panic_response', $4, NOW())`,
+       VALUES ($1::uuid, $2, $3, 'panic_response', $4::jsonb, NOW())`,
       alert.user_id,
       '✅ Ayuda en camino',
       'Un inspector está respondiendo a tu alerta',
