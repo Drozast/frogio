@@ -1,24 +1,72 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import AppLayout from '@/components/layout/AppLayout';
+import {
+  ArrowLeftIcon,
+  UserIcon,
+  HomeIcon,
+  TruckIcon,
+  BuildingStorefrontIcon,
+  QuestionMarkCircleIcon,
+  MapPinIcon,
+  CameraIcon,
+  XMarkIcon,
+  ExclamationTriangleIcon,
+  DocumentTextIcon,
+} from '@heroicons/react/24/outline';
+
+type CitationType = 'advertencia' | 'citacion';
+type TargetType = 'persona' | 'domicilio' | 'vehiculo' | 'comercio' | 'otro';
+
+const citationTypeOptions = [
+  { value: 'advertencia', label: 'Advertencia', description: 'Notificación preventiva sin consecuencias legales inmediatas', icon: ExclamationTriangleIcon },
+  { value: 'citacion', label: 'Citación', description: 'Citación formal con comparecencia obligatoria', icon: DocumentTextIcon },
+];
+
+const targetTypeOptions = [
+  { value: 'persona', label: 'Persona', icon: UserIcon },
+  { value: 'domicilio', label: 'Domicilio', icon: HomeIcon },
+  { value: 'vehiculo', label: 'Vehículo', icon: TruckIcon },
+  { value: 'comercio', label: 'Comercio', icon: BuildingStorefrontIcon },
+  { value: 'otro', label: 'Otro', icon: QuestionMarkCircleIcon },
+];
 
 export default function NewCitationPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
+    citationType: 'citacion' as CitationType,
+    targetType: 'persona' as TargetType,
+    targetName: '',
+    targetRut: '',
+    targetAddress: '',
+    targetPhone: '',
+    targetPlate: '',
+    locationAddress: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
     citationNumber: '',
-    courtName: '',
-    hearingDate: '',
-    hearingTime: '',
-    address: '',
-    details: '',
-    userId: '',
-    infractionId: '',
+    reason: '',
+    notes: '',
+    photos: [] as string[],
   });
+
+  const [previewPhotos, setPreviewPhotos] = useState<string[]>([]);
+  const [gettingLocation, setGettingLocation] = useState(false);
+
+  // Generate citation number on mount
+  useEffect(() => {
+    const prefix = formData.citationType === 'advertencia' ? 'ADV' : 'CIT';
+    const year = new Date().getFullYear();
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    setFormData(prev => ({ ...prev, citationNumber: `${prefix}-${year}-${random}` }));
+  }, [formData.citationType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,13 +74,10 @@ export default function NewCitationPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/citations/create', {
+      const response = await fetch('/api/citations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          infractionId: formData.infractionId || null,
-        }),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -42,184 +87,584 @@ export default function NewCitationPage() {
 
       router.push('/citations');
       router.refresh();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error desconocido';
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      setError('La geolocalización no está soportada en este navegador');
+      return;
+    }
+
+    setGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData(prev => ({
+          ...prev,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        }));
+        setGettingLocation(false);
+      },
+      (err) => {
+        setError(`Error obteniendo ubicación: ${err.message}`);
+        setGettingLocation(false);
+      },
+      { enableHighAccuracy: true }
+    );
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setPreviewPhotos(prev => [...prev, base64]);
+        setFormData(prev => ({
+          ...prev,
+          photos: [...prev.photos, base64],
+        }));
+      };
+      reader.readAsDataURL(file);
     });
   };
 
+  const removePhoto = (index: number) => {
+    setPreviewPhotos(prev => prev.filter((_, i) => i !== index));
+    setFormData(prev => ({
+      ...prev,
+      photos: prev.photos.filter((_, i) => i !== index),
+    }));
+  };
+
+  const getTargetFields = () => {
+    switch (formData.targetType) {
+      case 'persona':
+        return (
+          <>
+            <div>
+              <label htmlFor="targetName" className="block text-sm font-medium text-gray-700">
+                Nombre Completo *
+              </label>
+              <input
+                type="text"
+                id="targetName"
+                name="targetName"
+                required
+                value={formData.targetName}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="targetRut" className="block text-sm font-medium text-gray-700">
+                  RUT
+                </label>
+                <input
+                  type="text"
+                  id="targetRut"
+                  name="targetRut"
+                  placeholder="12.345.678-9"
+                  value={formData.targetRut}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="targetPhone" className="block text-sm font-medium text-gray-700">
+                  Teléfono
+                </label>
+                <input
+                  type="tel"
+                  id="targetPhone"
+                  name="targetPhone"
+                  placeholder="+56 9 1234 5678"
+                  value={formData.targetPhone}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="targetAddress" className="block text-sm font-medium text-gray-700">
+                Dirección del Domicilio
+              </label>
+              <input
+                type="text"
+                id="targetAddress"
+                name="targetAddress"
+                value={formData.targetAddress}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+          </>
+        );
+      case 'vehiculo':
+        return (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="targetPlate" className="block text-sm font-medium text-gray-700">
+                  Patente *
+                </label>
+                <input
+                  type="text"
+                  id="targetPlate"
+                  name="targetPlate"
+                  required
+                  placeholder="ABCD-12"
+                  value={formData.targetPlate}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 uppercase"
+                />
+              </div>
+              <div>
+                <label htmlFor="targetName" className="block text-sm font-medium text-gray-700">
+                  Propietario (si se conoce)
+                </label>
+                <input
+                  type="text"
+                  id="targetName"
+                  name="targetName"
+                  value={formData.targetName}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="targetRut" className="block text-sm font-medium text-gray-700">
+                RUT Propietario
+              </label>
+              <input
+                type="text"
+                id="targetRut"
+                name="targetRut"
+                placeholder="12.345.678-9"
+                value={formData.targetRut}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+          </>
+        );
+      case 'domicilio':
+        return (
+          <>
+            <div>
+              <label htmlFor="targetAddress" className="block text-sm font-medium text-gray-700">
+                Dirección del Domicilio *
+              </label>
+              <input
+                type="text"
+                id="targetAddress"
+                name="targetAddress"
+                required
+                value={formData.targetAddress}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="targetName" className="block text-sm font-medium text-gray-700">
+                Responsable / Propietario
+              </label>
+              <input
+                type="text"
+                id="targetName"
+                name="targetName"
+                value={formData.targetName}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="targetRut" className="block text-sm font-medium text-gray-700">
+                  RUT
+                </label>
+                <input
+                  type="text"
+                  id="targetRut"
+                  name="targetRut"
+                  placeholder="12.345.678-9"
+                  value={formData.targetRut}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="targetPhone" className="block text-sm font-medium text-gray-700">
+                  Teléfono
+                </label>
+                <input
+                  type="tel"
+                  id="targetPhone"
+                  name="targetPhone"
+                  value={formData.targetPhone}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+          </>
+        );
+      case 'comercio':
+        return (
+          <>
+            <div>
+              <label htmlFor="targetName" className="block text-sm font-medium text-gray-700">
+                Nombre del Comercio *
+              </label>
+              <input
+                type="text"
+                id="targetName"
+                name="targetName"
+                required
+                value={formData.targetName}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="targetAddress" className="block text-sm font-medium text-gray-700">
+                Dirección del Comercio *
+              </label>
+              <input
+                type="text"
+                id="targetAddress"
+                name="targetAddress"
+                required
+                value={formData.targetAddress}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="targetRut" className="block text-sm font-medium text-gray-700">
+                  RUT Comercio
+                </label>
+                <input
+                  type="text"
+                  id="targetRut"
+                  name="targetRut"
+                  placeholder="76.123.456-7"
+                  value={formData.targetRut}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="targetPhone" className="block text-sm font-medium text-gray-700">
+                  Teléfono
+                </label>
+                <input
+                  type="tel"
+                  id="targetPhone"
+                  name="targetPhone"
+                  value={formData.targetPhone}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+          </>
+        );
+      default:
+        return (
+          <>
+            <div>
+              <label htmlFor="targetName" className="block text-sm font-medium text-gray-700">
+                Descripción / Identificación *
+              </label>
+              <input
+                type="text"
+                id="targetName"
+                name="targetName"
+                required
+                value={formData.targetName}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="targetAddress" className="block text-sm font-medium text-gray-700">
+                Dirección (si aplica)
+              </label>
+              <input
+                type="text"
+                id="targetAddress"
+                name="targetAddress"
+                value={formData.targetAddress}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+          </>
+        );
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Link href="/citations" className="text-sm text-gray-600 hover:text-gray-900">
-            ← Volver a Citaciones
+    <AppLayout>
+      <div className="max-w-3xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Link
+            href="/citations"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 mt-2">Crear Nueva Citación</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Nueva Notificación</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Crear una nueva advertencia o citación
+            </p>
+          </div>
         </div>
-      </header>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white shadow rounded-lg p-6">
-          {error && (
-            <div className="mb-4 rounded-md bg-red-50 p-4">
-              <p className="text-sm text-red-800">{error}</p>
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Tipo de Notificación */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Tipo de Notificación</h2>
+            <div className="grid grid-cols-2 gap-4">
+              {citationTypeOptions.map(option => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, citationType: option.value as CitationType }))}
+                  className={`p-4 rounded-lg border-2 text-left transition-all ${
+                    formData.citationType === option.value
+                      ? 'border-indigo-500 bg-indigo-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <option.icon className={`h-6 w-6 mb-2 ${
+                    formData.citationType === option.value ? 'text-indigo-600' : 'text-gray-400'
+                  }`} />
+                  <p className="font-medium text-gray-900">{option.label}</p>
+                  <p className="text-xs text-gray-500 mt-1">{option.description}</p>
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="citationNumber" className="block text-sm font-medium text-gray-700">
-                Número de Citación *
-              </label>
-              <input
-                type="text"
-                id="citationNumber"
-                name="citationNumber"
-                required
-                placeholder="CIT-2025-001"
-                value={formData.citationNumber}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              />
+          {/* Tipo de Objetivo */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">¿A quién va dirigida?</h2>
+            <div className="flex flex-wrap gap-2">
+              {targetTypeOptions.map(option => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setFormData(prev => ({
+                    ...prev,
+                    targetType: option.value as TargetType,
+                    targetName: '',
+                    targetRut: '',
+                    targetAddress: '',
+                    targetPhone: '',
+                    targetPlate: '',
+                  }))}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+                    formData.targetType === option.value
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                  }`}
+                >
+                  <option.icon className="h-4 w-4" />
+                  {option.label}
+                </button>
+              ))}
             </div>
+          </div>
 
-            <div>
-              <label htmlFor="courtName" className="block text-sm font-medium text-gray-700">
-                Nombre del Tribunal *
-              </label>
-              <input
-                type="text"
-                id="courtName"
-                name="courtName"
-                required
-                placeholder="Juzgado de Policía Local"
-                value={formData.courtName}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              />
+          {/* Datos del Objetivo */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Datos del {targetTypeOptions.find(o => o.value === formData.targetType)?.label}
+            </h2>
+            <div className="space-y-4">
+              {getTargetFields()}
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          {/* Ubicación */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <MapPinIcon className="h-5 w-5 text-gray-500" />
+              Ubicación del Hecho
+            </h2>
+            <div className="space-y-4">
               <div>
-                <label htmlFor="hearingDate" className="block text-sm font-medium text-gray-700">
-                  Fecha de Audiencia *
+                <label htmlFor="locationAddress" className="block text-sm font-medium text-gray-700">
+                  Dirección donde ocurrió el hecho
                 </label>
                 <input
-                  type="date"
-                  id="hearingDate"
-                  name="hearingDate"
-                  required
-                  value={formData.hearingDate}
+                  type="text"
+                  id="locationAddress"
+                  name="locationAddress"
+                  value={formData.locationAddress}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Ej: Calle Principal 123, Santa Juana"
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={handleGetLocation}
+                  disabled={gettingLocation}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors disabled:opacity-50"
+                >
+                  <MapPinIcon className="h-4 w-4" />
+                  {gettingLocation ? 'Obteniendo...' : 'Obtener ubicación actual'}
+                </button>
+                {formData.latitude && formData.longitude && (
+                  <span className="text-sm text-green-600">
+                    Ubicación: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
 
+          {/* Motivo */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Detalles</h2>
+            <div className="space-y-4">
               <div>
-                <label htmlFor="hearingTime" className="block text-sm font-medium text-gray-700">
-                  Hora de Audiencia *
+                <label htmlFor="citationNumber" className="block text-sm font-medium text-gray-700">
+                  Número de Notificación
                 </label>
                 <input
-                  type="time"
-                  id="hearingTime"
-                  name="hearingTime"
-                  required
-                  value={formData.hearingTime}
+                  type="text"
+                  id="citationNumber"
+                  name="citationNumber"
+                  value={formData.citationNumber}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 bg-gray-50 shadow-sm"
+                  readOnly
+                />
+              </div>
+              <div>
+                <label htmlFor="reason" className="block text-sm font-medium text-gray-700">
+                  Motivo de la {formData.citationType === 'advertencia' ? 'Advertencia' : 'Citación'} *
+                </label>
+                <textarea
+                  id="reason"
+                  name="reason"
+                  required
+                  rows={3}
+                  value={formData.reason}
+                  onChange={handleChange}
+                  placeholder="Describa el motivo de la notificación..."
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+                  Observaciones Adicionales
+                </label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  rows={2}
+                  value={formData.notes}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
             </div>
+          </div>
 
-            <div>
-              <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-                Dirección del Tribunal *
-              </label>
+          {/* Fotos */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <CameraIcon className="h-5 w-5 text-gray-500" />
+              Evidencia Fotográfica
+            </h2>
+            <div className="space-y-4">
               <input
-                type="text"
-                id="address"
-                name="address"
-                required
-                placeholder="Av. Principal 123"
-                value={formData.address}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                type="file"
+                ref={fileInputRef}
+                onChange={handlePhotoSelect}
+                accept="image/*"
+                multiple
+                className="hidden"
               />
-            </div>
-
-            <div>
-              <label htmlFor="userId" className="block text-sm font-medium text-gray-700">
-                ID del Usuario *
-              </label>
-              <input
-                type="text"
-                id="userId"
-                name="userId"
-                required
-                placeholder="UUID del usuario"
-                value={formData.userId}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              />
-              <p className="mt-1 text-sm text-gray-500">UUID del usuario citado</p>
-            </div>
-
-            <div>
-              <label htmlFor="infractionId" className="block text-sm font-medium text-gray-700">
-                ID de Infracción (opcional)
-              </label>
-              <input
-                type="text"
-                id="infractionId"
-                name="infractionId"
-                placeholder="UUID de la infracción relacionada"
-                value={formData.infractionId}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="details" className="block text-sm font-medium text-gray-700">
-                Detalles Adicionales
-              </label>
-              <textarea
-                id="details"
-                name="details"
-                rows={3}
-                value={formData.details}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              />
-            </div>
-
-            <div className="flex gap-3">
               <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full py-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors flex flex-col items-center justify-center gap-2"
               >
-                {loading ? 'Creando...' : 'Crear Citación'}
+                <CameraIcon className="h-8 w-8 text-gray-400" />
+                <span className="text-sm text-gray-500">Agregar fotos</span>
               </button>
-              <Link
-                href="/citations"
-                className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 text-center"
-              >
-                Cancelar
-              </Link>
+              {previewPhotos.length > 0 && (
+                <div className="grid grid-cols-3 gap-4">
+                  {previewPhotos.map((photo, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={photo}
+                        alt={`Foto ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(index)}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </form>
-        </div>
-      </main>
-    </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3">
+            <Link
+              href="/citations"
+              className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              Cancelar
+            </Link>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Creando...' : `Crear ${formData.citationType === 'advertencia' ? 'Advertencia' : 'Citación'}`}
+            </button>
+          </div>
+        </form>
+      </div>
+    </AppLayout>
   );
 }
