@@ -59,19 +59,29 @@ export function ReportsByStatusChart({ data }: { data: ChartData[] }) {
   );
 }
 
-export function InfractionsByTypeChart({ data }: { data: ChartData[] }) {
+export function CitationsByStatusChart({ data }: { data: ChartData[] }) {
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">Infracciones por Tipo</h3>
+      <h3 className="text-lg font-medium text-gray-900 mb-4">Citaciones por Estado</h3>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" />
-            <YAxis dataKey="name" type="category" width={100} />
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+              outerRadius={80}
+              fill="#8884d8"
+              dataKey="value"
+            >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
             <Tooltip />
-            <Bar dataKey="value" fill="#EF4444" radius={[0, 4, 4, 0]} />
-          </BarChart>
+          </PieChart>
         </ResponsiveContainer>
       </div>
     </div>

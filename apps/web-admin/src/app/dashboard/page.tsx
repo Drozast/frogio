@@ -6,27 +6,24 @@ import StatCard from '@/components/ui/StatCard';
 import { StatusBadge, PriorityBadge } from '@/components/ui/Badge';
 import {
   ReportsByStatusChart,
-  InfractionsByTypeChart,
+  CitationsByStatusChart,
   UsersByRoleChart,
 } from '@/components/charts/DashboardCharts';
 import {
   DocumentTextIcon,
-  ExclamationTriangleIcon,
+  ScaleIcon,
   UserGroupIcon,
   TruckIcon,
-  ChartBarIcon,
   ClockIcon,
   CheckCircleIcon,
   HeartIcon,
-  BellAlertIcon,
-  MapIcon,
 } from '@heroicons/react/24/outline';
 
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 async function getDashboardData(token: string) {
   try {
-    const [reportsRes, infractionsRes, usersRes, vehiclesRes] = await Promise.all([
+    const [reportsRes, citationsRes, usersRes, vehiclesRes] = await Promise.all([
       fetch(`${API_URL}/api/reports`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -34,7 +31,7 @@ async function getDashboardData(token: string) {
         },
         cache: 'no-store',
       }),
-      fetch(`${API_URL}/api/infractions`, {
+      fetch(`${API_URL}/api/citations`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-Tenant-ID': 'santa_juana',
@@ -58,14 +55,14 @@ async function getDashboardData(token: string) {
     ]);
 
     const reports = reportsRes.ok ? await reportsRes.json() : [];
-    const infractions = infractionsRes.ok ? await infractionsRes.json() : [];
+    const citations = citationsRes.ok ? await citationsRes.json() : [];
     const users = usersRes.ok ? await usersRes.json() : [];
     const vehicles = vehiclesRes.ok ? await vehiclesRes.json() : [];
 
-    return { reports, infractions, users, vehicles };
+    return { reports, citations, users, vehicles };
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
-    return { reports: [], infractions: [], users: [], vehicles: [] };
+    return { reports: [], citations: [], users: [], vehicles: [] };
   }
 }
 
@@ -77,15 +74,15 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
-  const { reports, infractions, users, vehicles } = await getDashboardData(accessToken);
+  const { reports, citations, users, vehicles } = await getDashboardData(accessToken);
 
   // Calcular estadísticas
   const stats = {
     totalReports: reports.length,
     pendingReports: reports.filter((r: any) => r.status === 'pendiente').length,
     resolvedReports: reports.filter((r: any) => r.status === 'resuelto').length,
-    totalInfractions: infractions.length,
-    pendingInfractions: infractions.filter((i: any) => i.status === 'pendiente').length,
+    totalCitations: citations.length,
+    pendingCitations: citations.filter((c: any) => c.status === 'pendiente').length,
     totalUsers: users.length,
     activeUsers: users.filter((u: any) => u.isActive).length,
     totalVehicles: vehicles.length,
@@ -141,11 +138,11 @@ export default async function DashboardPage() {
             href="/reports?status=resuelto"
           />
           <StatCard
-            title="Total Infracciones"
-            value={stats.totalInfractions}
-            icon={<ExclamationTriangleIcon className="h-6 w-6" />}
-            color="red"
-            href="/infractions"
+            title="Total Citaciones"
+            value={stats.totalCitations}
+            icon={<ScaleIcon className="h-6 w-6" />}
+            color="yellow"
+            href="/citations"
           />
         </div>
 
@@ -180,7 +177,7 @@ export default async function DashboardPage() {
             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
               Acciones Rápidas
             </h3>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               <Link
                 href="/reports"
                 className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
@@ -193,13 +190,13 @@ export default async function DashboardPage() {
                 </div>
               </Link>
               <Link
-                href="/infractions"
+                href="/citations"
                 className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
               >
                 <div className="flex flex-col items-center">
-                  <ExclamationTriangleIcon className="h-8 w-8 text-red-600 mb-2" />
+                  <ScaleIcon className="h-8 w-8 text-orange-600 mb-2" />
                   <span className="text-sm font-medium text-gray-900 text-center">
-                    Infracciones
+                    Citaciones
                   </span>
                 </div>
               </Link>
@@ -211,17 +208,6 @@ export default async function DashboardPage() {
                   <TruckIcon className="h-8 w-8 text-purple-600 mb-2" />
                   <span className="text-sm font-medium text-gray-900 text-center">
                     Vehículos
-                  </span>
-                </div>
-              </Link>
-              <Link
-                href="/citations"
-                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
-              >
-                <div className="flex flex-col items-center">
-                  <ChartBarIcon className="h-8 w-8 text-green-600 mb-2" />
-                  <span className="text-sm font-medium text-gray-900 text-center">
-                    Citaciones
                   </span>
                 </div>
               </Link>
@@ -261,14 +247,13 @@ export default async function DashboardPage() {
               { name: 'Rechazados', value: reports.filter((r: any) => r.status === 'rechazado').length, color: '#EF4444' },
             ].filter(d => d.value > 0)}
           />
-          <InfractionsByTypeChart
-            data={Object.entries(
-              infractions.reduce((acc: Record<string, number>, inf: any) => {
-                const type = inf.type || 'Otro';
-                acc[type] = (acc[type] || 0) + 1;
-                return acc;
-              }, {})
-            ).map(([name, value]) => ({ name, value: value as number })).slice(0, 5)}
+          <CitationsByStatusChart
+            data={[
+              { name: 'Pendientes', value: stats.pendingCitations, color: '#F59E0B' },
+              { name: 'Notificadas', value: citations.filter((c: any) => c.status === 'notificada').length, color: '#3B82F6' },
+              { name: 'Comparecidas', value: citations.filter((c: any) => c.status === 'comparecida').length, color: '#10B981' },
+              { name: 'No Comparecidas', value: citations.filter((c: any) => c.status === 'no_comparecida').length, color: '#EF4444' },
+            ].filter(d => d.value > 0)}
           />
           <UsersByRoleChart
             data={[

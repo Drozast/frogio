@@ -18,7 +18,6 @@ import {
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Reportes', href: '/reports', icon: DocumentTextIcon },
-  { name: 'Infracciones', href: '/infractions', icon: ExclamationTriangleIcon },
   { name: 'Citaciones', href: '/citations', icon: ScaleIcon },
   { name: 'Vehículos', href: '/vehicles', icon: TruckIcon },
   { name: 'Fichas Médicas', href: '/medical-records', icon: HeartIcon },
