@@ -53,7 +53,7 @@ export class PanicService {
 
     // Also create internal notification for all inspectors
     await prisma.$queryRawUnsafe(
-      `INSERT INTO "${tenantId}".notifications (user_id, title, body, type, data, created_at)
+      `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
        SELECT id, $1, $2, 'panic_alert', $3, NOW()
        FROM "${tenantId}".users WHERE role IN ('inspector', 'admin')`,
       '🚨 ALERTA DE PÁNICO',
@@ -114,7 +114,7 @@ export class PanicService {
        FROM "${tenantId}".panic_alerts pa
        LEFT JOIN "${tenantId}".users u ON pa.user_id = u.id
        LEFT JOIN "${tenantId}".users r ON pa.responder_id = r.id
-       WHERE pa.id = $1`,
+       WHERE pa.id = $1::uuid`,
       id
     );
 
@@ -128,8 +128,8 @@ export class PanicService {
   async respond(id: string, responderId: string, tenantId: string) {
     const [alert] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".panic_alerts
-       SET status = 'responding', responder_id = $1, responded_at = NOW(), updated_at = NOW()
-       WHERE id = $2 AND status = 'active'
+       SET status = 'responding', responder_id = $1::uuid, responded_at = NOW(), updated_at = NOW()
+       WHERE id = $2::uuid AND status = 'active'
        RETURNING *`,
       responderId,
       id
@@ -141,8 +141,8 @@ export class PanicService {
 
     // Notify the user that help is on the way
     await prisma.$queryRawUnsafe(
-      `INSERT INTO "${tenantId}".notifications (user_id, title, body, type, data, created_at)
-       VALUES ($1, $2, $3, 'panic_response', $4, NOW())`,
+      `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
+       VALUES ($1::uuid, $2, $3, 'panic_response', $4, NOW())`,
       alert.user_id,
       '✅ Ayuda en camino',
       'Un inspector está respondiendo a tu alerta',
@@ -156,7 +156,7 @@ export class PanicService {
     const [alert] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".panic_alerts
        SET status = 'resolved', notes = $1, resolved_at = NOW(), updated_at = NOW()
-       WHERE id = $2 AND status IN ('active', 'responding')
+       WHERE id = $2::uuid AND status IN ('active', 'responding')
        RETURNING *`,
       notes,
       id
@@ -173,7 +173,7 @@ export class PanicService {
     const [alert] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".panic_alerts
        SET status = 'cancelled', updated_at = NOW()
-       WHERE id = $1 AND user_id = $2 AND status = 'active'
+       WHERE id = $1::uuid AND user_id = $2::uuid AND status = 'active'
        RETURNING *`,
       id,
       userId
