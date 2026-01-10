@@ -61,10 +61,12 @@ export class ReportsService {
 
   async findById(id: string, tenantId: string) {
     const [report] = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT r.*, u.first_name, u.last_name, u.email, u.phone
+      `SELECT r.*, u.first_name, u.last_name, u.email, u.phone,
+       a.first_name as assigned_first_name, a.last_name as assigned_last_name
        FROM "${tenantId}".reports r
        LEFT JOIN "${tenantId}".users u ON r.user_id = u.id
-       WHERE r.id = $1 LIMIT 1`,
+       LEFT JOIN "${tenantId}".users a ON r.assigned_to = a.id
+       WHERE r.id = $1::uuid LIMIT 1`,
       id
     );
 
