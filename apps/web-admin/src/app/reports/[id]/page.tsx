@@ -80,15 +80,16 @@ const typeLabels: Record<string, string> = {
   otro: 'Otro',
 };
 
-export default async function ReportDetailPage({ params }: { params: { id: string } }) {
-  const cookieStore = cookies();
+export default async function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
 
   if (!accessToken) {
     redirect('/login');
   }
 
-  const report = await getReport(params.id, accessToken);
+  const report = await getReport(id, accessToken);
 
   if (!report) {
     notFound();
