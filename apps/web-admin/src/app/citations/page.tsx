@@ -192,10 +192,10 @@ export default function CitationsPage() {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
 
       // Map Excel columns to our format
-      const records = jsonData.map((row: Record<string, unknown>) => ({
+      const records = jsonData.map((row) => ({
         citationNumber: String(row['Número'] || row['numero'] || row['N°'] || row['citationNumber'] || ''),
         citationType: String(row['Tipo'] || row['tipo'] || row['citationType'] || 'citacion').toLowerCase(),
         targetType: String(row['Destinatario'] || row['destinatario'] || row['targetType'] || 'persona').toLowerCase(),
@@ -209,7 +209,7 @@ export default function CitationsPage() {
         notes: String(row['Observaciones'] || row['observaciones'] || row['Notas'] || row['notas'] || row['notes'] || ''),
         status: String(row['Estado'] || row['estado'] || row['status'] || 'pendiente').toLowerCase(),
         createdAt: row['Fecha'] || row['fecha'] || row['createdAt'] || null,
-      })).filter((r: { citationNumber: string; reason: string }) => r.citationNumber && r.reason);
+      })).filter((r) => r.citationNumber && r.reason);
 
       if (records.length === 0) {
         throw new Error('No se encontraron registros válidos. Asegúrese de que el Excel tenga columnas "Número" y "Motivo".');
