@@ -10,6 +10,7 @@ import {
   ClockIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
+import InspectorSelector from './InspectorSelector';
 
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -33,6 +34,14 @@ interface Report {
   assigned_last_name?: string;
 }
 
+interface Inspector {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  isActive?: boolean;
+}
+
 async function getReport(id: string, token: string): Promise<Report | null> {
   try {
     const response = await fetch(`${API_URL}/api/reports/${id}`, {
@@ -48,6 +57,24 @@ async function getReport(id: string, token: string): Promise<Report | null> {
   } catch (error) {
     console.error('Error fetching report:', error);
     return null;
+  }
+}
+
+async function getInspectors(token: string): Promise<Inspector[]> {
+  try {
+    const response = await fetch(`${API_URL}/api/users?role=inspector`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-Tenant-ID': 'santa_juana',
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching inspectors:', error);
+    return [];
   }
 }
 
@@ -89,7 +116,10 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
     redirect('/login');
   }
 
-  const report = await getReport(id, accessToken);
+  const [report, inspectors] = await Promise.all([
+    getReport(id, accessToken),
+    getInspectors(accessToken),
+  ]);
 
   if (!report) {
     notFound();
@@ -257,38 +287,16 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
             </div>
 
             {/* Inspector Asignado */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <UserIcon className="h-5 w-5 text-gray-500" />
-                Inspector Asignado
-              </h2>
-
-              {report.assigned_first_name ? (
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-                    <span className="text-green-600 font-semibold text-lg">
-                      {report.assigned_first_name?.charAt(0) || ''}{report.assigned_last_name?.charAt(0) || ''}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {report.assigned_first_name} {report.assigned_last_name}
-                    </p>
-                    <p className="text-sm text-green-600">Asignado</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                  <p className="text-sm text-yellow-800">Sin inspector asignado</p>
-                  <Link
-                    href="/reports"
-                    className="text-sm text-indigo-600 hover:text-indigo-800 font-medium mt-2 inline-block"
-                  >
-                    Asignar desde la lista
-                  </Link>
-                </div>
-              )}
-            </div>
+            <InspectorSelector
+              reportId={report.id}
+              inspectors={inspectors}
+              currentInspectorId={report.assigned_to}
+              currentInspectorName={
+                report.assigned_first_name
+                  ? `${report.assigned_first_name} ${report.assigned_last_name}`
+                  : undefined
+              }
+            />
 
             {/* Acciones */}
             <div className="bg-white rounded-lg shadow p-6">
