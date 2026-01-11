@@ -36,7 +36,6 @@ interface Citation {
   location_address: string | null;
   citation_number: string;
   reason: string;
-  status: string;
   created_at: string;
   issuer_first_name?: string;
   issuer_last_name?: string;
@@ -55,21 +54,12 @@ const targetTypeIcons: Record<string, typeof UserIcon> = {
   otro: QuestionMarkCircleIcon,
 };
 
-const statusLabels: Record<string, { label: string; color: string }> = {
-  pendiente: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
-  notificado: { label: 'Notificado', color: 'bg-blue-100 text-blue-800' },
-  asistio: { label: 'Asistió', color: 'bg-green-100 text-green-800' },
-  no_asistio: { label: 'No Asistió', color: 'bg-red-100 text-red-800' },
-  cancelado: { label: 'Cancelado', color: 'bg-gray-100 text-gray-800' },
-};
-
 export default function CitationsPage() {
   const [citations, setCitations] = useState<Citation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterTargetType, setFilterTargetType] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -136,7 +126,6 @@ export default function CitationsPage() {
 
       if (filterType && citation.citation_type !== filterType) return false;
       if (filterTargetType && citation.target_type !== filterTargetType) return false;
-      if (filterStatus && citation.status !== filterStatus) return false;
 
       if (selectedDate) {
         const citationDate = getDateKey(citation.created_at);
@@ -145,7 +134,7 @@ export default function CitationsPage() {
 
       return true;
     });
-  }, [citations, searchQuery, filterType, filterTargetType, filterStatus, selectedDate]);
+  }, [citations, searchQuery, filterType, filterTargetType, selectedDate]);
 
   const groupedCitations = useMemo(() => {
     const groups: Record<string, Citation[]> = {};
@@ -175,11 +164,10 @@ export default function CitationsPage() {
     setSearchQuery('');
     setFilterType('');
     setFilterTargetType('');
-    setFilterStatus('');
     setSelectedDate('');
   };
 
-  const hasActiveFilters = searchQuery || filterType || filterTargetType || filterStatus || selectedDate;
+  const hasActiveFilters = searchQuery || filterType || filterTargetType || selectedDate;
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -207,7 +195,6 @@ export default function CitationsPage() {
         locationAddress: String(row['Ubicación'] || row['ubicacion'] || row['Ubicacion'] || row['locationAddress'] || ''),
         reason: String(row['Motivo'] || row['motivo'] || row['Razón'] || row['razon'] || row['reason'] || ''),
         notes: String(row['Observaciones'] || row['observaciones'] || row['Notas'] || row['notas'] || row['notes'] || ''),
-        status: String(row['Estado'] || row['estado'] || row['status'] || 'pendiente').toLowerCase(),
         createdAt: row['Fecha'] || row['fecha'] || row['createdAt'] || null,
       })).filter((r) => r.citationNumber && r.reason);
 
@@ -256,7 +243,6 @@ export default function CitationsPage() {
         'Ubicación': 'Calle Principal 123, Santa Juana',
         'Motivo': 'Infracción ordenanza municipal',
         'Observaciones': '',
-        'Estado': 'pendiente',
         'Fecha': '2024-01-15',
       },
     ];
@@ -339,7 +325,7 @@ export default function CitationsPage() {
 
               <div className="space-y-4">
                 <p className="text-sm text-gray-600">
-                  Suba un archivo Excel (.xlsx) con las notificaciones a importar. El archivo debe tener las columnas: Número, Tipo, Destinatario, Nombre, RUT, Dirección, Teléfono, Patente, Ubicación, Motivo, Observaciones, Estado, Fecha.
+                  Suba un archivo Excel (.xlsx) con las notificaciones a importar. El archivo debe tener las columnas: Número, Tipo, Destinatario, Nombre, RUT, Dirección, Teléfono, Patente, Ubicación, Motivo, Observaciones, Fecha.
                 </p>
 
                 <button
@@ -464,18 +450,6 @@ export default function CitationsPage() {
                 <option value="comercio">Comercio</option>
                 <option value="otro">Otro</option>
               </select>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">Todos los estados</option>
-                <option value="pendiente">Pendiente</option>
-                <option value="notificado">Notificado</option>
-                <option value="asistio">Asistió</option>
-                <option value="no_asistio">No Asistió</option>
-                <option value="cancelado">Cancelado</option>
-              </select>
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
@@ -559,7 +533,6 @@ export default function CitationsPage() {
                   {dateCitations.map((citation) => {
                     const typeInfo = citationTypeLabels[citation.citation_type] || citationTypeLabels.citacion;
                     const TargetIcon = targetTypeIcons[citation.target_type] || QuestionMarkCircleIcon;
-                    const statusInfo = statusLabels[citation.status] || statusLabels.pendiente;
 
                     return (
                       <Link
@@ -612,9 +585,6 @@ export default function CitationsPage() {
 
                               {/* Right Side */}
                               <div className="flex flex-col items-end gap-2">
-                                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusInfo.color}`}>
-                                  {statusInfo.label}
-                                </span>
                                 <span className="text-xs text-gray-400">
                                   {new Date(citation.created_at).toLocaleTimeString('es-CL', {
                                     hour: '2-digit',

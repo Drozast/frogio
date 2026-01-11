@@ -17,9 +17,6 @@ import {
   CalendarIcon,
   ClockIcon,
   TrashIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  BellIcon,
 } from '@heroicons/react/24/outline';
 
 interface Citation {
@@ -63,13 +60,6 @@ const targetTypeLabels: Record<string, string> = {
   otro: 'Otro',
 };
 
-const statusLabels: Record<string, { label: string; color: string }> = {
-  pendiente: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-  notificado: { label: 'Notificado', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  asistio: { label: 'Asistió', color: 'bg-green-100 text-green-800 border-green-200' },
-  no_asistio: { label: 'No Asistió', color: 'bg-red-100 text-red-800 border-red-200' },
-  cancelado: { label: 'Cancelado', color: 'bg-gray-100 text-gray-800 border-gray-200' },
-};
 
 export default function CitationDetailPage() {
   const params = useParams();
@@ -78,7 +68,6 @@ export default function CitationDetailPage() {
 
   const [citation, setCitation] = useState<Citation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -97,30 +86,6 @@ export default function CitationDetailPage() {
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function updateStatus(newStatus: string) {
-    if (!citation) return;
-
-    setUpdating(true);
-    try {
-      const response = await fetch(`/api/citations/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al actualizar estado');
-      }
-
-      const data = await response.json();
-      setCitation(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
-    } finally {
-      setUpdating(false);
     }
   }
 
@@ -168,7 +133,6 @@ export default function CitationDetailPage() {
   }
 
   const TargetIcon = targetTypeIcons[citation.target_type] || QuestionMarkCircleIcon;
-  const statusInfo = statusLabels[citation.status] || statusLabels.pendiente;
 
   return (
     <AppLayout>
@@ -187,12 +151,16 @@ export default function CitationDetailPage() {
                 <h1 className="text-2xl font-bold text-gray-900">
                   {citation.citation_type === 'advertencia' ? 'Advertencia' : 'Citación'}
                 </h1>
-                <span className={`px-3 py-1 text-sm font-medium rounded-full border ${statusInfo.color}`}>
-                  {statusInfo.label}
+                <span className={`px-3 py-1 text-sm font-medium rounded-full border ${
+                  citation.citation_type === 'advertencia'
+                    ? 'bg-amber-100 text-amber-800 border-amber-200'
+                    : 'bg-indigo-100 text-indigo-800 border-indigo-200'
+                }`}>
+                  {citation.citation_type === 'advertencia' ? 'Advertencia' : 'Citación'}
                 </span>
               </div>
               <p className="text-sm text-gray-500 mt-1">
-                {citation.citation_number}
+                N° {citation.citation_number}
               </p>
             </div>
           </div>
@@ -337,52 +305,6 @@ export default function CitationDetailPage() {
 
           {/* Right Column */}
           <div className="space-y-6">
-            {/* Status Actions */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Acciones</h3>
-              <div className="space-y-2">
-                {citation.status === 'pendiente' && (
-                  <button
-                    onClick={() => updateStatus('notificado')}
-                    disabled={updating}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    <BellIcon className="h-4 w-4" />
-                    Marcar como Notificado
-                  </button>
-                )}
-                {(citation.status === 'notificado' || citation.status === 'pendiente') && citation.citation_type === 'citacion' && (
-                  <>
-                    <button
-                      onClick={() => updateStatus('asistio')}
-                      disabled={updating}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                    >
-                      <CheckCircleIcon className="h-4 w-4" />
-                      Registrar Asistencia
-                    </button>
-                    <button
-                      onClick={() => updateStatus('no_asistio')}
-                      disabled={updating}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-                    >
-                      <XCircleIcon className="h-4 w-4" />
-                      No Asistió
-                    </button>
-                  </>
-                )}
-                {citation.status !== 'cancelado' && (
-                  <button
-                    onClick={() => updateStatus('cancelado')}
-                    disabled={updating}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-                  >
-                    Cancelar Notificación
-                  </button>
-                )}
-              </div>
-            </div>
-
             {/* Meta Info */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Información</h3>
@@ -390,7 +312,7 @@ export default function CitationDetailPage() {
                 <div>
                   <dt className="text-sm text-gray-500 flex items-center gap-1">
                     <CalendarIcon className="h-4 w-4" />
-                    Fecha de Creación
+                    Fecha de Registro
                   </dt>
                   <dd className="text-sm font-medium text-gray-900 mt-1">
                     {new Date(citation.created_at).toLocaleDateString('es-CL', {
@@ -402,23 +324,6 @@ export default function CitationDetailPage() {
                     })}
                   </dd>
                 </div>
-                {citation.notified_at && (
-                  <div>
-                    <dt className="text-sm text-gray-500 flex items-center gap-1">
-                      <BellIcon className="h-4 w-4" />
-                      Fecha de Notificación
-                    </dt>
-                    <dd className="text-sm font-medium text-gray-900 mt-1">
-                      {new Date(citation.notified_at).toLocaleDateString('es-CL', {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </dd>
-                  </div>
-                )}
                 {citation.issuer_first_name && (
                   <div>
                     <dt className="text-sm text-gray-500 flex items-center gap-1">
@@ -427,14 +332,6 @@ export default function CitationDetailPage() {
                     </dt>
                     <dd className="text-sm font-medium text-gray-900 mt-1">
                       {citation.issuer_first_name} {citation.issuer_last_name}
-                    </dd>
-                  </div>
-                )}
-                {citation.notification_method && (
-                  <div>
-                    <dt className="text-sm text-gray-500">Método de Notificación</dt>
-                    <dd className="text-sm font-medium text-gray-900 mt-1 capitalize">
-                      {citation.notification_method.replace('_', ' ')}
                     </dd>
                   </div>
                 )}
