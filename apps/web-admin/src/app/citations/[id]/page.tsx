@@ -303,7 +303,7 @@ export default function CitationDetailPage() {
                       Ver en Google Maps
                     </a>
                     <p className="text-xs text-gray-400 mt-1">
-                      Coordenadas: {citation.latitude.toFixed(6)}, {citation.longitude.toFixed(6)}
+                      Coordenadas: {Number(citation.latitude).toFixed(6)}, {Number(citation.longitude).toFixed(6)}
                     </p>
                   </div>
                 )}
