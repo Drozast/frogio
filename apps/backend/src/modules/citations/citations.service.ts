@@ -123,7 +123,7 @@ export class CitationsService {
        LEFT JOIN "${tenantId}".users issuer ON cc.issued_by = issuer.id
        LEFT JOIN "${tenantId}".users u ON cc.user_id = u.id
        LEFT JOIN "${tenantId}".infractions i ON cc.infraction_id = i.id
-       WHERE cc.id = $1 LIMIT 1`,
+       WHERE cc.id = $1::uuid LIMIT 1`,
       id
     );
 
@@ -225,7 +225,7 @@ export class CitationsService {
     const [updatedCitation] = await prisma.$queryRawUnsafe<Citation[]>(
       `UPDATE "${tenantId}".court_citations
        SET ${updates.join(', ')}
-       WHERE id = $${paramIndex}
+       WHERE id = $${paramIndex}::uuid
        RETURNING *`,
       ...params
     );
@@ -239,7 +239,7 @@ export class CitationsService {
 
   async delete(id: string, tenantId: string): Promise<{ message: string }> {
     const [deletedCitation] = await prisma.$queryRawUnsafe<{ id: string }[]>(
-      `DELETE FROM "${tenantId}".court_citations WHERE id = $1 RETURNING id`,
+      `DELETE FROM "${tenantId}".court_citations WHERE id = $1::uuid RETURNING id`,
       id
     );
 
