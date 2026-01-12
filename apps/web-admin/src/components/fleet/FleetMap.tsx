@@ -141,7 +141,7 @@ export default function FleetMap({
               </span>
             </div>
             <p style="margin: 8px 0 0 0; font-size: 11px; color: #9ca3af;">
-              Última actualización: ${new Date(vehicle.recordedAt).toLocaleTimeString('es-CL')}
+              Última actualización: ${vehicle.recordedAt ? new Date(vehicle.recordedAt).toLocaleTimeString('es-CL') : 'N/A'}
             </p>
           </div>
         `);

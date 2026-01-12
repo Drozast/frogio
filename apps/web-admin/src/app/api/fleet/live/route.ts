@@ -25,7 +25,14 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+
+    // Map backend field names to frontend expected names
+    const mappedData = Array.isArray(data) ? data.map((item: Record<string, unknown>) => ({
+      ...item,
+      recordedAt: item.lastUpdate || item.recordedAt || new Date().toISOString(),
+    })) : data;
+
+    return NextResponse.json(mappedData);
   } catch (error) {
     console.error('Error fetching live positions:', error);
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });

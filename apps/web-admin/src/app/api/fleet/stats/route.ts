@@ -34,7 +34,35 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+
+    // Map backend response to frontend expected format
+    const mappedData = {
+      totals: {
+        totalDistance: data.totalKm || 0,
+        totalTrips: data.totalTrips || 0,
+        totalPoints: data.totalPoints || 0,
+      },
+      byVehicle: (data.byVehicle || []).map((v: Record<string, unknown>) => ({
+        vehicleId: v.vehicleId,
+        vehiclePlate: v.vehiclePlate || '',
+        vehicleBrand: v.vehicleBrand || '',
+        vehicleModel: v.vehicleModel || '',
+        totalDistanceKm: v.totalKm || v.totalDistanceKm || 0,
+        totalTrips: v.totalTrips || 0,
+        totalPoints: v.totalPoints || 0,
+        avgSpeed: v.avgSpeed || 0,
+        maxSpeed: v.maxSpeed || 0,
+      })),
+      byInspector: (data.byInspector || []).map((i: Record<string, unknown>) => ({
+        inspectorId: i.inspectorId,
+        inspectorName: i.inspectorName || '',
+        totalDistanceKm: i.totalKm || i.totalDistanceKm || 0,
+        totalTrips: i.totalTrips || 0,
+        vehiclesUsed: i.vehiclesUsed || 1,
+      })),
+    };
+
+    return NextResponse.json(mappedData);
   } catch (error) {
     console.error('Error fetching stats:', error);
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
