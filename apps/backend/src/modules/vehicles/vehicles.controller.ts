@@ -240,8 +240,10 @@ export class VehiclesController {
   // Get all logs with filters (admin only)
   async getAllLogs(req: AuthRequest, res: Response): Promise<void> {
     try {
+      console.log('🚗 getAllLogs controller called');
       const tenantId = req.user!.tenantId;
       const { vehicleId, driverId, startDate, endDate, status } = req.query;
+      console.log('🚗 tenantId:', tenantId, 'filters:', { vehicleId, driverId, startDate, endDate, status });
 
       const logs = await vehiclesService.getAllLogs(tenantId, {
         vehicleId: vehicleId && vehicleId !== '' ? vehicleId as string : undefined,

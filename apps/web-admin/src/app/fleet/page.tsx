@@ -371,6 +371,44 @@ function FleetPageContent() {
 
   const selectedHistoryVehicle = vehicles.find(v => v.id === historyVehicleId);
 
+  // Export route history to Excel
+  const exportRouteToExcel = () => {
+    if (!routeData || routeData.points.length === 0 || !selectedHistoryVehicle) return;
+
+    const exportData = routeData.points.map((point, index) => ({
+      '#': index + 1,
+      'Fecha/Hora': format(new Date(point.recorded_at), 'dd/MM/yyyy HH:mm:ss', { locale: es }),
+      'Latitud': point.latitude.toFixed(6),
+      'Longitud': point.longitude.toFixed(6),
+      'Velocidad (km/h)': point.speed?.toFixed(1) || 'N/A',
+    }));
+
+    // Add summary sheet
+    const summaryData = [
+      { Campo: 'Patente', Valor: selectedHistoryVehicle.plate },
+      { Campo: 'Vehículo', Valor: `${selectedHistoryVehicle.brand} ${selectedHistoryVehicle.model}` },
+      { Campo: 'Fecha', Valor: format(new Date(historyDate), 'dd/MM/yyyy', { locale: es }) },
+      { Campo: 'Distancia Total', Valor: `${routeData.totalDistance.toFixed(2)} km` },
+      { Campo: 'Velocidad Promedio', Valor: `${routeData.avgSpeed.toFixed(1)} km/h` },
+      { Campo: 'Velocidad Máxima', Valor: `${routeData.maxSpeed.toFixed(1)} km/h` },
+      { Campo: 'Puntos GPS', Valor: routeData.points.length.toString() },
+      { Campo: 'Inicio Actividad', Valor: routeData.startTime ? format(new Date(routeData.startTime), 'HH:mm:ss', { locale: es }) : 'N/A' },
+      { Campo: 'Fin Actividad', Valor: routeData.endTime ? format(new Date(routeData.endTime), 'HH:mm:ss', { locale: es }) : 'N/A' },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+
+    // Points sheet
+    const pointsSheet = XLSX.utils.json_to_sheet(exportData);
+    XLSX.utils.book_append_sheet(workbook, pointsSheet, 'Puntos GPS');
+
+    // Summary sheet
+    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen');
+
+    XLSX.writeFile(workbook, `ruta_${selectedHistoryVehicle.plate}_${historyDate}.xlsx`);
+  };
+
   const tabs = [
     { id: 'live' as TabType, name: 'Mapa en Vivo', icon: MapPinIcon },
     { id: 'logs' as TabType, name: 'Bitácora', icon: ClockIcon },
@@ -853,6 +891,15 @@ function FleetPageContent() {
                         </p>
                       </div>
                     )}
+
+                    {/* Export Button */}
+                    <button
+                      onClick={exportRouteToExcel}
+                      className="w-full px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+                    >
+                      <DocumentArrowDownIcon className="h-4 w-4" />
+                      Exportar Ruta a Excel
+                    </button>
                   </div>
                 )}
               </div>
