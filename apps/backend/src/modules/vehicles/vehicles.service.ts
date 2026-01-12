@@ -453,6 +453,9 @@ export class VehiclesService {
 
     query += ` ORDER BY vl.start_time DESC LIMIT 500`;
 
+    console.log('📋 getAllLogs query:', query);
+    console.log('📋 getAllLogs params:', params);
+
     const logs = await prisma.$queryRawUnsafe<unknown[]>(query, ...params);
     return logs;
   }
