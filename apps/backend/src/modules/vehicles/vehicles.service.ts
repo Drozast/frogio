@@ -372,13 +372,13 @@ export class VehiclesService {
     let paramIndex = 1;
 
     if (filters?.vehicleId) {
-      query += ` AND vl.vehicle_id = $${paramIndex}`;
+      query += ` AND vl.vehicle_id = $${paramIndex}::uuid`;
       params.push(filters.vehicleId);
       paramIndex++;
     }
 
     if (filters?.driverId) {
-      query += ` AND vl.driver_id = $${paramIndex}`;
+      query += ` AND vl.driver_id = $${paramIndex}::uuid`;
       params.push(filters.driverId);
       paramIndex++;
     }
