@@ -228,8 +228,8 @@ export class GpsTrackingService {
       JOIN "${tenantId}".vehicles v ON vl.vehicle_id = v.id
       JOIN "${tenantId}".users u ON vl.driver_id = u.id
       WHERE vl.vehicle_id = $1::uuid
-        AND vl.start_time >= $2
-        AND vl.start_time <= $3
+        AND vl.start_time >= $2::timestamptz
+        AND vl.start_time <= $3::timestamptz
       ORDER BY vl.start_time DESC
     `;
 
