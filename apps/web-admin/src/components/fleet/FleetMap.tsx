@@ -88,8 +88,8 @@ export default function FleetMap({
     if (!mapRef.current || mapInstanceRef.current) return;
 
     const map = L.map(mapRef.current, {
-      center: [-37.1738, -72.4249], // Santa Juana, Chile - Yungay 125
-      zoom: 14, // Zoom para ver el centro de la comuna
+      center: [-37.174650, -72.936815], // Municipalidad de Santa Juana
+      zoom: 15,
       zoomControl: true,
     });
 

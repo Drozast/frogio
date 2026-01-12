@@ -25,8 +25,8 @@ export default function RouteMap({ points, vehiclePlate }: RouteMapProps) {
     if (!mapRef.current || mapInstanceRef.current) return;
 
     const map = L.map(mapRef.current, {
-      center: [-37.1738, -72.4249], // Santa Juana, Chile - Yungay 125
-      zoom: 14,
+      center: [-37.174650, -72.936815], // Municipalidad de Santa Juana
+      zoom: 15,
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

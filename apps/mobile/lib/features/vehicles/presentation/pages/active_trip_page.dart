@@ -281,7 +281,7 @@ class _ActiveTripPageState extends State<ActiveTripPage> {
             options: MapOptions(
               initialCenter: _currentPosition != null
                   ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-                  : const LatLng(-37.1738, -72.4249), // Santa Juana - Yungay 125
+                  : const LatLng(-37.174650, -72.936815), // Municipalidad de Santa Juana
               initialZoom: 15,
             ),
             children: [
