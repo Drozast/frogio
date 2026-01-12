@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { GeofencesService } from './geofences.service';
-import { CreateGeofenceDto, UpdateGeofenceDto } from './geofences.types';
+import { GeofencesService } from './geofences.service.js';
+import { CreateGeofenceDto, UpdateGeofenceDto } from './geofences.types.js';
 
 interface AuthRequest extends Request {
   user?: {

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { GpsTrackingService } from './gps-tracking.service';
-import { GpsBatchDto } from './gps-tracking.types';
+import { GpsTrackingService } from './gps-tracking.service.js';
+import { GpsBatchDto } from './gps-tracking.types.js';
 
 interface AuthRequest extends Request {
   user?: {

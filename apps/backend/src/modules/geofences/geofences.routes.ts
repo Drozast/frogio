@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { GeofencesController } from './geofences.controller';
-import { authMiddleware, AuthRequest, roleGuard } from '../../middleware/auth.middleware';
+import { GeofencesController } from './geofences.controller.js';
+import { authMiddleware, AuthRequest, roleGuard } from '../../middleware/auth.middleware.js';
 
 const router = Router();
 const geofencesController = new GeofencesController();

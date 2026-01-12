@@ -5,7 +5,7 @@ import {
   GpsHistoryQuery,
   GpsStats,
   RouteHistory,
-} from './gps-tracking.types';
+} from './gps-tracking.types.js';
 
 const prisma = new PrismaClient();
 

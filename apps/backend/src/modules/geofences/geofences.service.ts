@@ -5,7 +5,7 @@ import {
   Geofence,
   GeofenceEvent,
   GeofenceCheckResult,
-} from './geofences.types';
+} from './geofences.types.js';
 
 const prisma = new PrismaClient();
 

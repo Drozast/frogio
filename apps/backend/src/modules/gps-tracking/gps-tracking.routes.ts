@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { GpsTrackingController } from './gps-tracking.controller';
-import { authMiddleware, AuthRequest, roleGuard } from '../../middleware/auth.middleware';
+import { GpsTrackingController } from './gps-tracking.controller.js';
+import { authMiddleware, AuthRequest, roleGuard } from '../../middleware/auth.middleware.js';
 
 const router = Router();
 const gpsController = new GpsTrackingController();
