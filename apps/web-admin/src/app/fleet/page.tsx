@@ -7,6 +7,7 @@ import Link from 'next/link';
 import AppLayout from '@/components/layout/AppLayout';
 import VehicleList from '@/components/fleet/VehicleList';
 import GeofenceAlerts from '@/components/fleet/GeofenceAlerts';
+import LogDetailModal from '@/components/fleet/LogDetailModal';
 import { useFleetSocket, VehiclePosition } from '@/hooks/useFleetSocket';
 import {
   TruckIcon,
@@ -100,6 +101,7 @@ interface VehicleLog {
   end_time: string | null;
   total_distance_km: number | null;
   observations: string | null;
+  status?: string;
 }
 
 interface Inspector {
@@ -193,6 +195,7 @@ function FleetPageContent() {
   const [logsStartDate, setLogsStartDate] = useState<string>('');
   const [logsEndDate, setLogsEndDate] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<VehicleLog | null>(null);
 
   // History state
   const [historyVehicleId, setHistoryVehicleId] = useState<string>('');
@@ -767,7 +770,11 @@ function FleetPageContent() {
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {logs.map((log) => (
-                          <tr key={log.id} className="hover:bg-gray-50">
+                          <tr
+                            key={log.id}
+                            className="hover:bg-indigo-50 cursor-pointer transition-colors"
+                            onClick={() => setSelectedLog(log)}
+                          >
                             <td className="px-4 py-3 whitespace-nowrap">
                               <p className="text-sm font-medium text-gray-900 uppercase">{log.vehicle_plate}</p>
                               <p className="text-xs text-gray-500">{log.vehicle_brand} {log.vehicle_model}</p>
@@ -1218,6 +1225,15 @@ function FleetPageContent() {
 
         </div>
       </div>
+
+      {/* Log Detail Modal */}
+      {selectedLog && (
+        <LogDetailModal
+          isOpen={!!selectedLog}
+          onClose={() => setSelectedLog(null)}
+          log={selectedLog}
+        />
+      )}
     </AppLayout>
   );
 }
