@@ -236,4 +236,25 @@ export class VehiclesController {
       res.status(400).json({ error: message });
     }
   }
+
+  // Get all logs with filters (admin only)
+  async getAllLogs(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const tenantId = req.user!.tenantId;
+      const { vehicleId, driverId, startDate, endDate, status } = req.query;
+
+      const logs = await vehiclesService.getAllLogs(tenantId, {
+        vehicleId: vehicleId as string | undefined,
+        driverId: driverId as string | undefined,
+        startDate: startDate as string | undefined,
+        endDate: endDate as string | undefined,
+        status: status as string | undefined,
+      });
+
+      res.json(logs);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al obtener bitácora';
+      res.status(400).json({ error: message });
+    }
+  }
 }

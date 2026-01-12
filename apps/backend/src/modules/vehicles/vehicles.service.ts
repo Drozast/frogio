@@ -332,4 +332,78 @@ export class VehiclesService {
 
     return log;
   }
+
+  // Get all logs with filters (for admin dashboard)
+  async getAllLogs(
+    tenantId: string,
+    filters?: {
+      vehicleId?: string;
+      driverId?: string;
+      startDate?: string;
+      endDate?: string;
+      status?: string;
+    }
+  ) {
+    let query = `
+      SELECT
+        vl.id,
+        vl.vehicle_id,
+        v.plate as vehicle_plate,
+        v.brand as vehicle_brand,
+        v.model as vehicle_model,
+        vl.driver_id,
+        vl.driver_name,
+        vl.usage_type,
+        vl.purpose,
+        vl.start_km,
+        vl.end_km,
+        vl.start_time,
+        vl.end_time,
+        vl.observations,
+        vl.status,
+        vl.total_distance_km,
+        vl.created_at
+      FROM "${tenantId}".vehicle_logs vl
+      LEFT JOIN "${tenantId}".vehicles v ON vl.vehicle_id = v.id
+      WHERE 1=1
+    `;
+
+    const params: (string | Date)[] = [];
+    let paramIndex = 1;
+
+    if (filters?.vehicleId) {
+      query += ` AND vl.vehicle_id = $${paramIndex}`;
+      params.push(filters.vehicleId);
+      paramIndex++;
+    }
+
+    if (filters?.driverId) {
+      query += ` AND vl.driver_id = $${paramIndex}`;
+      params.push(filters.driverId);
+      paramIndex++;
+    }
+
+    if (filters?.startDate) {
+      query += ` AND vl.start_time >= $${paramIndex}`;
+      params.push(new Date(filters.startDate));
+      paramIndex++;
+    }
+
+    if (filters?.endDate) {
+      query += ` AND vl.start_time <= $${paramIndex}`;
+      params.push(new Date(filters.endDate + 'T23:59:59'));
+      paramIndex++;
+    }
+
+    if (filters?.status) {
+      query += ` AND vl.status = $${paramIndex}`;
+      params.push(filters.status);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY vl.start_time DESC LIMIT 500`;
+
+    const logs = await prisma.$queryRawUnsafe<unknown[]>(query, ...params);
+    return logs;
+  }
 }

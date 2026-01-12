@@ -24,6 +24,9 @@ router.delete('/:id', roleGuard('admin'), (req, res) => vehiclesController.delet
 
 // ===== VEHICLE LOGS (Usage Tracking) =====
 
+// Get all logs with filters (admin only) - must be before /logs/:logId
+router.get('/logs', roleGuard('admin'), (req, res) => vehiclesController.getAllLogs(req as AuthRequest, res));
+
 // Get active vehicle usage (inspectors/admins)
 router.get('/logs/active', roleGuard('inspector', 'admin'), (req, res) => vehiclesController.getActiveUsage(req as AuthRequest, res));
 

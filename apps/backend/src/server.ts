@@ -22,6 +22,8 @@ import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
 import panicRoutes from './modules/panic/panic.routes.js';
 import tripLogsRoutes from './modules/trip-logs/trip-logs.routes.js';
 import exportsRoutes from './modules/exports/exports.routes.js';
+import gpsTrackingRoutes from './modules/gps-tracking/gps-tracking.routes.js';
+import geofencesRoutes from './modules/geofences/geofences.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -118,6 +120,8 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/panic', panicRoutes);
 app.use('/api/trip-logs', tripLogsRoutes);
 app.use('/api/exports', exportsRoutes);
+app.use('/api/gps', gpsTrackingRoutes);
+app.use('/api/geofences', geofencesRoutes);
 
 // Socket.io (notificaciones en tiempo real)
 io.on('connection', (socket) => {
@@ -127,6 +131,43 @@ io.on('connection', (socket) => {
     logger.info(`Client disconnected: ${socket.id}`);
   });
 });
+
+// Socket.IO Fleet namespace for real-time GPS tracking
+const fleetNamespace = io.of('/fleet');
+
+fleetNamespace.on('connection', (socket) => {
+  logger.info(`🚗 Fleet client connected: ${socket.id}`);
+
+  // Join tenant room
+  socket.on('join:tenant', (tenantId: string) => {
+    socket.join(`tenant:${tenantId}`);
+    logger.info(`Fleet client ${socket.id} joined tenant: ${tenantId}`);
+  });
+
+  // Leave tenant room
+  socket.on('leave:tenant', (tenantId: string) => {
+    socket.leave(`tenant:${tenantId}`);
+    logger.info(`Fleet client ${socket.id} left tenant: ${tenantId}`);
+  });
+
+  // Join specific vehicle room (for inspectors)
+  socket.on('join:vehicle', (vehicleId: string) => {
+    socket.join(`vehicle:${vehicleId}`);
+    logger.info(`Fleet client ${socket.id} tracking vehicle: ${vehicleId}`);
+  });
+
+  // Leave vehicle room
+  socket.on('leave:vehicle', (vehicleId: string) => {
+    socket.leave(`vehicle:${vehicleId}`);
+  });
+
+  socket.on('disconnect', () => {
+    logger.info(`🚗 Fleet client disconnected: ${socket.id}`);
+  });
+});
+
+// Store io in app for use in controllers
+app.set('io', io);
 
 // Export io para uso en otros módulos
 export { io };

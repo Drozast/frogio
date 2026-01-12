@@ -12,7 +12,8 @@ import {
   UserGroupIcon,
   BellIcon,
   ChartBarIcon,
-  Cog6ToothIcon
+  Cog6ToothIcon,
+  MapIcon,
 } from '@heroicons/react/24/outline';
 
 const navigation = [
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'Reportes', href: '/reports', icon: DocumentTextIcon },
   { name: 'Citaciones', href: '/citations', icon: ScaleIcon },
   { name: 'Vehículos', href: '/vehicles', icon: TruckIcon },
+  { name: 'Flota GPS', href: '/fleet', icon: MapIcon },
   { name: 'Fichas Médicas', href: '/medical-records', icon: HeartIcon },
   { name: 'Usuarios', href: '/users', icon: UserGroupIcon },
   { name: 'Notificaciones', href: '/notifications', icon: BellIcon },

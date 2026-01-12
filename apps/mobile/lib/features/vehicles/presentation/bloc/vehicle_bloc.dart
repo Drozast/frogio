@@ -141,11 +141,47 @@ class FilterVehiclesEvent extends VehicleEvent {
 
 class RefreshVehiclesEvent extends VehicleEvent {
   final String muniId;
-  
+
   const RefreshVehiclesEvent({required this.muniId});
-  
+
   @override
   List<Object> get props => [muniId];
+}
+
+class StartGpsTrackingEvent extends VehicleEvent {
+  final String vehicleId;
+  final String vehicleLogId;
+  final String accessToken;
+  final String apiUrl;
+
+  const StartGpsTrackingEvent({
+    required this.vehicleId,
+    required this.vehicleLogId,
+    required this.accessToken,
+    required this.apiUrl,
+  });
+
+  @override
+  List<Object> get props => [vehicleId, vehicleLogId, accessToken, apiUrl];
+}
+
+class StopGpsTrackingEvent extends VehicleEvent {}
+
+class GpsPositionUpdatedEvent extends VehicleEvent {
+  final double latitude;
+  final double longitude;
+  final double? speed;
+  final double? accuracy;
+
+  const GpsPositionUpdatedEvent({
+    required this.latitude,
+    required this.longitude,
+    this.speed,
+    this.accuracy,
+  });
+
+  @override
+  List<Object?> get props => [latitude, longitude, speed, accuracy];
 }
 
 class StartWatchingVehiclesEvent extends VehicleEvent {
@@ -335,15 +371,78 @@ class VehicleError extends VehicleState {
   final String message;
   final String? errorCode;
   final bool canRetry;
-  
+
   const VehicleError({
     required this.message,
     this.errorCode,
     this.canRetry = true,
   });
-  
+
   @override
   List<Object?> get props => [message, errorCode, canRetry];
+}
+
+class GpsTrackingActive extends VehicleState {
+  final String vehicleId;
+  final String vehicleLogId;
+  final double? currentLatitude;
+  final double? currentLongitude;
+  final double? currentSpeed;
+  final int pointsRecorded;
+  final DateTime startedAt;
+
+  const GpsTrackingActive({
+    required this.vehicleId,
+    required this.vehicleLogId,
+    this.currentLatitude,
+    this.currentLongitude,
+    this.currentSpeed,
+    this.pointsRecorded = 0,
+    required this.startedAt,
+  });
+
+  @override
+  List<Object?> get props => [
+        vehicleId,
+        vehicleLogId,
+        currentLatitude,
+        currentLongitude,
+        currentSpeed,
+        pointsRecorded,
+        startedAt,
+      ];
+
+  GpsTrackingActive copyWith({
+    double? currentLatitude,
+    double? currentLongitude,
+    double? currentSpeed,
+    int? pointsRecorded,
+  }) {
+    return GpsTrackingActive(
+      vehicleId: vehicleId,
+      vehicleLogId: vehicleLogId,
+      currentLatitude: currentLatitude ?? this.currentLatitude,
+      currentLongitude: currentLongitude ?? this.currentLongitude,
+      currentSpeed: currentSpeed ?? this.currentSpeed,
+      pointsRecorded: pointsRecorded ?? this.pointsRecorded,
+      startedAt: startedAt,
+    );
+  }
+}
+
+class GpsTrackingStopped extends VehicleState {
+  final String vehicleId;
+  final int totalPointsRecorded;
+  final Duration duration;
+
+  const GpsTrackingStopped({
+    required this.vehicleId,
+    required this.totalPointsRecorded,
+    required this.duration,
+  });
+
+  @override
+  List<Object> get props => [vehicleId, totalPointsRecorded, duration];
 }
 
 // BLoC
@@ -371,6 +470,9 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
     on<RefreshVehiclesEvent>(_onRefreshVehicles);
     on<StartWatchingVehiclesEvent>(_onStartWatchingVehicles);
     on<StopWatchingVehiclesEvent>(_onStopWatchingVehicles);
+    on<StartGpsTrackingEvent>(_onStartGpsTracking);
+    on<StopGpsTrackingEvent>(_onStopGpsTracking);
+    on<GpsPositionUpdatedEvent>(_onGpsPositionUpdated);
   }
 
   @override
@@ -685,12 +787,66 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
 
   Map<String, int> _calculateTypeCounts(List<VehicleEntity> vehicles) {
     final counts = <String, int>{};
-    
+
     for (final vehicle in vehicles) {
       final type = vehicle.type.name;
       counts[type] = (counts[type] ?? 0) + 1;
     }
-    
+
     return counts;
+  }
+
+  // GPS Tracking handlers
+  DateTime? _gpsTrackingStartTime;
+  int _gpsPointsRecorded = 0;
+
+  Future<void> _onStartGpsTracking(
+    StartGpsTrackingEvent event,
+    Emitter<VehicleState> emit,
+  ) async {
+    _gpsTrackingStartTime = DateTime.now();
+    _gpsPointsRecorded = 0;
+
+    emit(GpsTrackingActive(
+      vehicleId: event.vehicleId,
+      vehicleLogId: event.vehicleLogId,
+      startedAt: _gpsTrackingStartTime!,
+    ));
+  }
+
+  Future<void> _onStopGpsTracking(
+    StopGpsTrackingEvent event,
+    Emitter<VehicleState> emit,
+  ) async {
+    if (state is GpsTrackingActive) {
+      final currentState = state as GpsTrackingActive;
+      final duration = DateTime.now().difference(_gpsTrackingStartTime!);
+
+      emit(GpsTrackingStopped(
+        vehicleId: currentState.vehicleId,
+        totalPointsRecorded: _gpsPointsRecorded,
+        duration: duration,
+      ));
+
+      _gpsTrackingStartTime = null;
+      _gpsPointsRecorded = 0;
+    }
+  }
+
+  void _onGpsPositionUpdated(
+    GpsPositionUpdatedEvent event,
+    Emitter<VehicleState> emit,
+  ) {
+    if (state is GpsTrackingActive) {
+      final currentState = state as GpsTrackingActive;
+      _gpsPointsRecorded++;
+
+      emit(currentState.copyWith(
+        currentLatitude: event.latitude,
+        currentLongitude: event.longitude,
+        currentSpeed: event.speed,
+        pointsRecorded: _gpsPointsRecorded,
+      ));
+    }
   }
 }
