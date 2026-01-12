@@ -5,7 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../../../core/services/gps_tracking_service.dart';
 import '../../domain/entities/vehicle_entity.dart';
 import '../bloc/vehicle_bloc.dart';
@@ -52,9 +54,22 @@ class _ActiveTripPageState extends State<ActiveTripPage> {
   }
 
   Future<void> _startTracking() async {
-    // Get API URL and token from storage/config
-    const apiUrl = 'http://192.168.31.115:3000'; // TODO: Get from config
-    const accessToken = ''; // TODO: Get from auth state
+    // Get API URL from config and token from storage
+    final apiUrl = ApiConfig.activeBaseUrl;
+    final prefs = await SharedPreferences.getInstance();
+    final accessToken = prefs.getString('access_token') ?? '';
+
+    if (accessToken.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error: No hay sesión activa'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
 
     final success = await _gpsService.startTracking(
       vehicleId: widget.vehicle.id,

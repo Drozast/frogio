@@ -44,7 +44,7 @@ export default function NewVehiclePage() {
         throw new Error(data.error || 'Error al registrar el vehículo');
       }
 
-      router.push('/vehicles');
+      router.push('/fleet?tab=vehicles');
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -64,8 +64,8 @@ export default function NewVehiclePage() {
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Link href="/vehicles" className="text-sm text-gray-600 hover:text-gray-900">
-            ← Volver a Vehículos
+          <Link href="/fleet?tab=vehicles" className="text-sm text-gray-600 hover:text-gray-900">
+            ← Volver a Gestión de Flota
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 mt-2">Registrar Nuevo Vehículo</h1>
         </div>
@@ -298,7 +298,7 @@ export default function NewVehiclePage() {
                 {loading ? 'Registrando...' : 'Registrar Vehículo'}
               </button>
               <Link
-                href="/vehicles"
+                href="/fleet?tab=vehicles"
                 className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 text-center"
               >
                 Cancelar
