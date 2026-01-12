@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 export interface VehiclePosition {
@@ -38,10 +38,25 @@ interface UseFleetSocketReturn {
   vehicles: Map<string, VehiclePosition>;
   geofenceEvents: GeofenceEvent[];
   error: string | null;
+  refreshPositions: () => Promise<void>;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 const TENANT_ID = 'santa_juana';
+
+// Get the socket URL - use window location for client-side
+function getSocketUrl(): string {
+  if (typeof window === 'undefined') {
+    return 'http://localhost:3000';
+  }
+  // Use the same host as the current page, but port 3000 for the backend
+  const host = window.location.hostname;
+  // If accessing via localhost or IP, use port 3000
+  if (host === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    return `http://${host}:3000`;
+  }
+  // For domain access, try the API subdomain
+  return process.env.NEXT_PUBLIC_API_URL || `http://${host}:3000`;
+}
 
 export function useFleetSocket(): UseFleetSocketReturn {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -49,9 +64,27 @@ export function useFleetSocket(): UseFleetSocketReturn {
   const [vehicles, setVehicles] = useState<Map<string, VehiclePosition>>(new Map());
   const [geofenceEvents, setGeofenceEvents] = useState<GeofenceEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+
+  // Function to fetch live positions via REST API as fallback
+  const refreshPositions = useCallback(async () => {
+    try {
+      const response = await fetch('/api/fleet/live');
+      if (response.ok) {
+        const positions: VehiclePosition[] = await response.json();
+        setVehicles(new Map(positions.map(p => [p.vehicleId, p])));
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Error fetching live positions:', err);
+    }
+  }, []);
 
   useEffect(() => {
-    const newSocket = io(`${API_URL}/fleet`, {
+    const socketUrl = getSocketUrl();
+    console.log('Connecting to fleet socket:', socketUrl);
+
+    const newSocket = io(`${socketUrl}/fleet`, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 5,
@@ -63,17 +96,31 @@ export function useFleetSocket(): UseFleetSocketReturn {
       setIsConnected(true);
       setError(null);
       newSocket.emit('join:tenant', TENANT_ID);
+      // Clear polling when socket connects
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+        pollingInterval.current = null;
+      }
     });
 
     newSocket.on('disconnect', () => {
       console.log('Fleet socket disconnected');
       setIsConnected(false);
+      // Start polling when disconnected
+      if (!pollingInterval.current) {
+        pollingInterval.current = setInterval(refreshPositions, 10000);
+      }
     });
 
     newSocket.on('connect_error', (err: Error) => {
       console.error('Fleet socket connection error:', err);
-      setError('Error de conexión al servidor');
+      setError('Modo offline - actualizando cada 10s');
       setIsConnected(false);
+      // Start polling on connection error
+      if (!pollingInterval.current) {
+        refreshPositions(); // Fetch immediately
+        pollingInterval.current = setInterval(refreshPositions, 10000);
+      }
     });
 
     // Vehicle position updates
@@ -110,16 +157,23 @@ export function useFleetSocket(): UseFleetSocketReturn {
 
     setSocket(newSocket);
 
+    // Initial fetch of positions
+    refreshPositions();
+
     return () => {
       newSocket.emit('leave:tenant', TENANT_ID);
       newSocket.disconnect();
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
     };
-  }, []);
+  }, [refreshPositions]);
 
   return {
     isConnected,
     vehicles,
     geofenceEvents,
     error,
+    refreshPositions,
   };
 }
