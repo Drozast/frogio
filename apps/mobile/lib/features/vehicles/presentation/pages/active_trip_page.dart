@@ -281,7 +281,7 @@ class _ActiveTripPageState extends State<ActiveTripPage> {
             options: MapOptions(
               initialCenter: _currentPosition != null
                   ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-                  : const LatLng(-37.1738, -72.4598),
+                  : const LatLng(-37.1738, -72.4249), // Santa Juana - Yungay 125
               initialZoom: 15,
             ),
             children: [

@@ -21,9 +21,11 @@ import {
   FunnelIcon,
   ArrowPathIcon,
   CalendarIcon,
-  Cog6ToothIcon,
   MapPinIcon,
   PlayIcon,
+  PencilIcon,
+  TrashIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -73,6 +75,13 @@ interface Vehicle {
   owner_rut: string;
   is_active: boolean;
   created_at: string;
+  ownership_type: 'propio' | 'arrendado' | 'comodato' | null;
+  vehicle_status: 'activo' | 'dado_de_baja' | 'en_espera_de_remate' | 'rematado' | null;
+  notes: string | null;
+  insurance_expiry: string | null;
+  technical_review_expiry: string | null;
+  acquisition_date: string | null;
+  disposal_date: string | null;
 }
 
 interface VehicleLog {
@@ -116,7 +125,7 @@ interface RouteData {
   endTime: string;
 }
 
-type TabType = 'live' | 'logs' | 'history' | 'vehicles' | 'settings';
+type TabType = 'live' | 'logs' | 'history' | 'vehicles';
 
 const usageTypeLabels: Record<string, string> = {
   'official': 'Servicio Oficial',
@@ -126,11 +135,36 @@ const usageTypeLabels: Record<string, string> = {
   'other': 'Otro',
 };
 
+const ownershipTypeLabels: Record<string, string> = {
+  'propio': 'Propio',
+  'arrendado': 'Arrendado',
+  'comodato': 'Comodato',
+};
+
+const vehicleStatusLabels: Record<string, string> = {
+  'activo': 'Activo',
+  'dado_de_baja': 'Dado de Baja',
+  'en_espera_de_remate': 'En Espera de Remate',
+  'rematado': 'Rematado',
+};
+
+const vehicleStatusColors: Record<string, string> = {
+  'activo': 'bg-green-100 text-green-800',
+  'dado_de_baja': 'bg-red-100 text-red-800',
+  'en_espera_de_remate': 'bg-yellow-100 text-yellow-800',
+  'rematado': 'bg-gray-100 text-gray-600',
+};
+
 function FleetPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tabParam = searchParams.get('tab') as TabType | null;
-  const [activeTab, setActiveTab] = useState<TabType>(tabParam && ['live', 'logs', 'history', 'vehicles', 'settings'].includes(tabParam) ? tabParam : 'live');
+  const [activeTab, setActiveTab] = useState<TabType>(tabParam && ['live', 'logs', 'history', 'vehicles'].includes(tabParam) ? tabParam : 'live');
+
+  // Vehicle edit/delete state
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [deletingVehicle, setDeletingVehicle] = useState<Vehicle | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Sync URL with active tab
   const handleTabChange = useCallback((tab: TabType) => {
@@ -342,8 +376,71 @@ function FleetPageContent() {
     { id: 'logs' as TabType, name: 'Bitácora', icon: ClockIcon },
     { id: 'history' as TabType, name: 'Historial Rutas', icon: MapIcon },
     { id: 'vehicles' as TabType, name: 'Vehículos', icon: TruckIcon },
-    { id: 'settings' as TabType, name: 'Zonas', icon: Cog6ToothIcon },
   ];
+
+  // Fetch vehicles function to reuse
+  const fetchVehicles = async () => {
+    setVehiclesLoading(true);
+    try {
+      const response = await fetch('/api/vehicles');
+      if (response.ok) {
+        const data = await response.json();
+        setVehicles(data);
+      }
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+    } finally {
+      setVehiclesLoading(false);
+    }
+  };
+
+  // Handle vehicle update
+  const handleUpdateVehicle = async (vehicleData: Partial<Vehicle>) => {
+    if (!editingVehicle) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/vehicles/${editingVehicle.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vehicleData),
+      });
+      if (response.ok) {
+        await fetchVehicles();
+        setEditingVehicle(null);
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Error al actualizar vehículo');
+      }
+    } catch (error) {
+      console.error('Error updating vehicle:', error);
+      alert('Error al actualizar vehículo');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle vehicle delete
+  const handleDeleteVehicle = async () => {
+    if (!deletingVehicle) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/vehicles/${deletingVehicle.id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        await fetchVehicles();
+        setDeletingVehicle(null);
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Error al eliminar vehículo');
+      }
+    } catch (error) {
+      console.error('Error deleting vehicle:', error);
+      alert('Error al eliminar vehículo');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <AppLayout>
@@ -834,90 +931,244 @@ function FleetPageContent() {
                     <div key={vehicle.id} className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`p-3 rounded-full ${vehicle.is_active ? 'bg-green-100' : 'bg-gray-100'}`}>
-                            <TruckIcon className={`h-6 w-6 ${vehicle.is_active ? 'text-green-600' : 'text-gray-400'}`} />
+                          <div className={`p-3 rounded-full ${vehicle.vehicle_status === 'activo' ? 'bg-green-100' : 'bg-gray-100'}`}>
+                            <TruckIcon className={`h-6 w-6 ${vehicle.vehicle_status === 'activo' ? 'text-green-600' : 'text-gray-400'}`} />
                           </div>
                           <div>
                             <p className="text-lg font-bold text-gray-900 uppercase">{vehicle.plate}</p>
                             <p className="text-sm text-gray-600">{vehicle.brand} {vehicle.model}</p>
                           </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setEditingVehicle(vehicle)}
+                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                            title="Editar"
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeletingVehicle(vehicle)}
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                            title="Eliminar"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          vehicle.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                          vehicleStatusColors[vehicle.vehicle_status || 'activo']
                         }`}>
-                          {vehicle.is_active ? 'Activo' : 'Inactivo'}
+                          {vehicleStatusLabels[vehicle.vehicle_status || 'activo']}
                         </span>
+                        {vehicle.ownership_type && (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                            {ownershipTypeLabels[vehicle.ownership_type]}
+                          </span>
+                        )}
                       </div>
                       <div className="mt-4 pt-4 border-t text-sm text-gray-500 space-y-1">
                         {vehicle.year && <p>Año: {vehicle.year}</p>}
                         {vehicle.color && <p>Color: {vehicle.color}</p>}
                         {vehicle.vehicle_type && <p>Tipo: {vehicle.vehicle_type}</p>}
+                        {vehicle.technical_review_expiry && (
+                          <p className={new Date(vehicle.technical_review_expiry) < new Date() ? 'text-red-600' : ''}>
+                            Rev. Técnica: {format(new Date(vehicle.technical_review_expiry), 'dd/MM/yyyy', { locale: es })}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* SETTINGS TAB - Geofences */}
-          {activeTab === 'settings' && (
-            <div className="h-full flex flex-col">
-              <div className="bg-white rounded-lg shadow p-4 mb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Zonas de Geofencing</h2>
-                    <p className="text-sm text-gray-500">Configure zonas para recibir alertas cuando los vehículos entren o salgan</p>
-                  </div>
-                  <Link
-                    href="/fleet/geofences"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
-                  >
-                    <Cog6ToothIcon className="h-4 w-4" />
-                    Administrar Zonas
-                  </Link>
-                </div>
-              </div>
-
-              {/* Geofences List */}
-              <div className="flex-1 bg-white rounded-lg shadow overflow-hidden">
-                {geofences.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-gray-500">
-                    <MapIcon className="h-16 w-16 text-gray-300 mb-3" />
-                    <p className="text-sm font-medium">No hay zonas configuradas</p>
-                    <Link href="/fleet/geofences" className="text-sm text-indigo-600 hover:text-indigo-800 mt-2">
-                      Crear primera zona
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {geofences.map((geofence) => (
-                      <div key={geofence.id} className="p-4 hover:bg-gray-50 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-full ${geofence.is_active ? 'bg-green-100' : 'bg-gray-100'}`}>
-                            <MapPinIcon className={`h-5 w-5 ${geofence.is_active ? 'text-green-600' : 'text-gray-400'}`} />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{geofence.name}</p>
-                            <p className="text-xs text-gray-500">
-                              {geofence.geofence_type === 'circle'
-                                ? `Círculo - Radio: ${geofence.radius_meters}m`
-                                : 'Polígono'}
-                            </p>
-                          </div>
+              {/* Edit Vehicle Modal */}
+              {editingVehicle && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="flex items-center justify-between p-4 border-b">
+                      <h3 className="text-lg font-semibold text-gray-900">Editar Vehículo: {editingVehicle.plate}</h3>
+                      <button onClick={() => setEditingVehicle(null)} className="text-gray-400 hover:text-gray-600">
+                        <XMarkIcon className="h-6 w-6" />
+                      </button>
+                    </div>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        handleUpdateVehicle({
+                          brand: formData.get('brand') as string,
+                          model: formData.get('model') as string,
+                          year: formData.get('year') ? parseInt(formData.get('year') as string) : null,
+                          color: formData.get('color') as string || null,
+                          vehicleType: formData.get('vehicleType') as string || null,
+                          ownershipType: formData.get('ownershipType') as 'propio' | 'arrendado' | 'comodato',
+                          vehicleStatus: formData.get('vehicleStatus') as 'activo' | 'dado_de_baja' | 'en_espera_de_remate' | 'rematado',
+                          notes: formData.get('notes') as string || null,
+                          insuranceExpiry: formData.get('insuranceExpiry') as string || null,
+                          technicalReviewExpiry: formData.get('technicalReviewExpiry') as string || null,
+                        } as unknown as Partial<Vehicle>);
+                      }}
+                      className="p-4 space-y-4"
+                    >
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
+                          <input
+                            type="text"
+                            name="brand"
+                            defaultValue={editingVehicle.brand || ''}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                          />
                         </div>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          geofence.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {geofence.is_active ? 'Activa' : 'Inactiva'}
-                        </span>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
+                          <input
+                            type="text"
+                            name="model"
+                            defaultValue={editingVehicle.model || ''}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
+                          <input
+                            type="number"
+                            name="year"
+                            defaultValue={editingVehicle.year || ''}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                          <input
+                            type="text"
+                            name="color"
+                            defaultValue={editingVehicle.color || ''}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Vehículo</label>
+                          <select
+                            name="vehicleType"
+                            defaultValue={editingVehicle.vehicle_type || ''}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                          >
+                            <option value="">Seleccionar...</option>
+                            <option value="auto">Auto</option>
+                            <option value="camioneta">Camioneta</option>
+                            <option value="camion">Camión</option>
+                            <option value="moto">Moto</option>
+                            <option value="bus">Bus</option>
+                            <option value="otro">Otro</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Propiedad</label>
+                          <select
+                            name="ownershipType"
+                            defaultValue={editingVehicle.ownership_type || 'propio'}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                          >
+                            <option value="propio">Propio</option>
+                            <option value="arrendado">Arrendado</option>
+                            <option value="comodato">Comodato</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                          <select
+                            name="vehicleStatus"
+                            defaultValue={editingVehicle.vehicle_status || 'activo'}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                          >
+                            <option value="activo">Activo</option>
+                            <option value="dado_de_baja">Dado de Baja</option>
+                            <option value="en_espera_de_remate">En Espera de Remate</option>
+                            <option value="rematado">Rematado</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Vencimiento Seguro</label>
+                          <input
+                            type="date"
+                            name="insuranceExpiry"
+                            defaultValue={editingVehicle.insurance_expiry?.split('T')[0] || ''}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Vencimiento Rev. Técnica</label>
+                          <input
+                            type="date"
+                            name="technicalReviewExpiry"
+                            defaultValue={editingVehicle.technical_review_expiry?.split('T')[0] || ''}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+                          <textarea
+                            name="notes"
+                            rows={3}
+                            defaultValue={editingVehicle.notes || ''}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
                       </div>
-                    ))}
+                      <div className="flex justify-end gap-3 pt-4 border-t">
+                        <button
+                          type="button"
+                          onClick={() => setEditingVehicle(null)}
+                          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={saving}
+                          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          {saving ? 'Guardando...' : 'Guardar Cambios'}
+                        </button>
+                      </div>
+                    </form>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Delete Confirmation Modal */}
+              {deletingVehicle && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Eliminar Vehículo</h3>
+                    <p className="text-gray-600 mb-4">
+                      ¿Está seguro de eliminar el vehículo <strong>{deletingVehicle.plate}</strong>?
+                      Esta acción no se puede deshacer.
+                    </p>
+                    <div className="flex justify-end gap-3">
+                      <button
+                        onClick={() => setDeletingVehicle(null)}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleDeleteVehicle}
+                        disabled={saving}
+                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {saving ? 'Eliminando...' : 'Eliminar'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
+
         </div>
       </div>
     </AppLayout>

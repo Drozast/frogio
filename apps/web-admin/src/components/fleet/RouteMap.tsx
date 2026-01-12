@@ -25,7 +25,7 @@ export default function RouteMap({ points, vehiclePlate }: RouteMapProps) {
     if (!mapRef.current || mapInstanceRef.current) return;
 
     const map = L.map(mapRef.current, {
-      center: [-37.1738, -72.4598],
+      center: [-37.1738, -72.4249], // Santa Juana, Chile - Yungay 125
       zoom: 14,
     });
 

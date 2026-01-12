@@ -15,8 +15,10 @@ export class VehiclesService {
 
     const [vehicle] = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO "${tenantId}".vehicles
-       (owner_id, plate, brand, model, year, color, vehicle_type, vin, is_active, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+       (owner_id, plate, brand, model, year, color, vehicle_type, vin, is_active,
+        ownership_type, vehicle_status, notes, insurance_expiry, technical_review_expiry, acquisition_date,
+        created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
        RETURNING *`,
       data.ownerId,
       data.plate.toUpperCase(),
@@ -26,7 +28,13 @@ export class VehiclesService {
       data.color || null,
       data.vehicleType || null,
       data.vin || null,
-      true
+      true,
+      data.ownershipType || 'propio',
+      data.vehicleStatus || 'activo',
+      data.notes || null,
+      data.insuranceExpiry ? new Date(data.insuranceExpiry) : null,
+      data.technicalReviewExpiry ? new Date(data.technicalReviewExpiry) : null,
+      data.acquisitionDate ? new Date(data.acquisitionDate) : null
     );
 
     return vehicle;
@@ -140,6 +148,48 @@ export class VehiclesService {
     if (data.isActive !== undefined) {
       updates.push(`is_active = $${paramIndex}`);
       params.push(data.isActive);
+      paramIndex++;
+    }
+
+    if (data.ownershipType !== undefined) {
+      updates.push(`ownership_type = $${paramIndex}`);
+      params.push(data.ownershipType);
+      paramIndex++;
+    }
+
+    if (data.vehicleStatus !== undefined) {
+      updates.push(`vehicle_status = $${paramIndex}`);
+      params.push(data.vehicleStatus);
+      paramIndex++;
+    }
+
+    if (data.notes !== undefined) {
+      updates.push(`notes = $${paramIndex}`);
+      params.push(data.notes);
+      paramIndex++;
+    }
+
+    if (data.insuranceExpiry !== undefined) {
+      updates.push(`insurance_expiry = $${paramIndex}`);
+      params.push(data.insuranceExpiry ? new Date(data.insuranceExpiry) : null);
+      paramIndex++;
+    }
+
+    if (data.technicalReviewExpiry !== undefined) {
+      updates.push(`technical_review_expiry = $${paramIndex}`);
+      params.push(data.technicalReviewExpiry ? new Date(data.technicalReviewExpiry) : null);
+      paramIndex++;
+    }
+
+    if (data.acquisitionDate !== undefined) {
+      updates.push(`acquisition_date = $${paramIndex}`);
+      params.push(data.acquisitionDate ? new Date(data.acquisitionDate) : null);
+      paramIndex++;
+    }
+
+    if (data.disposalDate !== undefined) {
+      updates.push(`disposal_date = $${paramIndex}`);
+      params.push(data.disposalDate ? new Date(data.disposalDate) : null);
       paramIndex++;
     }
 

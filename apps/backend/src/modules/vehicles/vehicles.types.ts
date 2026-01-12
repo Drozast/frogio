@@ -1,3 +1,6 @@
+export type OwnershipType = 'propio' | 'arrendado' | 'comodato';
+export type VehicleStatus = 'activo' | 'dado_de_baja' | 'en_espera_de_remate' | 'rematado';
+
 export interface CreateVehicleDto {
   ownerId: string;
   plate: string;
@@ -7,6 +10,12 @@ export interface CreateVehicleDto {
   color?: string;
   vehicleType?: 'auto' | 'moto' | 'camion' | 'camioneta' | 'bus' | 'otro';
   vin?: string;
+  ownershipType?: OwnershipType;
+  vehicleStatus?: VehicleStatus;
+  notes?: string;
+  insuranceExpiry?: string;
+  technicalReviewExpiry?: string;
+  acquisitionDate?: string;
 }
 
 export interface UpdateVehicleDto {
@@ -18,6 +27,13 @@ export interface UpdateVehicleDto {
   vehicleType?: 'auto' | 'moto' | 'camion' | 'camioneta' | 'bus' | 'otro';
   vin?: string;
   isActive?: boolean;
+  ownershipType?: OwnershipType;
+  vehicleStatus?: VehicleStatus;
+  notes?: string;
+  insuranceExpiry?: string;
+  technicalReviewExpiry?: string;
+  acquisitionDate?: string;
+  disposalDate?: string;
 }
 
 // Vehicle Logs DTOs
