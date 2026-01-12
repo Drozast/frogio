@@ -34,29 +34,39 @@ const createVehicleIcon = (status: 'moving' | 'slow' | 'stopped', heading?: numb
   const color = statusColors[status];
   const rotation = heading ?? 0;
 
+  // SVG de auto sedan visto desde arriba
   return L.divIcon({
     className: 'vehicle-marker',
     html: `
       <div style="
-        width: 36px;
-        height: 36px;
+        width: 40px;
+        height: 40px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: ${color};
-        border-radius: 50%;
-        border: 3px solid white;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
         transform: rotate(${rotation}deg);
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
       ">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-          <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Cuerpo del auto -->
+          <rect x="6" y="2" width="12" height="20" rx="4" fill="${color}" stroke="white" stroke-width="1.5"/>
+          <!-- Ventanas -->
+          <rect x="8" y="5" width="8" height="4" rx="1" fill="white" opacity="0.9"/>
+          <rect x="8" y="15" width="8" height="3" rx="1" fill="white" opacity="0.9"/>
+          <!-- Ruedas -->
+          <rect x="4" y="6" width="3" height="5" rx="1" fill="#333"/>
+          <rect x="17" y="6" width="3" height="5" rx="1" fill="#333"/>
+          <rect x="4" y="13" width="3" height="5" rx="1" fill="#333"/>
+          <rect x="17" y="13" width="3" height="5" rx="1" fill="#333"/>
+          <!-- Luces delanteras -->
+          <circle cx="9" cy="3.5" r="1" fill="#fff59d"/>
+          <circle cx="15" cy="3.5" r="1" fill="#fff59d"/>
         </svg>
       </div>
     `,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-    popupAnchor: [0, -18],
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20],
   });
 };
 
@@ -79,7 +89,7 @@ export default function FleetMap({
 
     const map = L.map(mapRef.current, {
       center: [-37.1738, -72.4598], // Santa Juana, Chile
-      zoom: 14,
+      zoom: 13, // Zoom más alejado para ver más de la comuna
       zoomControl: true,
     });
 
