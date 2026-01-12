@@ -414,7 +414,7 @@ export class VehiclesService {
         vl.total_distance_km,
         vl.created_at
       FROM "${tenantId}".vehicle_logs vl
-      LEFT JOIN "${tenantId}".vehicles v ON vl.vehicle_id = v.id
+      LEFT JOIN "${tenantId}".vehicles v ON vl.vehicle_id::uuid = v.id::uuid
       WHERE 1=1
     `;
 
