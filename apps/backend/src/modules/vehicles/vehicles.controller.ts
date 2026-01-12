@@ -244,11 +244,11 @@ export class VehiclesController {
       const { vehicleId, driverId, startDate, endDate, status } = req.query;
 
       const logs = await vehiclesService.getAllLogs(tenantId, {
-        vehicleId: vehicleId as string | undefined,
-        driverId: driverId as string | undefined,
-        startDate: startDate as string | undefined,
-        endDate: endDate as string | undefined,
-        status: status as string | undefined,
+        vehicleId: vehicleId && vehicleId !== '' ? vehicleId as string : undefined,
+        driverId: driverId && driverId !== '' ? driverId as string : undefined,
+        startDate: startDate && startDate !== '' ? startDate as string : undefined,
+        endDate: endDate && endDate !== '' ? endDate as string : undefined,
+        status: status && status !== '' ? status as string : undefined,
       });
 
       res.json(logs);
