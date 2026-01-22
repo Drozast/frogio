@@ -2,8 +2,10 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../domain/entities/family_member_entity.dart';
 import '../models/user_model.dart';
 import 'auth_remote_data_source.dart';
 
@@ -200,8 +202,13 @@ class AuthApiDataSource implements AuthRemoteDataSource {
   Future<UserModel> updateUserProfile({
     required String userId,
     String? name,
+    String? rut,
     String? phoneNumber,
     String? address,
+    double? latitude,
+    double? longitude,
+    String? referenceNotes,
+    List<FamilyMemberEntity>? familyMembers,
   }) async {
     try {
       final Map<String, dynamic> updateData = {};
@@ -213,8 +220,15 @@ class AuthApiDataSource implements AuthRemoteDataSource {
           updateData['lastName'] = nameParts.sublist(1).join(' ');
         }
       }
-      if (phoneNumber != null) updateData['phone'] = phoneNumber;
+      if (rut != null) updateData['rut'] = rut;
+      if (phoneNumber != null) updateData['phoneNumber'] = phoneNumber;
       if (address != null) updateData['address'] = address;
+      if (latitude != null) updateData['latitude'] = latitude;
+      if (longitude != null) updateData['longitude'] = longitude;
+      if (referenceNotes != null) updateData['referenceNotes'] = referenceNotes;
+      if (familyMembers != null) {
+        updateData['familyMembers'] = familyMembers.map((m) => m.toJson()).toList();
+      }
 
       final response = await client.patch(
         Uri.parse('$baseUrl/api/auth/profile'),
@@ -239,23 +253,61 @@ class AuthApiDataSource implements AuthRemoteDataSource {
   @override
   Future<String> uploadProfileImage(String userId, File imageFile) async {
     try {
-      final bytes = await imageFile.readAsBytes();
-      final base64Image = base64Encode(bytes);
+      final token = prefs.getString(_accessTokenKey);
 
-      final response = await client.post(
+      // Usar multipart request para subir archivos
+      final request = http.MultipartRequest(
+        'POST',
         Uri.parse('$baseUrl/api/files/upload'),
-        headers: _authHeaders,
-        body: json.encode({
-          'file': base64Image,
-          'fileName': imageFile.path.split('/').last,
-          'entityType': 'user',
-          'entityId': userId,
-        }),
       );
+
+      // Headers
+      request.headers['X-Tenant-ID'] = tenantId;
+      if (token != null) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      // Agregar el archivo con content-type explícito
+      final extension = imageFile.path.split('.').last.toLowerCase();
+      String mimeType = 'jpeg';
+      if (extension == 'png') {
+        mimeType = 'png';
+      } else if (extension == 'gif') {
+        mimeType = 'gif';
+      } else if (extension == 'webp') {
+        mimeType = 'webp';
+      }
+
+      request.files.add(await http.MultipartFile.fromPath(
+        'file',
+        imageFile.path,
+        contentType: MediaType('image', mimeType),
+      ));
+
+      // Agregar campos adicionales
+      request.fields['entityType'] = 'user';
+      request.fields['entityId'] = userId;
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
-        return data['id']; // Retorna el ID del archivo
+        final fileId = data['id'];
+
+        // Obtener la URL presignada del archivo
+        final urlResponse = await client.get(
+          Uri.parse('$baseUrl/api/files/$fileId/url'),
+          headers: _authHeaders,
+        );
+
+        if (urlResponse.statusCode == 200) {
+          final urlData = json.decode(urlResponse.body);
+          return urlData['url']; // Retorna la URL presignada
+        } else {
+          // Si falla obtener URL, retornar el fileId como fallback
+          return fileId;
+        }
       } else {
         final error = json.decode(response.body);
         throw Exception(error['error'] ?? 'Error al subir imagen');

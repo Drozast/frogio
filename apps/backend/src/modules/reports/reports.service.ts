@@ -115,7 +115,7 @@ export class ReportsService {
     }
 
     if (filters?.userId) {
-      query += ` AND r.user_id = $${paramIndex}`;
+      query += ` AND r.user_id = $${paramIndex}::uuid`;
       params.push(filters.userId);
       paramIndex++;
     }
@@ -240,7 +240,7 @@ export class ReportsService {
 
   async delete(id: string, tenantId: string) {
     const [deletedReport] = await prisma.$queryRawUnsafe<any[]>(
-      `DELETE FROM "${tenantId}".reports WHERE id = $1 RETURNING id`,
+      `DELETE FROM "${tenantId}".reports WHERE id = $1::uuid RETURNING id`,
       id
     );
 

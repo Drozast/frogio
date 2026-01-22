@@ -27,6 +27,49 @@ class NameFormatter extends TextInputFormatter {
   }
 }
 
+/// Formateador para RUT chileno (12.345.678-9)
+class RutFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Remover todo excepto números y K
+    String text = newValue.text.toUpperCase().replaceAll(RegExp(r'[^\dKk]'), '');
+
+    if (text.length > 9) {
+      text = text.substring(0, 9);
+    }
+
+    if (text.isEmpty) return newValue.copyWith(text: '');
+
+    String formatted = '';
+
+    if (text.length <= 1) {
+      formatted = text;
+    } else {
+      // Separar dígito verificador
+      final dv = text.substring(text.length - 1);
+      final numbers = text.substring(0, text.length - 1);
+
+      // Formatear con puntos
+      final reversed = numbers.split('').reversed.toList();
+      final parts = <String>[];
+      for (var i = 0; i < reversed.length; i += 3) {
+        final end = (i + 3 > reversed.length) ? reversed.length : i + 3;
+        parts.add(reversed.sublist(i, end).reversed.join(''));
+      }
+
+      formatted = '${parts.reversed.join('.')}-$dv';
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
 /// Formateador para números de teléfono chilenos
 class PhoneFormatter extends TextInputFormatter {
   @override
@@ -71,6 +114,46 @@ class Validators {
       return 'El nombre solo puede contener letras';
     }
     return null;
+  }
+
+  static String? validateRut(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'El RUT es requerido';
+    }
+
+    // Limpiar RUT
+    final cleanRut = value.replaceAll(RegExp(r'[^\dKk]'), '').toUpperCase();
+
+    if (cleanRut.length < 8 || cleanRut.length > 9) {
+      return 'El RUT debe tener entre 8 y 9 caracteres';
+    }
+
+    // Validar dígito verificador
+    final dv = cleanRut.substring(cleanRut.length - 1);
+    final numbers = cleanRut.substring(0, cleanRut.length - 1);
+
+    final calculatedDv = _calculateDV(int.parse(numbers));
+    if (dv != calculatedDv) {
+      return 'El RUT no es válido';
+    }
+
+    return null;
+  }
+
+  static String _calculateDV(int rut) {
+    int sum = 0;
+    int multiplier = 2;
+
+    while (rut > 0) {
+      sum += (rut % 10) * multiplier;
+      rut = rut ~/ 10;
+      multiplier = multiplier < 7 ? multiplier + 1 : 2;
+    }
+
+    final dv = 11 - (sum % 11);
+    if (dv == 11) return '0';
+    if (dv == 10) return 'K';
+    return dv.toString();
   }
 
   static String? validatePhone(String? value) {

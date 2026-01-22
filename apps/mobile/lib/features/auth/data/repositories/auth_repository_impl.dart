@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/error/failures.dart';
+import '../../domain/entities/family_member_entity.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
@@ -67,15 +68,25 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, UserEntity>> updateUserProfile({
     required String userId,
     String? name,
+    String? rut,
     String? phoneNumber,
     String? address,
+    double? latitude,
+    double? longitude,
+    String? referenceNotes,
+    List<FamilyMemberEntity>? familyMembers,
   }) async {
     try {
       final user = await remoteDataSource.updateUserProfile(
         userId: userId,
         name: name,
+        rut: rut,
         phoneNumber: phoneNumber,
         address: address,
+        latitude: latitude,
+        longitude: longitude,
+        referenceNotes: referenceNotes,
+        familyMembers: familyMembers,
       );
       return Right(user);
     } catch (e) {

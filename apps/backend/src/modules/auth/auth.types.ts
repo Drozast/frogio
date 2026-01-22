@@ -46,3 +46,46 @@ export interface ResetPasswordDto {
   token: string;
   password: string;
 }
+
+export interface UpdateProfileDto {
+  firstName?: string;
+  lastName?: string;
+  rut?: string;
+  phoneNumber?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  referenceNotes?: string;
+  familyMembers?: FamilyMember[];
+}
+
+export interface FamilyMember {
+  id?: string;
+  name: string;
+  rut?: string;
+  relationship: string;
+  phone?: string;
+  hasDisability?: boolean;
+  disabilityType?: string;
+  hasChronicIllness?: boolean;
+  illnessType?: string;
+  notes?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  rut?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  address?: string;
+  profileImageUrl?: string;
+  latitude?: number;
+  longitude?: number;
+  referenceNotes?: string;
+  familyMembers?: FamilyMember[];
+  role: string;
+  createdAt: Date;
+  updatedAt?: Date;
+}

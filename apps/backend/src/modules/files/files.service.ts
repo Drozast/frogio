@@ -32,7 +32,7 @@ export class FilesService {
     const [fileRecord] = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO "${tenantId}".files
        (entity_type, entity_id, filename, original_filename, mime_type, size_bytes, storage_path, uploaded_by, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+       VALUES ($1, $2::uuid, $3, $4, $5, $6, $7, $8::uuid, NOW())
        RETURNING *`,
       entityType,
       entityId,
@@ -44,7 +44,11 @@ export class FilesService {
       uploadedBy
     );
 
-    return fileRecord;
+    // Convert BigInt to Number for JSON serialization
+    return {
+      ...fileRecord,
+      size_bytes: Number(fileRecord.size_bytes),
+    };
   }
 
   async getFileUrl(fileId: string, tenantId: string): Promise<string> {
@@ -53,7 +57,7 @@ export class FilesService {
     }
 
     const [file] = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM "${tenantId}".files WHERE id = $1 LIMIT 1`,
+      `SELECT * FROM "${tenantId}".files WHERE id = $1::uuid LIMIT 1`,
       fileId
     );
 
@@ -71,13 +75,17 @@ export class FilesService {
       `SELECT f.*, u.first_name as uploaded_by_first_name, u.last_name as uploaded_by_last_name
        FROM "${tenantId}".files f
        LEFT JOIN "${tenantId}".users u ON f.uploaded_by = u.id
-       WHERE f.entity_type = $1 AND f.entity_id = $2
+       WHERE f.entity_type = $1 AND f.entity_id = $2::uuid
        ORDER BY f.created_at DESC`,
       entityType,
       entityId
     );
 
-    return files;
+    // Convert BigInt to Number for JSON serialization
+    return files.map(f => ({
+      ...f,
+      size_bytes: Number(f.size_bytes),
+    }));
   }
 
   async deleteFile(fileId: string, tenantId: string) {
@@ -86,7 +94,7 @@ export class FilesService {
     }
 
     const [file] = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM "${tenantId}".files WHERE id = $1 LIMIT 1`,
+      `SELECT * FROM "${tenantId}".files WHERE id = $1::uuid LIMIT 1`,
       fileId
     );
 
@@ -99,7 +107,7 @@ export class FilesService {
 
     // Delete from database
     await prisma.$queryRawUnsafe(
-      `DELETE FROM "${tenantId}".files WHERE id = $1`,
+      `DELETE FROM "${tenantId}".files WHERE id = $1::uuid`,
       fileId
     );
 

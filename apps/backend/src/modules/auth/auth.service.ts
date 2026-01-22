@@ -4,7 +4,7 @@ import prisma from '../../config/database.js';
 import redis from '../../config/redis.js';
 import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
-import type { RegisterDto, LoginDto, AuthResponse, ForgotPasswordDto, ResetPasswordDto } from './auth.types.js';
+import type { RegisterDto, LoginDto, AuthResponse, ForgotPasswordDto, ResetPasswordDto, UpdateProfileDto, UserProfile } from './auth.types.js';
 
 export class AuthService {
   private readonly JWT_SECRET = env.JWT_SECRET;
@@ -288,5 +288,159 @@ export class AuthService {
       }
       throw new Error('Token de recuperación inválido');
     }
+  }
+
+  async updateProfile(userId: string, tenantId: string, data: UpdateProfileDto): Promise<UserProfile> {
+    logger.info(`Updating profile for user ${userId} in tenant ${tenantId}`);
+
+    // Build dynamic update query
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (data.firstName !== undefined) {
+      updates.push(`first_name = $${paramIndex++}`);
+      values.push(data.firstName);
+    }
+    if (data.lastName !== undefined) {
+      updates.push(`last_name = $${paramIndex++}`);
+      values.push(data.lastName);
+    }
+    if (data.rut !== undefined) {
+      // Validate RUT if provided
+      if (data.rut && !this.validateRUT(data.rut)) {
+        throw new Error('RUT inválido');
+      }
+      updates.push(`rut = $${paramIndex++}`);
+      values.push(data.rut);
+    }
+    if (data.phoneNumber !== undefined) {
+      updates.push(`phone = $${paramIndex++}`);
+      values.push(data.phoneNumber);
+    }
+    if (data.address !== undefined) {
+      updates.push(`address = $${paramIndex++}`);
+      values.push(data.address);
+    }
+    if (data.latitude !== undefined) {
+      updates.push(`latitude = $${paramIndex++}`);
+      values.push(data.latitude);
+    }
+    if (data.longitude !== undefined) {
+      updates.push(`longitude = $${paramIndex++}`);
+      values.push(data.longitude);
+    }
+    if (data.referenceNotes !== undefined) {
+      updates.push(`reference_notes = $${paramIndex++}`);
+      values.push(data.referenceNotes);
+    }
+    if (data.familyMembers !== undefined) {
+      updates.push(`family_members = $${paramIndex++}::jsonb`);
+      values.push(JSON.stringify(data.familyMembers));
+    }
+    if (data.profileImageUrl !== undefined) {
+      updates.push(`profile_image_url = $${paramIndex++}`);
+      values.push(data.profileImageUrl);
+    }
+
+    // Always update updated_at
+    updates.push('updated_at = NOW()');
+
+    if (updates.length === 1) {
+      // Only updated_at, nothing else to update
+      throw new Error('No hay datos para actualizar');
+    }
+
+    // Add userId as last parameter
+    values.push(userId);
+
+    const query = `
+      UPDATE "${tenantId}".users
+      SET ${updates.join(', ')}
+      WHERE id = $${paramIndex}::uuid
+      RETURNING id, email, rut, first_name, last_name, phone, address,
+                profile_image_url, latitude, longitude, reference_notes,
+                family_members, role, created_at, updated_at
+    `;
+
+    const [user] = await prisma.$queryRawUnsafe<any[]>(query, ...values);
+
+    if (!user) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    // Parse family_members from JSON if stored as string
+    let familyMembers = [];
+    if (user.family_members) {
+      try {
+        familyMembers = typeof user.family_members === 'string'
+          ? JSON.parse(user.family_members)
+          : user.family_members;
+      } catch (e) {
+        familyMembers = [];
+      }
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      rut: user.rut,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      phoneNumber: user.phone,
+      address: user.address,
+      profileImageUrl: user.profile_image_url,
+      latitude: user.latitude ? parseFloat(user.latitude) : undefined,
+      longitude: user.longitude ? parseFloat(user.longitude) : undefined,
+      referenceNotes: user.reference_notes,
+      familyMembers,
+      role: user.role,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+    };
+  }
+
+  async getProfile(userId: string, tenantId: string): Promise<UserProfile> {
+    const [user] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, email, rut, first_name, last_name, phone, address,
+              profile_image_url, latitude, longitude, reference_notes,
+              family_members, role, created_at, updated_at
+       FROM "${tenantId}".users WHERE id = $1::uuid`,
+      userId
+    );
+
+    if (!user) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    // Parse family_members from JSON if stored as string
+    let familyMembers = [];
+    if (user.family_members) {
+      try {
+        familyMembers = typeof user.family_members === 'string'
+          ? JSON.parse(user.family_members)
+          : user.family_members;
+      } catch (e) {
+        familyMembers = [];
+      }
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      rut: user.rut,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      phoneNumber: user.phone,
+      address: user.address,
+      profileImageUrl: user.profile_image_url,
+      latitude: user.latitude ? parseFloat(user.latitude) : undefined,
+      longitude: user.longitude ? parseFloat(user.longitude) : undefined,
+      referenceNotes: user.reference_notes,
+      familyMembers,
+      role: user.role,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+    };
   }
 }

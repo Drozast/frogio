@@ -18,4 +18,8 @@ router.post('/reset-password', (req, res) => authController.resetPassword(req, r
 // Protected routes
 router.get('/me', authMiddleware, (req, res) => authController.me(req as AuthRequest, res));
 
+// Profile routes (protected)
+router.get('/profile', authMiddleware, (req, res) => authController.getProfile(req as AuthRequest, res));
+router.patch('/profile', authMiddleware, (req, res) => authController.updateProfile(req as AuthRequest, res));
+
 export default router;

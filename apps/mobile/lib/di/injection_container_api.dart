@@ -28,10 +28,12 @@ import '../features/auth/presentation/bloc/auth_bloc.dart';
 import '../features/auth/presentation/bloc/profile/profile_bloc.dart';
 
 // Citizen Reports Feature
-import '../features/citizen/data/datasources/report_api_data_source.dart';
-import '../features/citizen/data/datasources/report_remote_data_source.dart';
-import '../features/citizen/data/repositories/report_repository_impl.dart';
-import '../features/citizen/domain/repositories/report_repository.dart';
+import '../features/citizen/data/datasources/enhanced_report_api_data_source.dart';
+import '../features/citizen/data/datasources/enhanced_report_remote_data_source.dart' as enhanced_ds;
+import '../features/citizen/data/repositories/enhanced_report_repository_impl.dart';
+import '../features/citizen/domain/repositories/enhanced_report_repository.dart' as enhanced_repo;
+import '../features/citizen/domain/usecases/reports/enhanced_report_use_cases.dart';
+import '../features/citizen/presentation/bloc/report/enhanced_report_bloc.dart';
 
 // Inspector Infractions Feature
 import '../features/inspector/data/datasources/infraction_api_data_source.dart';
@@ -133,8 +135,8 @@ Future<void> initApi() async {
   logger.i('  - Citizen reports feature');
 
   // Data sources
-  sl.registerLazySingleton<ReportRemoteDataSource>(
-    () => ReportApiDataSource(
+  sl.registerLazySingleton<enhanced_ds.ReportRemoteDataSource>(
+    () => EnhancedReportApiDataSource(
       client: sl(),
       prefs: sl(),
       baseUrl: ApiConfig.activeBaseUrl,
@@ -142,9 +144,35 @@ Future<void> initApi() async {
   );
 
   // Repository
-  sl.registerLazySingleton<ReportRepository>(
+  sl.registerLazySingleton<enhanced_repo.ReportRepository>(
     () => ReportRepositoryImpl(
       remoteDataSource: sl(),
+    ),
+  );
+
+  // Use cases
+  sl.registerLazySingleton(() => CreateEnhancedReport(sl()));
+  sl.registerLazySingleton(() => GetEnhancedReportsByUser(sl()));
+  sl.registerLazySingleton(() => GetEnhancedReportById(sl()));
+  sl.registerLazySingleton(() => UpdateReportStatus(sl()));
+  sl.registerLazySingleton(() => AddReportResponse(sl()));
+  sl.registerLazySingleton(() => GetReportsByStatus(sl()));
+  sl.registerLazySingleton(() => AssignReport(sl()));
+  sl.registerLazySingleton(() => WatchReportsByUser(sl()));
+  sl.registerLazySingleton(() => WatchReportsByStatus(sl()));
+
+  // BLoC
+  sl.registerFactory(
+    () => ReportBloc(
+      createReport: sl(),
+      getReportsByUser: sl(),
+      getReportById: sl(),
+      updateReportStatus: sl(),
+      addReportResponse: sl(),
+      getReportsByStatus: sl(),
+      assignReport: sl(),
+      watchReportsByUser: sl(),
+      watchReportsByStatus: sl(),
     ),
   );
 

@@ -189,26 +189,35 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
                       const SizedBox(height: 8),
-                      // Recordar contraseña
-                      Row(
+                      // Recordar contraseña y olvidé contraseña (responsive)
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Checkbox(
-                            value: _rememberPassword,
-                            activeColor: AppTheme.primaryColor,
-                            onChanged: (value) {
-                              setState(() {
-                                _rememberPassword = value ?? false;
-                              });
-                            },
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Checkbox(
+                                value: _rememberPassword,
+                                activeColor: AppTheme.primaryColor,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _rememberPassword = value ?? false;
+                                  });
+                                },
+                              ),
+                              const Text('Recordar contraseña'),
+                            ],
                           ),
-                          const Text('Recordar contraseña'),
-                          const Spacer(),
                           // Olvidé contraseña
                           TextButton(
                             onPressed: () {
                               _showForgotPasswordDialog();
                             },
-                            child: const Text('¿Olvidaste tu contraseña?'),
+                            child: const Text(
+                              '¿Olvidaste tu contraseña?',
+                              style: TextStyle(fontSize: 13),
+                            ),
                           ),
                         ],
                       ),

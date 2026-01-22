@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service.js';
-import type { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './auth.types.js';
+import type { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto, UpdateProfileDto } from './auth.types.js';
+import type { AuthRequest } from '../../middleware/auth.middleware.js';
 
 const authService = new AuthService();
 
@@ -131,6 +132,43 @@ export class AuthController {
       res.json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al restablecer contraseña';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  async updateProfile(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const data: UpdateProfileDto = req.body;
+      const userId = req.user?.userId;
+      const tenantId = req.user?.tenantId;
+
+      if (!userId || !tenantId) {
+        res.status(401).json({ error: 'No autorizado' });
+        return;
+      }
+
+      const result = await authService.updateProfile(userId, tenantId, data);
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al actualizar perfil';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  async getProfile(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      const tenantId = req.user?.tenantId;
+
+      if (!userId || !tenantId) {
+        res.status(401).json({ error: 'No autorizado' });
+        return;
+      }
+
+      const result = await authService.getProfile(userId, tenantId);
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al obtener perfil';
       res.status(400).json({ error: message });
     }
   }
