@@ -53,6 +53,7 @@ export interface UpdateProfileDto {
   rut?: string;
   phoneNumber?: string;
   address?: string;
+  profileImageUrl?: string;
   latitude?: number;
   longitude?: number;
   referenceNotes?: string;
