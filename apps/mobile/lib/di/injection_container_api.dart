@@ -10,6 +10,7 @@ import 'package:logger/logger.dart';
 
 // Core
 import '../core/config/api_config.dart';
+import '../core/services/session_timeout_service.dart';
 
 // Auth Feature
 import '../features/auth/data/datasources/auth_api_data_source.dart';
@@ -68,6 +69,7 @@ Future<void> initApi() async {
   // ===== CORE =====
   logger.i('  - Core services');
   sl.registerLazySingleton<Logger>(() => Logger());
+  sl.registerLazySingleton<SessionTimeoutService>(() => SessionTimeoutService());
 
   // ===== AUTH FEATURE =====
   logger.i('  - Auth feature');
