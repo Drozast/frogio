@@ -25,11 +25,12 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "com.example.frogio_santa_juana"
-    compileSdk 34
+    namespace "com.frogio.santa_juana"
+    compileSdk 36
     ndkVersion flutter.ndkVersion
 
     compileOptions {
+        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
@@ -43,9 +44,9 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.frogio_santa_juana"
+        applicationId "com.frogio.santa_juana"
         minSdkVersion flutter.minSdkVersion
-        targetSdkVersion 34
+        targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         multiDexEnabled true
@@ -66,4 +67,5 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:32.7.0')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'androidx.multidex:multidex:2.0.1'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
 }

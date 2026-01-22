@@ -1,10 +1,10 @@
 // lib/core/config/api_config.dart
 
 class ApiConfig {
-  // URLs de API - Using Cloudflare Tunnel for production
+  // URLs de API - Backend en servidor local
   static const String baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'https://api.frogio.drozast.xyz',
+    defaultValue: 'http://192.168.31.115:3110',
   );
 
   // Tenant ID (municipalidad)
@@ -13,10 +13,10 @@ class ApiConfig {
     defaultValue: 'santa_juana',
   );
 
-  // Configuración de ntfy para notificaciones (deshabilitado por ahora)
+  // Configuración de ntfy para notificaciones
   static const String ntfyUrl = String.fromEnvironment(
     'NTFY_URL',
-    defaultValue: 'http://192.168.31.115:8089',
+    defaultValue: 'http://192.168.31.115:8110',
   );
 
   // Timeouts
@@ -29,9 +29,9 @@ class ApiConfig {
     'X-Tenant-ID': tenantId,
   };
 
-  // Para desarrollo local / red interna
-  static const String devBaseUrl = 'http://192.168.31.115:3000';
-  static const String devNtfyUrl = 'http://192.168.31.115:8089';
+  // Para desarrollo local / red interna (mismo servidor)
+  static const String devBaseUrl = 'http://192.168.31.115:3110';
+  static const String devNtfyUrl = 'http://192.168.31.115:8110';
 
   // Verificar si está en modo desarrollo
   static bool get isDevelopment => const bool.fromEnvironment(
