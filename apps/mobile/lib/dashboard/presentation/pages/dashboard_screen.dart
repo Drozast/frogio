@@ -14,6 +14,7 @@ import '../../../features/auth/presentation/pages/login_screen.dart';
 import '../../../features/auth/presentation/widgets/profile_avatar.dart';
 import '../../../features/citizen/presentation/pages/create_report_screen.dart';
 import '../../../features/citizen/presentation/pages/my_reports_screen.dart';
+import '../../../features/panic/presentation/pages/panic_screen.dart';
 import '../widgets/dashboard_menu_item.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -122,6 +123,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         },
         child: _getPage(_currentIndex, user),
       ),
+      // Botón flotante de EMERGENCIA - siempre visible
+      floatingActionButton: _buildPanicFAB(user),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -135,6 +139,43 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         items: _getNavigationItemsForRole(user.role),
+      ),
+    );
+  }
+
+  Widget _buildPanicFAB(UserEntity user) {
+    return Container(
+      margin: const EdgeInsets.only(top: 30),
+      child: FloatingActionButton.large(
+        heroTag: 'panic_button',
+        backgroundColor: Colors.red,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PanicScreen(user: user),
+            ),
+          );
+        },
+        elevation: 8,
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.warning_rounded,
+              size: 36,
+              color: Colors.white,
+            ),
+            Text(
+              'SOS',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

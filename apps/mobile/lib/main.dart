@@ -1,5 +1,6 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'core/blocs/notification/notification_bloc.dart';
@@ -15,6 +16,7 @@ import 'features/auth/presentation/pages/edit_profile_screen.dart';
 import 'features/auth/presentation/pages/splash_screen.dart';
 import 'features/citizen/presentation/pages/enhanced_my_reports_screen.dart';
 import 'features/citizen/presentation/pages/enhanced_report_detail_screen.dart';
+import 'features/panic/presentation/pages/panic_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,7 +47,8 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.lightTheme,
         debugShowCheckedModeBanner: false,
         navigatorKey: NotificationManager().navigatorKey,
-        home: const SplashScreen(),
+        // Envolver en PopScope para prevenir cierre accidental
+        home: const _AppWrapper(),
         onGenerateRoute: (settings) {
           // Manejo dinamico de rutas con parametros
           switch (settings.name) {
@@ -91,6 +94,19 @@ class MyApp extends StatelessWidget {
                 ),
               );
 
+            case '/panic':
+              return MaterialPageRoute(
+                builder: (context) => BlocBuilder<AuthBloc, AuthState>(
+                  builder: (context, state) {
+                    if (state is Authenticated) {
+                      return PanicScreen(user: state.user);
+                    } else {
+                      return const SplashScreen();
+                    }
+                  },
+                ),
+              );
+
             default:
               // Ruta no encontrada
               return MaterialPageRoute(
@@ -104,6 +120,72 @@ class MyApp extends StatelessWidget {
           }
         },
       ),
+    );
+  }
+}
+
+/// Wrapper que previene el cierre accidental de la app
+/// y mantiene la sesión activa
+class _AppWrapper extends StatefulWidget {
+  const _AppWrapper();
+
+  @override
+  State<_AppWrapper> createState() => _AppWrapperState();
+}
+
+class _AppWrapperState extends State<_AppWrapper> with WidgetsBindingObserver {
+  DateTime? _lastBackPress;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // La app se mantiene activa incluso cuando va al fondo
+    // No hacemos nada especial aquí para permitir que Flutter
+    // maneje el ciclo de vida normalmente
+  }
+
+  Future<bool> _onWillPop() async {
+    final now = DateTime.now();
+    if (_lastBackPress == null ||
+        now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
+      _lastBackPress = now;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Presiona de nuevo para minimizar (la app seguirá activa)',
+          ),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return false;
+    }
+    // En lugar de cerrar la app, la minimizamos
+    SystemNavigator.pop();
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (!didPop) {
+          await _onWillPop();
+        }
+      },
+      child: const SplashScreen(),
     );
   }
 }

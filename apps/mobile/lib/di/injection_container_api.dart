@@ -25,6 +25,7 @@ import '../features/auth/domain/usecases/update_user_profile.dart';
 import '../features/auth/domain/usecases/upload_profile_image.dart';
 import '../features/auth/domain/usecases/forgot_password.dart';
 import '../features/auth/presentation/bloc/auth_bloc.dart';
+import '../features/auth/presentation/bloc/profile/profile_bloc.dart';
 
 // Citizen Reports Feature
 import '../features/citizen/data/datasources/report_api_data_source.dart';
@@ -51,6 +52,15 @@ import '../features/vehicles/domain/usecases/get_vehicles.dart';
 import '../features/vehicles/domain/usecases/start_vehicle_usage.dart';
 import '../features/vehicles/domain/usecases/end_vehicle_usage.dart';
 import '../features/vehicles/presentation/bloc/vehicle_bloc.dart';
+
+// Panic Feature
+import '../features/panic/data/datasources/panic_api_data_source.dart';
+import '../features/panic/data/datasources/panic_remote_data_source.dart';
+import '../features/panic/data/repositories/panic_repository_impl.dart';
+import '../features/panic/domain/repositories/panic_repository.dart';
+import '../features/panic/domain/usecases/send_panic_alert.dart';
+import '../features/panic/domain/usecases/cancel_panic_alert.dart';
+import '../features/panic/presentation/bloc/panic_bloc.dart';
 
 final sl = GetIt.instance;
 final logger = Logger();
@@ -108,6 +118,14 @@ Future<void> initApi() async {
       signOutUser: sl(),
       getCurrentUser: sl(),
       forgotPassword: sl(),
+    ),
+  );
+
+  // Profile BLoC
+  sl.registerFactory(
+    () => ProfileBloc(
+      updateUserProfile: sl(),
+      uploadProfileImage: sl(),
     ),
   );
 
@@ -185,6 +203,37 @@ Future<void> initApi() async {
       getVehicles: sl(),
       startVehicleUsage: sl(),
       endVehicleUsage: sl(),
+    ),
+  );
+
+  // ===== PANIC FEATURE =====
+  logger.i('  - Panic feature');
+
+  // Data sources
+  sl.registerLazySingleton<PanicRemoteDataSource>(
+    () => PanicApiDataSource(
+      client: sl(),
+      prefs: sl(),
+      baseUrl: ApiConfig.activeBaseUrl,
+    ),
+  );
+
+  // Repository
+  sl.registerLazySingleton<PanicRepository>(
+    () => PanicRepositoryImpl(
+      remoteDataSource: sl(),
+    ),
+  );
+
+  // Use cases
+  sl.registerLazySingleton(() => SendPanicAlert(sl()));
+  sl.registerLazySingleton(() => CancelPanicAlert(sl()));
+
+  // BLoC
+  sl.registerFactory(
+    () => PanicBloc(
+      sendPanicAlert: sl(),
+      cancelPanicAlert: sl(),
     ),
   );
 
