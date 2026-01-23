@@ -87,13 +87,19 @@ Future<void> initApi() async {
   logger.i('  - Auth feature');
 
   // Data sources
-  sl.registerLazySingleton<AuthRemoteDataSource>(
+  // Registrar la implementación concreta para acceso directo (getFileUrl)
+  sl.registerLazySingleton<AuthApiDataSource>(
     () => AuthApiDataSource(
       client: sl(),
       prefs: sl(),
       baseUrl: ApiConfig.activeBaseUrl,
       tenantId: ApiConfig.tenantId,
     ),
+  );
+
+  // Registrar la interfaz que apunta a la misma instancia
+  sl.registerLazySingleton<AuthRemoteDataSource>(
+    () => sl<AuthApiDataSource>(),
   );
 
   // Repository

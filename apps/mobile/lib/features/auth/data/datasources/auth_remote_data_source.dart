@@ -25,4 +25,7 @@ abstract class AuthRemoteDataSource {
   });
   Future<String> uploadProfileImage(String userId, File imageFile);
   Future<UserEntity> updateProfileImage(String userId, String imageUrl);
+
+  /// Obtener URL fresca para un archivo dado su fileId
+  Future<String?> getFileUrl(String fileId);
 }

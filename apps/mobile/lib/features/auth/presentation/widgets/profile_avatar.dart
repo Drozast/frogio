@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
+import '../../data/datasources/auth_api_data_source.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../bloc/auth_bloc.dart';
@@ -69,6 +70,17 @@ class ProfileAvatar extends StatelessWidget {
 
   Widget _buildAvatarContent() {
     if (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty) {
+      // Verificar si es una referencia a archivo (file://fileId)
+      if (user.profileImageUrl!.startsWith('file://')) {
+        final fileId = user.profileImageUrl!.substring(7);
+        return _FileImageAvatar(
+          fileId: fileId,
+          radius: radius,
+          fallback: _buildDefaultAvatar(),
+        );
+      }
+
+      // URL directa (compatibilidad con URLs antiguas o externas)
       return CachedNetworkImage(
         imageUrl: user.profileImageUrl!,
         imageBuilder: (context, imageProvider) => CircleAvatar(
@@ -255,5 +267,87 @@ class ProfileAvatar extends StatelessWidget {
         ),
       );
     }
+  }
+}
+
+/// Widget que carga una imagen desde un fileId obteniendo la URL fresca
+class _FileImageAvatar extends StatefulWidget {
+  final String fileId;
+  final double radius;
+  final Widget fallback;
+
+  const _FileImageAvatar({
+    required this.fileId,
+    required this.radius,
+    required this.fallback,
+  });
+
+  @override
+  State<_FileImageAvatar> createState() => _FileImageAvatarState();
+}
+
+class _FileImageAvatarState extends State<_FileImageAvatar> {
+  String? _imageUrl;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImageUrl();
+  }
+
+  Future<void> _loadImageUrl() async {
+    try {
+      final authDataSource = di.sl<AuthApiDataSource>();
+      final url = await authDataSource.getFileUrl(widget.fileId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _imageUrl = url;
+        _isLoading = false;
+        _hasError = url == null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return CircleAvatar(
+        radius: widget.radius,
+        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+        child: const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (_hasError || _imageUrl == null) {
+      return widget.fallback;
+    }
+
+    return CachedNetworkImage(
+      imageUrl: _imageUrl!,
+      imageBuilder: (context, imageProvider) => CircleAvatar(
+        radius: widget.radius,
+        backgroundImage: imageProvider,
+      ),
+      placeholder: (context, url) => CircleAvatar(
+        radius: widget.radius,
+        child: const CircularProgressIndicator(),
+      ),
+      errorWidget: (context, url, error) => widget.fallback,
+    );
   }
 }

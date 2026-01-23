@@ -52,10 +52,6 @@ export class FilesService {
   }
 
   async getFileUrl(fileId: string, tenantId: string): Promise<string> {
-    if (!minioClient) {
-      throw new Error('MinIO no está configurado. El almacenamiento de archivos no está disponible.');
-    }
-
     const [file] = await prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM "${tenantId}".files WHERE id = $1::uuid LIMIT 1`,
       fileId
@@ -65,9 +61,10 @@ export class FilesService {
       throw new Error('Archivo no encontrado');
     }
 
-    // Generate presigned URL (valid for 1 hour)
-    const url = await minioClient.presignedGetObject(this.BUCKET, file.storage_path, 3600);
-    return url;
+    // Devolver URL pública que pasa por la API (proxy)
+    // Esta URL es accesible desde cualquier cliente a través de Cloudflare
+    const baseUrl = env.API_URL || 'https://api-frogio.drozast.xyz';
+    return `${baseUrl}/api/files/serve/${tenantId}/${fileId}`;
   }
 
   async getFilesByEntity(entityType: string, entityId: string, tenantId: string) {
@@ -112,5 +109,27 @@ export class FilesService {
     );
 
     return { message: 'Archivo eliminado exitosamente' };
+  }
+
+  async getFileStream(fileId: string, tenantId: string): Promise<{ stream: any; contentType: string } | null> {
+    if (!minioClient) {
+      throw new Error('MinIO no está configurado.');
+    }
+
+    const [file] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT * FROM "${tenantId}".files WHERE id = $1::uuid LIMIT 1`,
+      fileId
+    );
+
+    if (!file) {
+      return null;
+    }
+
+    const stream = await minioClient.getObject(this.BUCKET, file.storage_path);
+
+    return {
+      stream,
+      contentType: file.mime_type || 'application/octet-stream',
+    };
   }
 }

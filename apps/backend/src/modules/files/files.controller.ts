@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import { FilesService } from './files.service.js';
 import type { AuthRequest } from '../../middleware/auth.middleware.js';
 
@@ -75,6 +75,29 @@ export class FilesController {
       res.json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al eliminar archivo';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  // Endpoint público para servir archivos directamente (proxy)
+  async serveFile(req: Request, res: Response): Promise<void> {
+    try {
+      const { tenantId, fileId } = req.params;
+
+      const fileStream = await filesService.getFileStream(fileId, tenantId);
+
+      if (!fileStream) {
+        res.status(404).json({ error: 'Archivo no encontrado' });
+        return;
+      }
+
+      // Establecer headers de caché
+      res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 año
+      res.setHeader('Content-Type', fileStream.contentType);
+
+      fileStream.stream.pipe(res);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al obtener archivo';
       res.status(400).json({ error: message });
     }
   }

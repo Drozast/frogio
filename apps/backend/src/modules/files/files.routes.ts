@@ -6,6 +6,10 @@ import { authMiddleware, roleGuard, type AuthRequest } from '../../middleware/au
 const router = Router();
 const filesController = new FilesController();
 
+// Ruta pública para servir archivos (sin autenticación, con caché)
+// Esta ruta DEBE ir ANTES del middleware de autenticación
+router.get('/serve/:tenantId/:fileId', (req, res) => filesController.serveFile(req, res));
+
 // Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),

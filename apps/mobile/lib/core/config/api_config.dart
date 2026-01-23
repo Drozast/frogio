@@ -1,10 +1,10 @@
 // lib/core/config/api_config.dart
 
 class ApiConfig {
-  // URLs de API - Backend en servidor local
+  // URLs de API - Backend público via Cloudflare Tunnel
   static const String baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'http://192.168.31.115:3110',
+    defaultValue: 'https://api-frogio.drozast.xyz',
   );
 
   // Tenant ID (municipalidad)
@@ -16,7 +16,7 @@ class ApiConfig {
   // Configuración de ntfy para notificaciones
   static const String ntfyUrl = String.fromEnvironment(
     'NTFY_URL',
-    defaultValue: 'http://192.168.31.115:8110',
+    defaultValue: 'https://ntfy.drozast.xyz',
   );
 
   // Timeouts

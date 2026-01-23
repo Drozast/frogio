@@ -295,25 +295,34 @@ class AuthApiDataSource implements AuthRemoteDataSource {
         final data = json.decode(response.body);
         final fileId = data['id'];
 
-        // Obtener la URL presignada del archivo
-        final urlResponse = await client.get(
-          Uri.parse('$baseUrl/api/files/$fileId/url'),
-          headers: _authHeaders,
-        );
-
-        if (urlResponse.statusCode == 200) {
-          final urlData = json.decode(urlResponse.body);
-          return urlData['url']; // Retorna la URL presignada
-        } else {
-          // Si falla obtener URL, retornar el fileId como fallback
-          return fileId;
-        }
+        // Guardar el fileId como referencia, no la URL presignada
+        // La URL se obtendrá dinámicamente cuando se necesite mostrar la imagen
+        // Formato: file://<fileId> para indicar que es una referencia a archivo
+        return 'file://$fileId';
       } else {
         final error = json.decode(response.body);
         throw Exception(error['error'] ?? 'Error al subir imagen');
       }
     } catch (e) {
       throw Exception('Error al subir imagen: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<String?> getFileUrl(String fileId) async {
+    try {
+      final response = await client.get(
+        Uri.parse('$baseUrl/api/files/$fileId/url'),
+        headers: _authHeaders,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['url'];
+      }
+      return null;
+    } catch (e) {
+      return null;
     }
   }
 

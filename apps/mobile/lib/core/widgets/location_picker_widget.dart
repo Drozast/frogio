@@ -31,6 +31,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
   LatLng? _selectedLocation;
   String? _selectedAddress;
   bool _isLoadingAddress = false;
+  bool _isLoadingCurrentLocation = false;
 
   static const LatLng _defaultLocation = LatLng(-37.0636, -72.7306);
 
@@ -41,6 +42,43 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
     _selectedLocation = widget.initialLocation;
     if (_selectedLocation != null) {
       _loadAddress(_selectedLocation!);
+    } else {
+      // Obtener ubicación actual automáticamente al iniciar
+      _loadCurrentLocationOnStart();
+    }
+  }
+
+  Future<void> _loadCurrentLocationOnStart() async {
+    setState(() {
+      _isLoadingCurrentLocation = true;
+    });
+
+    try {
+      final position = await _mapsService.getCurrentLocation();
+      final location = LatLng(position.latitude, position.longitude);
+
+      if (!mounted) return;
+
+      setState(() {
+        _selectedLocation = location;
+        _isLoadingCurrentLocation = false;
+      });
+
+      _loadAddress(location);
+
+      // Mover el mapa a la ubicación actual después de que el widget esté listo
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _mapController.move(location, 15);
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingCurrentLocation = false;
+      });
+      // Si falla, se mantiene la ubicación por defecto
     }
   }
 
@@ -124,7 +162,30 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
           ),
           const SizedBox(height: 12),
 
-          if (_selectedLocation != null) ...[
+          if (_isLoadingCurrentLocation)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: const Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'Obteniendo tu ubicación actual...',
+                    style: TextStyle(color: Colors.blue),
+                  ),
+                ],
+              ),
+            )
+          else if (_selectedLocation != null) ...[
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
