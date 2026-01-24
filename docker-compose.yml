@@ -108,7 +108,7 @@ services:
       RATE_LIMIT_WINDOW_MS: 900000
       RATE_LIMIT_MAX_REQUESTS: 100
     ports:
-      - "3000:3000"
+      - "3110:3000"
     networks:
       - frogio_network
     volumes:
