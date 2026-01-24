@@ -8,11 +8,6 @@ services:
     restart: unless-stopped
     volumes:
       - frogio_postgres_data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: frogio_production
-      POSTGRES_USER: frogio
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
-      PGDATA: /var/lib/postgresql/data
     ports:
       - "5432:5432"
     networks:
