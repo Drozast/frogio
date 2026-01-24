@@ -77,7 +77,7 @@ class NotificationManager {
         backgroundColor: Colors.red.shade50,
         title: Row(
           children: [
-            Icon(Icons.warning, color: Colors.red, size: 32),
+            const Icon(Icons.warning, color: Colors.red, size: 32),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -117,7 +117,7 @@ class NotificationManager {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.location_on, color: Colors.red),
+                    const Icon(Icons.location_on, color: Colors.red),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

@@ -11,6 +11,7 @@ import 'package:logger/logger.dart';
 // Core
 import '../core/config/api_config.dart';
 import '../core/services/session_timeout_service.dart';
+import '../core/network/auth_http_client.dart';
 
 // Auth Feature
 import '../features/auth/data/datasources/auth_api_data_source.dart';
@@ -101,6 +102,16 @@ Future<void> initApi() async {
   logger.i('  - Core services');
   sl.registerLazySingleton<Logger>(() => Logger());
   sl.registerLazySingleton<SessionTimeoutService>(() => SessionTimeoutService());
+
+  // Auth HTTP Client (with automatic token refresh)
+  sl.registerLazySingleton<AuthHttpClient>(
+    () => AuthHttpClient(
+      inner: sl<http.Client>(),
+      prefs: sl(),
+      baseUrl: ApiConfig.activeBaseUrl,
+      tenantId: ApiConfig.tenantId,
+    ),
+  );
 
   // ===== AUTH FEATURE =====
   logger.i('  - Auth feature');
@@ -319,11 +330,10 @@ Future<void> initApi() async {
   // ===== NOTIFICATIONS FEATURE =====
   logger.i('  - Notifications feature');
 
-  // Data sources
+  // Data sources (uses AuthHttpClient for automatic token refresh)
   sl.registerLazySingleton<NotificationApiDataSource>(
     () => NotificationApiDataSource(
-      client: sl(),
-      prefs: sl(),
+      client: sl<AuthHttpClient>(),
       baseUrl: ApiConfig.activeBaseUrl,
     ),
   );

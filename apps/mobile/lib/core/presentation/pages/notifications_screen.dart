@@ -15,6 +15,7 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
+  bool _autoMarkedThisOpen = false;
   @override
   void initState() {
     super.initState();
@@ -50,13 +51,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ],
       ),
-      body: BlocBuilder<NotificationBloc, NotificationState>(
-        builder: (context, state) {
-          if (state is NotificationLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+      body: BlocListener<NotificationBloc, NotificationState>(
+        listener: (context, state) {
+          // UX: al abrir la pantalla, considerar "revisadas" las notificaciones visibles
+          if (state is NotificationLoaded && !_autoMarkedThisOpen) {
+            if (state.unreadCount > 0) {
+              _autoMarkedThisOpen = true;
+              context.read<NotificationBloc>().add(MarkAllAsReadEvent());
+            }
           }
+        },
+        child: BlocBuilder<NotificationBloc, NotificationState>(
+          builder: (context, state) {
+            if (state is NotificationLoading) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
 
           if (state is NotificationError) {
             return Center(
@@ -110,6 +121,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           return _buildEmptyState();
         },
       ),
+    ),
     );
   }
 
@@ -120,7 +132,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppTheme.primarySurface,
               shape: BoxShape.circle,
             ),
@@ -136,7 +148,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             style: AppTheme.titleMedium.copyWith(color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Las notificaciones apareceran aqui',
             style: AppTheme.bodySmall,
             textAlign: TextAlign.center,
@@ -252,7 +264,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.access_time_rounded,
                             size: 14,
                             color: AppTheme.textTertiary,
@@ -288,7 +300,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(
+                const Icon(
                   Icons.chevron_right_rounded,
                   color: AppTheme.textTertiary,
                   size: 20,
@@ -465,7 +477,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
-                Icon(Icons.access_time_rounded, size: 16, color: AppTheme.textTertiary),
+                const Icon(Icons.access_time_rounded, size: 16, color: AppTheme.textTertiary),
                 const SizedBox(width: 8),
                 Text(
                   _formatFullDate(notification.createdAt),
@@ -474,20 +486,46 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            Row(
+              children: [
+                // Botón "Ir" si hay destino de navegación
+                if (_hasNavigationTarget(notification))
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _navigateToNotificationTarget(notification);
+                      },
+                      icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                      label: const Text('Ir'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_hasNavigationTarget(notification))
+                  const SizedBox(width: 12),
+                // Botón "Entendido"
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: const BorderSide(color: AppTheme.primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Entendido'),
                   ),
                 ),
-                child: const Text('Entendido'),
-              ),
+              ],
             ),
             const SizedBox(height: 16),
           ],
@@ -556,5 +594,61 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     ];
     return '${dateTime.day} ${months[dateTime.month - 1]} ${dateTime.year}, '
         '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Verifica si la notificación tiene un destino de navegación
+  bool _hasNavigationTarget(AppNotification notification) {
+    // Verificar si tiene datos de navegación
+    final data = notification.data;
+
+    // Tipos que pueden tener navegación
+    switch (notification.type) {
+      case NotificationType.panicAlert:
+        return data['panicAlertId'] != null || data['alertId'] != null;
+      case NotificationType.reportStatusChanged:
+      case NotificationType.reportResponse:
+      case NotificationType.reportAssigned:
+      case NotificationType.newReport:
+      case NotificationType.newCitizenReport:
+        return data['reportId'] != null;
+      default:
+        return false;
+    }
+  }
+
+  /// Navega al destino de la notificación
+  void _navigateToNotificationTarget(AppNotification notification) {
+    final data = notification.data;
+
+    switch (notification.type) {
+      case NotificationType.panicAlert:
+        final alertId = data['panicAlertId'] ?? data['alertId'];
+        if (alertId != null) {
+          // Navegar a la pantalla de alerta de pánico
+          Navigator.pushNamed(
+            context,
+            '/panic-alert-detail',
+            arguments: {'alertId': alertId},
+          );
+        }
+        break;
+      case NotificationType.reportStatusChanged:
+      case NotificationType.reportResponse:
+      case NotificationType.reportAssigned:
+      case NotificationType.newReport:
+      case NotificationType.newCitizenReport:
+        final reportId = data['reportId'];
+        if (reportId != null) {
+          // Navegar a la pantalla de detalle del reporte
+          Navigator.pushNamed(
+            context,
+            '/report-detail',
+            arguments: {'reportId': reportId},
+          );
+        }
+        break;
+      default:
+        break;
+    }
   }
 }

@@ -227,38 +227,41 @@ class _ActiveTripPageState extends State<ActiveTripPage> {
                     return;
                   }
 
+                  // Close confirmation sheet now
                   Navigator.pop(context);
+
+                  // Capture references before async gaps to avoid using context later
+                  final vehicleBloc = context.read<VehicleBloc>();
+                  final navigator = Navigator.of(context);
 
                   // Stop GPS tracking
                   await _gpsService.stopTracking();
                   _updateTimer?.cancel();
 
-                  // End vehicle usage - send route and stops data
-                  if (mounted) {
-                    // Convert route points to LocationPoint entities
-                    final routePoints = _routePoints.map((point) {
-                      return LocationPoint(
-                        latitude: point.latitude,
-                        longitude: point.longitude,
-                        timestamp: DateTime.now(), // Simplified timestamp
-                      );
-                    }).toList();
+                  // Convert route points to LocationPoint entities
+                  final routePoints = _routePoints.map((point) {
+                    return LocationPoint(
+                      latitude: point.latitude,
+                      longitude: point.longitude,
+                      timestamp: DateTime.now(), // Simplified timestamp
+                    );
+                  }).toList();
 
-                    context.read<VehicleBloc>().add(
-                          EndVehicleUsageEvent(
-                            logId: widget.vehicleLogId,
-                            endKm: endKm,
-                            observations: observationsController.text.isNotEmpty
-                                ? observationsController.text
-                                : null,
-                            route: routePoints,
-                            stops: _stops,
-                          ),
-                        );
+                  // Dispatch event without using context post-await
+                  vehicleBloc.add(
+                    EndVehicleUsageEvent(
+                      logId: widget.vehicleLogId,
+                      endKm: endKm,
+                      observations: observationsController.text.isNotEmpty
+                          ? observationsController.text
+                          : null,
+                      route: routePoints,
+                      stops: _stops,
+                    ),
+                  );
 
-                    // Navigate back
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  }
+                  // Navigate back using captured navigator
+                  navigator.popUntil((route) => route.isFirst);
                 },
                 child: const Text('Confirmar'),
               ),
@@ -437,14 +440,7 @@ class _ActiveTripPageState extends State<ActiveTripPage> {
     );
   }
 
-  Duration get _totalStopTime {
-    return _stops.fold(Duration.zero, (total, stop) {
-      if (stop.duration != null) {
-        return total + stop.duration!;
-      }
-      return total;
-    });
-  }
+  
 
   @override
   Widget build(BuildContext context) {

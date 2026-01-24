@@ -26,7 +26,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   final _resolutionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  bool _isLoading = false;
   bool _isClosing = false;
   String _selectedResolutionType = 'resolved';
 
@@ -296,7 +295,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.task_alt, color: _primaryGreen),
+                                const Icon(Icons.task_alt, color: _primaryGreen),
                                 const SizedBox(width: 8),
                                 const Text(
                                   'Cerrar Denuncia',

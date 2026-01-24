@@ -48,7 +48,6 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
 
   // Loading states
   bool _isLoading = true;
-  String? _error;
   String _currentFilter = 'all';
 
   // Animation for panic alerts
@@ -151,7 +150,6 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
       debugPrint('❌ Map load error: $e');
       setState(() {
         _isLoading = false;
-        _error = e.toString();
       });
     }
   }
@@ -646,8 +644,8 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
 
     // Skip if no valid location
     if (lat == 0 && lng == 0) {
-      return Marker(
-        point: const LatLng(0, 0),
+      return const Marker(
+        point: LatLng(0, 0),
         width: 0,
         height: 0,
         child: const SizedBox.shrink(),
@@ -744,9 +742,9 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
           // Header
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: _primaryGreen,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Row(
               children: [
@@ -968,7 +966,6 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
     final phone = alert['phone']?.toString() ?? '';
     final address = alert['address']?.toString() ?? 'Sin dirección';
     final message = alert['message']?.toString() ?? 'Emergencia';
-    final createdAt = alert['created_at']?.toString() ?? '';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1399,6 +1396,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
         },
       );
 
+      if (!mounted) return;
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1409,6 +1407,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
         _loadData(); // Refresh
       } else {
         final error = json.decode(response.body);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(error['error'] ?? 'Error al responder'),
@@ -1417,6 +1416,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: $e'),
@@ -1476,6 +1476,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
         },
       );
 
+      if (!mounted) return;
       if (response.statusCode == 200) {
         setState(() {
           _selectedItem = null;
@@ -1490,6 +1491,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
         _loadData(); // Refresh
       } else {
         final error = json.decode(response.body);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(error['error'] ?? 'Error al resolver la alerta'),
@@ -1498,6 +1500,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: $e'),
@@ -1582,6 +1585,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
         body: json.encode({'reason': reason}),
       );
 
+      if (!mounted) return;
       if (response.statusCode == 200) {
         setState(() {
           _selectedItem = null;
@@ -1596,6 +1600,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
         _loadData(); // Refresh
       } else {
         final error = json.decode(response.body);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(error['error'] ?? 'Error al descartar la alerta'),
@@ -1604,6 +1609,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: $e'),

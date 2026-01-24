@@ -39,8 +39,9 @@ class MyApp extends StatelessWidget {
         BlocProvider(
           create: (_) => di.sl<AuthBloc>()..add(CheckAuthStatusEvent()),
         ),
+        // Unificar instancia global de notificaciones con DI y carga inicial
         BlocProvider(
-          create: (_) => NotificationBloc(),
+          create: (_) => di.sl<NotificationBloc>()..add(LoadNotificationsEvent()),
         ),
       ],
       child: MaterialApp(

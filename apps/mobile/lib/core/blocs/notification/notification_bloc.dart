@@ -204,7 +204,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
         unreadCount: 0,
       ));
     } catch (e) {
-      emit(NotificationError('Error al marcar todas como leídas'));
+      emit(const NotificationError('Error al marcar todas como leídas'));
     }
   }
 }

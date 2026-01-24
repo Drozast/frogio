@@ -18,9 +18,9 @@ import '../../../features/citizen/presentation/pages/my_reports_screen.dart';
 import '../../../features/citizen/presentation/pages/citizen_home_screen.dart';
 import '../../../features/admin/presentation/bloc/statistics/statistics_bloc.dart';
 import '../../../features/admin/presentation/pages/admin_dashboard_screen.dart';
-import '../../../features/inspector/presentation/pages/inspector_home_screen.dart';
 import '../../../features/inspector/presentation/pages/inspector_home_screen_v2.dart';
 import '../../../features/inspector/presentation/pages/citations_main_screen.dart';
+import '../../../features/inspector/presentation/bloc/citation_bloc.dart';
 import '../../../features/panic/presentation/bloc/panic_bloc.dart';
 import '../../../features/panic/presentation/bloc/panic_event.dart';
 import '../../../features/panic/presentation/bloc/panic_state.dart';
@@ -42,7 +42,6 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   // Colores del tema FROGIO
   static const Color _primaryGreen = Color(0xFF1B5E20);
   static const Color _lightGreen = Color(0xFF7CB342);
-  static const Color _accentGreen = Color(0xFF4CAF50);
 
   // Estado para el botón de pánico
   Position? _currentPosition;
@@ -249,7 +248,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       providers: [
         BlocProvider(create: (_) => di.sl<ProfileBloc>()),
         BlocProvider(create: (_) => di.sl<PanicBloc>()),
-        BlocProvider(create: (_) => di.sl<NotificationBloc>()..add(LoadNotificationsEvent())),
+        // NotificationBloc global provisto en MyApp
       ],
       child: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
@@ -925,7 +924,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           case 0:
             return InspectorHomeScreenV2(user: user);
           case 1:
-            return CitationsMainScreen(user: user);
+            return BlocProvider(
+              create: (_) => di.sl<CitationBloc>()..add(LoadMyCitationsEvent()),
+              child: CitationsMainScreen(user: user),
+            );
           case 2:
             return _buildProfilePage(user);
           default:
@@ -1289,7 +1291,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             Text(
               title,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: _primaryGreen,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,

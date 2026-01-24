@@ -8,6 +8,9 @@ import '../../data/models/citation_model.dart';
 import '../../domain/entities/citation_entity.dart';
 import '../../domain/repositories/citation_repository.dart';
 
+// Orden disponible para citaciones
+enum CitationSortField { date, number, status }
+
 // Events
 abstract class CitationEvent extends Equatable {
   const CitationEvent();
@@ -72,16 +75,24 @@ class FilterCitationsEvent extends CitationEvent {
   final CitationType? citationType;
   final TargetType? targetType;
   final String? searchQuery;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final bool? sortByDateDesc;
+  final CitationSortField? sortField;
 
   const FilterCitationsEvent({
     this.status,
     this.citationType,
     this.targetType,
     this.searchQuery,
+    this.startDate,
+    this.endDate,
+    this.sortByDateDesc,
+    this.sortField,
   });
 
   @override
-  List<Object?> get props => [status, citationType, targetType, searchQuery];
+  List<Object?> get props => [status, citationType, targetType, searchQuery, startDate, endDate, sortByDateDesc, sortField];
 }
 
 class RefreshCitationsEvent extends CitationEvent {}
@@ -89,11 +100,12 @@ class RefreshCitationsEvent extends CitationEvent {}
 class UpdateCitationStatusEvent extends CitationEvent {
   final String citationId;
   final CitationStatus status;
+  final String? notes;
 
-  const UpdateCitationStatusEvent({required this.citationId, required this.status});
+  const UpdateCitationStatusEvent({required this.citationId, required this.status, this.notes});
 
   @override
-  List<Object> get props => [citationId, status];
+  List<Object?> get props => [citationId, status, notes];
 }
 
 // States
@@ -466,6 +478,66 @@ class CitationBloc extends Bloc<CitationEvent, CitationState> {
         }).toList();
       }
 
+      // Aplicar filtro por rango de fechas (createdAt)
+      if (event.startDate != null || event.endDate != null) {
+        final start = event.startDate != null
+            ? DateTime(event.startDate!.year, event.startDate!.month, event.startDate!.day)
+            : null;
+        final end = event.endDate != null
+            ? DateTime(event.endDate!.year, event.endDate!.month, event.endDate!.day, 23, 59, 59, 999)
+            : null;
+
+        filteredCitations = filteredCitations.where((citation) {
+          final created = citation.createdAt;
+          final afterStart = start == null || !created.isBefore(start);
+          final beforeEnd = end == null || !created.isAfter(end);
+          return afterStart && beforeEnd;
+        }).toList();
+      }
+
+      // Ordenar por campo
+      final sortDesc = event.sortByDateDesc ?? true;
+      final sortField = event.sortField ?? CitationSortField.date;
+
+      int statusIndex(CitationStatus s) {
+        switch (s) {
+          case CitationStatus.pendiente:
+            return 0;
+          case CitationStatus.notificado:
+            return 1;
+          case CitationStatus.asistio:
+            return 2;
+          case CitationStatus.noAsistio:
+            return 3;
+          case CitationStatus.cancelado:
+            return 4;
+        }
+      }
+
+      int numberKey(CitationEntity c) {
+        final match = RegExp(r"\d+").firstMatch(c.citationNumber);
+        if (match != null) {
+          return int.tryParse(match.group(0)!) ?? 0;
+        }
+        // fallback: hash of lowercase
+        return c.citationNumber.toLowerCase().hashCode;
+      }
+
+      switch (sortField) {
+        case CitationSortField.date:
+          filteredCitations.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          break;
+        case CitationSortField.number:
+          filteredCitations.sort((a, b) => numberKey(a).compareTo(numberKey(b)));
+          break;
+        case CitationSortField.status:
+          filteredCitations.sort((a, b) => statusIndex(a.status).compareTo(statusIndex(b.status)));
+          break;
+      }
+      if (sortDesc) {
+        filteredCitations = filteredCitations.reversed.toList();
+      }
+
       emit(currentState.copyWith(
         filteredCitations: filteredCitations,
         currentStatusFilter: event.status,
@@ -489,7 +561,7 @@ class CitationBloc extends Bloc<CitationEvent, CitationState> {
   ) async {
     emit(CitationUpdating(id: event.citationId));
 
-    final dto = UpdateCitationDto(status: event.status);
+    final dto = UpdateCitationDto(status: event.status, notes: event.notes);
     final result = await repository.updateCitation(event.citationId, dto);
 
     result.fold(

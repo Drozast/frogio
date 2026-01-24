@@ -2,39 +2,28 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../widgets/notification_widget.dart';
 
 class NotificationApiDataSource {
-  final http.Client client;
-  final SharedPreferences prefs;
+  final http.Client client; // This should be AuthHttpClient for auto token refresh
   final String baseUrl;
 
   NotificationApiDataSource({
     required this.client,
-    required this.prefs,
     required this.baseUrl,
   });
-
-  Map<String, String> get _headers {
-    final token = prefs.getString('access_token');
-    return {
-      'Content-Type': 'application/json',
-      'X-Tenant-ID': 'santa_juana',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
-  }
 
   Future<List<AppNotification>> getNotifications({int limit = 50}) async {
     final response = await client.get(
       Uri.parse('$baseUrl/api/notifications?limit=$limit'),
-      headers: _headers,
     );
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((item) => _mapToNotification(item)).toList();
+    } else if (response.statusCode == 401) {
+      throw Exception('Token inválido o expirado');
     } else {
       final error = jsonDecode(response.body);
       throw Exception(error['error'] ?? 'Error al obtener notificaciones');
@@ -44,7 +33,6 @@ class NotificationApiDataSource {
   Future<int> getUnreadCount() async {
     final response = await client.get(
       Uri.parse('$baseUrl/api/notifications/unread/count'),
-      headers: _headers,
     );
 
     if (response.statusCode == 200) {
@@ -57,7 +45,6 @@ class NotificationApiDataSource {
   Future<void> markAsRead(String notificationId) async {
     final response = await client.patch(
       Uri.parse('$baseUrl/api/notifications/$notificationId/read'),
-      headers: _headers,
     );
 
     if (response.statusCode != 200) {
@@ -69,7 +56,6 @@ class NotificationApiDataSource {
   Future<void> markAllAsRead() async {
     final response = await client.patch(
       Uri.parse('$baseUrl/api/notifications/read-all'),
-      headers: _headers,
     );
 
     if (response.statusCode != 200) {
@@ -81,7 +67,6 @@ class NotificationApiDataSource {
   Future<void> deleteNotification(String notificationId) async {
     final response = await client.delete(
       Uri.parse('$baseUrl/api/notifications/$notificationId'),
-      headers: _headers,
     );
 
     if (response.statusCode != 200) {
