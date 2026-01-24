@@ -25,6 +25,7 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
     final token = prefs.getString(_accessTokenKey);
     return {
       'Content-Type': 'application/json',
+      'x-tenant-id': 'santa_juana',
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
@@ -129,6 +130,8 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
     required double endKm,
     String? observations,
     List<String>? attachments,
+    List<Map<String, dynamic>>? route,
+    List<Map<String, dynamic>>? stops,
   }) async {
     try {
       final response = await client.patch(
@@ -138,15 +141,17 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
           'endKm': endKm,
           'observations': observations,
           'attachments': attachments,
+          'route': route,
+          'stops': stops,
         }),
       );
 
       if (response.statusCode != 200) {
         final error = json.decode(response.body);
-        throw Exception(error['error'] ?? 'Error al finalizar uso de vehículo');
+        throw Exception(error['error'] ?? 'Error al finalizar bitácora');
       }
     } catch (e) {
-      throw Exception('Error al finalizar uso de vehículo: ${e.toString()}');
+      throw Exception('Error al finalizar bitácora: ${e.toString()}');
     }
   }
 

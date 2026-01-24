@@ -1,6 +1,7 @@
 // lib/features/auth/presentation/pages/complete_profile_screen.dart
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,10 +10,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/text_formatters.dart';
 import '../../../../di/injection_container_api.dart' as di;
+import '../../data/datasources/auth_api_data_source.dart';
 import '../../domain/entities/family_member_entity.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -56,11 +60,19 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
   double? _latitude;
   double? _longitude;
   final MapController _mapController = MapController();
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _isSearching = false;
+
+  // Verificar si es inspector o admin (perfil simplificado)
+  bool get _isInspectorOrAdmin =>
+      widget.user.role == 'inspector' || widget.user.role == 'admin';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    // Inspectores solo tienen 1 tab, ciudadanos tienen 3
+    _tabController = TabController(length: _isInspectorOrAdmin ? 1 : 3, vsync: this);
     _authRepository = di.sl<AuthRepository>();
 
     _nameController = TextEditingController(text: widget.user.name ?? '');
@@ -83,6 +95,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
     _phoneController.dispose();
     _addressController.dispose();
     _referenceController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -95,18 +108,20 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
           children: [
             // Header con estilo FROGIO
             _buildHeader(),
-            // Tabs
-            _buildTabBar(),
+            // Tabs (solo para ciudadanos)
+            if (!_isInspectorOrAdmin) _buildTabBar(),
             // Contenido
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildPersonalDataTab(),
-                  _buildFamilyTab(),
-                  _buildLocationTab(),
-                ],
-              ),
+              child: _isInspectorOrAdmin
+                  ? _buildInspectorDataTab()
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildPersonalDataTab(),
+                        _buildFamilyTab(),
+                        _buildLocationTab(),
+                      ],
+                    ),
             ),
             // Botón guardar
             _buildSaveButton(),
@@ -202,13 +217,24 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
 
   Widget _buildAvatarContent(UserEntity user) {
     if (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty) {
+      // Verificar si es una referencia a archivo (file://fileId)
+      if (user.profileImageUrl!.startsWith('file://')) {
+        final fileId = user.profileImageUrl!.substring(7);
+        return _FileImageWidget(
+          fileId: fileId,
+          size: 100,
+          fallback: _buildDefaultAvatar(user),
+        );
+      }
+      // URL directa
       return ClipOval(
-        child: Image.network(
-          user.profileImageUrl!,
+        child: CachedNetworkImage(
+          imageUrl: user.profileImageUrl!,
           width: 100,
           height: 100,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _buildDefaultAvatar(user),
+          placeholder: (context, url) => const CircularProgressIndicator(color: Colors.white),
+          errorWidget: (context, url, error) => _buildDefaultAvatar(user),
         ),
       );
     }
@@ -276,7 +302,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
     );
   }
 
-  Widget _buildPersonalDataTab() {
+  /// Tab simplificado para inspectores/admins
+  Widget _buildInspectorDataTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Form(
@@ -284,7 +311,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle('Informaci\u00f3n Personal'),
+            _buildSectionTitle('Información Personal'),
             const SizedBox(height: 12),
             _buildTextField(
               controller: _nameController,
@@ -305,7 +332,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
             const SizedBox(height: 12),
             _buildTextField(
               controller: _phoneController,
-              label: 'Tel\u00e9fono',
+              label: 'Teléfono',
               icon: Icons.phone,
               keyboardType: TextInputType.phone,
               inputFormatters: [PhoneFormatter()],
@@ -315,17 +342,71 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
             const SizedBox(height: 12),
             _buildTextField(
               controller: _addressController,
-              label: 'Direcci\u00f3n',
+              label: 'Dirección',
               icon: Icons.home,
               hint: 'Calle Los Aromos 123, Santa Juana',
               maxLines: 2,
               validator: Validators.validateAddress,
             ),
             const SizedBox(height: 20),
-            _buildSectionTitle('Referencia de ubicaci\u00f3n'),
+            // Información institucional
+            _buildInspectorAccountInfo(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonalDataTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle('Información Personal'),
+            const SizedBox(height: 12),
+            _buildTextField(
+              controller: _nameController,
+              label: 'Nombre completo',
+              icon: Icons.person,
+              inputFormatters: [NameFormatter()],
+              validator: Validators.validateName,
+            ),
+            const SizedBox(height: 12),
+            _buildTextField(
+              controller: _rutController,
+              label: 'RUT',
+              icon: Icons.badge,
+              hint: '12.345.678-9',
+              inputFormatters: [RutFormatter()],
+              validator: Validators.validateRut,
+            ),
+            const SizedBox(height: 12),
+            _buildTextField(
+              controller: _phoneController,
+              label: 'Teléfono',
+              icon: Icons.phone,
+              keyboardType: TextInputType.phone,
+              inputFormatters: [PhoneFormatter()],
+              prefixText: '+56 ',
+              validator: Validators.validatePhone,
+            ),
+            const SizedBox(height: 12),
+            _buildTextField(
+              controller: _addressController,
+              label: 'Dirección',
+              icon: Icons.home,
+              hint: 'Calle Los Aromos 123, Santa Juana',
+              maxLines: 2,
+              validator: Validators.validateAddress,
+            ),
+            const SizedBox(height: 20),
+            _buildSectionTitle('Referencia de ubicación'),
             const SizedBox(height: 8),
             Text(
-              'Describe c\u00f3mo llegar a tu domicilio o puntos de referencia cercanos',
+              'Describe cómo llegar a tu domicilio o puntos de referencia cercanos',
               style: TextStyle(color: Colors.grey[600], fontSize: 13),
             ),
             const SizedBox(height: 12),
@@ -333,11 +414,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
               controller: _referenceController,
               label: 'Cuadro de referencia',
               icon: Icons.description,
-              hint: 'Ej: Casa color azul, frente a la cancha de f\u00fatbol...',
+              hint: 'Ej: Casa color azul, frente a la cancha de fútbol...',
               maxLines: 3,
             ),
             const SizedBox(height: 20),
-            // Informaci\u00f3n de cuenta
+            // Información de cuenta
             _buildAccountInfo(),
           ],
         ),
@@ -539,12 +620,15 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionTitle('Ubicaci\u00f3n de tu domicilio'),
+              _buildSectionTitle('Ubicación de tu domicilio'),
               const SizedBox(height: 8),
               Text(
-                'Marca tu ubicaci\u00f3n en el mapa para que los servicios de emergencia puedan encontrarte f\u00e1cilmente.',
+                'Marca tu ubicación en el mapa para que los servicios de emergencia puedan encontrarte fácilmente.',
                 style: TextStyle(color: Colors.grey[600], fontSize: 13),
               ),
+              const SizedBox(height: 12),
+              // Barra de búsqueda
+              _buildSearchBar(),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -552,13 +636,26 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
                     child: ElevatedButton.icon(
                       onPressed: _getCurrentLocation,
                       icon: const Icon(Icons.my_location, size: 18),
-                      label: const Text('Usar mi ubicaci\u00f3n actual'),
+                      label: const Text('Mi ubicación'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _primaryGreen,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
                         ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _showFullscreenMap,
+                    icon: const Icon(Icons.fullscreen, size: 18),
+                    label: const Text('Ampliar'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _lightGreen,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
                       ),
                     ),
                   ),
@@ -592,10 +689,147 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
         ),
         // Mapa
         Expanded(
-          child: Container(
-            margin: const EdgeInsets.all(16),
+          child: Stack(
+            children: [
+              Container(
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _latitude != null && _longitude != null
+                        ? LatLng(_latitude!, _longitude!)
+                        : const LatLng(-37.1676, -72.9424), // Santa Juana
+                    initialZoom: 15.0,
+                    onTap: (tapPosition, point) {
+                      setState(() {
+                        _latitude = point.latitude;
+                        _longitude = point.longitude;
+                        _searchResults = [];
+                      });
+                    },
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.frogio.santa_juana',
+                    ),
+                    if (_latitude != null && _longitude != null)
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: LatLng(_latitude!, _longitude!),
+                            width: 50,
+                            height: 50,
+                            child: const Icon(
+                              Icons.location_pin,
+                              color: Colors.red,
+                              size: 50,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              // Botón de expandir en esquina superior derecha
+              Positioned(
+                top: 24,
+                right: 24,
+                child: Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  elevation: 2,
+                  child: InkWell(
+                    onTap: _showFullscreenMap,
+                    borderRadius: BorderRadius.circular(8),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.fullscreen, color: _primaryGreen),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Toca en el mapa para marcar tu ubicación',
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Column(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Buscar dirección...',
+              prefixIcon: const Icon(Icons.search, color: _primaryGreen),
+              suffixIcon: _isSearching
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchResults = []);
+                          },
+                        )
+                      : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+            onSubmitted: _searchAddress,
+            textInputAction: TextInputAction.search,
+          ),
+        ),
+        // Resultados de búsqueda
+        if (_searchResults.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.1),
@@ -603,55 +837,102 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
                 ),
               ],
             ),
-            clipBehavior: Clip.antiAlias,
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _latitude != null && _longitude != null
-                    ? LatLng(_latitude!, _longitude!)
-                    : const LatLng(-37.1676, -72.9424), // Santa Juana
-                initialZoom: 15.0,
-                onTap: (tapPosition, point) {
-                  setState(() {
-                    _latitude = point.latitude;
-                    _longitude = point.longitude;
-                  });
-                },
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.frogio.santa_juana',
-                ),
-                if (_latitude != null && _longitude != null)
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: LatLng(_latitude!, _longitude!),
-                        width: 50,
-                        height: 50,
-                        child: const Icon(
-                          Icons.location_pin,
-                          color: Colors.red,
-                          size: 50,
-                        ),
-                      ),
-                    ],
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _searchResults.length,
+              itemBuilder: (context, index) {
+                final result = _searchResults[index];
+                return ListTile(
+                  leading: const Icon(Icons.location_on, color: _primaryGreen),
+                  title: Text(
+                    result['display_name'] ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13),
                   ),
-              ],
+                  onTap: () => _selectSearchResult(result),
+                );
+              },
             ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Toca en el mapa para marcar tu ubicaci\u00f3n',
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        const SizedBox(height: 8),
       ],
+    );
+  }
+
+  Future<void> _searchAddress(String query) async {
+    if (query.trim().isEmpty) return;
+
+    setState(() => _isSearching = true);
+
+    try {
+      // Usar Nominatim para geocodificación (OpenStreetMap)
+      final searchQuery = '$query, Santa Juana, Chile';
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(searchQuery)}&format=json&limit=5&countrycodes=cl',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'FrogioApp/1.0'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          _searchResults = data.cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error buscando dirección: $e');
+    } finally {
+      setState(() => _isSearching = false);
+    }
+  }
+
+  void _selectSearchResult(Map<String, dynamic> result) {
+    final lat = double.tryParse(result['lat'] ?? '');
+    final lon = double.tryParse(result['lon'] ?? '');
+
+    if (lat != null && lon != null) {
+      setState(() {
+        _latitude = lat;
+        _longitude = lon;
+        _searchResults = [];
+        _searchController.clear();
+      });
+
+      _mapController.move(LatLng(lat, lon), 17.0);
+
+      // Actualizar dirección si está vacía
+      if (_addressController.text.isEmpty) {
+        final displayName = result['display_name'] as String?;
+        if (displayName != null) {
+          // Extraer solo la parte relevante de la dirección
+          final parts = displayName.split(',');
+          if (parts.length >= 2) {
+            _addressController.text = '${parts[0].trim()}, ${parts[1].trim()}';
+          }
+        }
+      }
+    }
+  }
+
+  void _showFullscreenMap() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _FullscreenMapDialog(
+        initialLat: _latitude,
+        initialLon: _longitude,
+        onLocationSelected: (lat, lon) {
+          setState(() {
+            _latitude = lat;
+            _longitude = lon;
+          });
+          _mapController.move(LatLng(lat, lon), 17.0);
+        },
+      ),
     );
   }
 
@@ -739,13 +1020,41 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Informaci\u00f3n de la cuenta',
+            'Información de la cuenta',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 12),
           _buildAccountInfoRow('Email:', widget.user.email),
           _buildAccountInfoRow('Rol:', _getRoleDisplayName(widget.user.role)),
           _buildAccountInfoRow('Creada:', _formatDate(widget.user.createdAt)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInspectorAccountInfo() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Información institucional',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 12),
+          _buildAccountInfoRow('Email institucional:', widget.user.email),
+          _buildAccountInfoRow('Cargo:', _getRoleDisplayName(widget.user.role)),
         ],
       ),
     );
@@ -1193,6 +1502,441 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
       SnackBar(
         content: Text(message),
         backgroundColor: AppTheme.errorColor,
+      ),
+    );
+  }
+}
+
+/// Widget que carga una imagen desde un fileId
+class _FileImageWidget extends StatefulWidget {
+  final String fileId;
+  final double size;
+  final Widget fallback;
+
+  const _FileImageWidget({
+    required this.fileId,
+    required this.size,
+    required this.fallback,
+  });
+
+  @override
+  State<_FileImageWidget> createState() => _FileImageWidgetState();
+}
+
+class _FileImageWidgetState extends State<_FileImageWidget> {
+  String? _imageUrl;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImageUrl();
+  }
+
+  Future<void> _loadImageUrl() async {
+    try {
+      final authDataSource = di.sl<AuthApiDataSource>();
+      final url = await authDataSource.getFileUrl(widget.fileId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _imageUrl = url;
+        _isLoading = false;
+        _hasError = url == null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return SizedBox(
+        width: widget.size,
+        height: widget.size,
+        child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+
+    if (_hasError || _imageUrl == null) {
+      return widget.fallback;
+    }
+
+    return ClipOval(
+      child: CachedNetworkImage(
+        imageUrl: _imageUrl!,
+        width: widget.size,
+        height: widget.size,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => const CircularProgressIndicator(color: Colors.white),
+        errorWidget: (context, url, error) => widget.fallback,
+      ),
+    );
+  }
+}
+
+/// Dialog de mapa en pantalla completa
+class _FullscreenMapDialog extends StatefulWidget {
+  final double? initialLat;
+  final double? initialLon;
+  final Function(double lat, double lon) onLocationSelected;
+
+  const _FullscreenMapDialog({
+    this.initialLat,
+    this.initialLon,
+    required this.onLocationSelected,
+  });
+
+  @override
+  State<_FullscreenMapDialog> createState() => _FullscreenMapDialogState();
+}
+
+class _FullscreenMapDialogState extends State<_FullscreenMapDialog> {
+  static const Color _primaryGreen = Color(0xFF1B5E20);
+  static const Color _lightGreen = Color(0xFF7CB342);
+
+  late MapController _mapController;
+  double? _selectedLat;
+  double? _selectedLon;
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _isSearching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _mapController = MapController();
+    _selectedLat = widget.initialLat;
+    _selectedLon = widget.initialLon;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      child: Scaffold(
+        backgroundColor: Colors.grey[100],
+        appBar: AppBar(
+          backgroundColor: _primaryGreen,
+          leading: IconButton(
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: const Text(
+            'Seleccionar ubicación',
+            style: TextStyle(color: Colors.white),
+          ),
+          actions: [
+            if (_selectedLat != null && _selectedLon != null)
+              TextButton.icon(
+                onPressed: () {
+                  widget.onLocationSelected(_selectedLat!, _selectedLon!);
+                  Navigator.pop(context);
+                },
+                icon: const Icon(Icons.check, color: Colors.white),
+                label: const Text('Confirmar', style: TextStyle(color: Colors.white)),
+              ),
+          ],
+        ),
+        body: Column(
+          children: [
+            // Barra de búsqueda
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: Colors.white,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar dirección...',
+                      prefixIcon: const Icon(Icons.search, color: _primaryGreen),
+                      suffixIcon: _isSearching
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchResults = []);
+                                  },
+                                )
+                              : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: const BorderSide(color: _primaryGreen, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                    onSubmitted: _searchAddress,
+                    textInputAction: TextInputAction.search,
+                  ),
+                  if (_searchResults.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      constraints: const BoxConstraints(maxHeight: 150),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _searchResults.length,
+                        itemBuilder: (context, index) {
+                          final result = _searchResults[index];
+                          return ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.location_on, color: _primaryGreen, size: 20),
+                            title: Text(
+                              result['display_name'] ?? '',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            onTap: () => _selectSearchResult(result),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            // Coordenadas seleccionadas
+            if (_selectedLat != null && _selectedLon != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: _lightGreen.withValues(alpha: 0.1),
+                child: Row(
+                  children: [
+                    const Icon(Icons.pin_drop, color: _lightGreen, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${_selectedLat!.toStringAsFixed(6)}, ${_selectedLon!.toStringAsFixed(6)}',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            // Mapa
+            Expanded(
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: _selectedLat != null && _selectedLon != null
+                          ? LatLng(_selectedLat!, _selectedLon!)
+                          : const LatLng(-37.1676, -72.9424),
+                      initialZoom: 16.0,
+                      onTap: (tapPosition, point) {
+                        setState(() {
+                          _selectedLat = point.latitude;
+                          _selectedLon = point.longitude;
+                          _searchResults = [];
+                        });
+                      },
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.frogio.santa_juana',
+                      ),
+                      if (_selectedLat != null && _selectedLon != null)
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: LatLng(_selectedLat!, _selectedLon!),
+                              width: 50,
+                              height: 50,
+                              child: const Icon(
+                                Icons.location_pin,
+                                color: Colors.red,
+                                size: 50,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                  // Botón de mi ubicación
+                  Positioned(
+                    bottom: 100,
+                    right: 16,
+                    child: FloatingActionButton(
+                      mini: true,
+                      backgroundColor: Colors.white,
+                      onPressed: _getCurrentLocation,
+                      child: const Icon(Icons.my_location, color: _primaryGreen),
+                    ),
+                  ),
+                  // Controles de zoom
+                  Positioned(
+                    bottom: 16,
+                    right: 16,
+                    child: Column(
+                      children: [
+                        FloatingActionButton(
+                          mini: true,
+                          heroTag: 'zoom_in',
+                          backgroundColor: Colors.white,
+                          onPressed: () {
+                            final currentZoom = _mapController.camera.zoom;
+                            _mapController.move(_mapController.camera.center, currentZoom + 1);
+                          },
+                          child: const Icon(Icons.add, color: _primaryGreen),
+                        ),
+                        const SizedBox(height: 8),
+                        FloatingActionButton(
+                          mini: true,
+                          heroTag: 'zoom_out',
+                          backgroundColor: Colors.white,
+                          onPressed: () {
+                            final currentZoom = _mapController.camera.zoom;
+                            _mapController.move(_mapController.camera.center, currentZoom - 1);
+                          },
+                          child: const Icon(Icons.remove, color: _primaryGreen),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Instrucción
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: Colors.white,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.touch_app, color: Colors.grey[600], size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Toca en el mapa para marcar tu ubicación',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _searchAddress(String query) async {
+    if (query.trim().isEmpty) return;
+
+    setState(() => _isSearching = true);
+
+    try {
+      final searchQuery = '$query, Santa Juana, Chile';
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(searchQuery)}&format=json&limit=5&countrycodes=cl',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'FrogioApp/1.0'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          _searchResults = data.cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error buscando dirección: $e');
+    } finally {
+      setState(() => _isSearching = false);
+    }
+  }
+
+  void _selectSearchResult(Map<String, dynamic> result) {
+    final lat = double.tryParse(result['lat'] ?? '');
+    final lon = double.tryParse(result['lon'] ?? '');
+
+    if (lat != null && lon != null) {
+      setState(() {
+        _selectedLat = lat;
+        _selectedLon = lon;
+        _searchResults = [];
+        _searchController.clear();
+      });
+
+      _mapController.move(LatLng(lat, lon), 17.0);
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        final requested = await Geolocator.requestPermission();
+        if (requested == LocationPermission.denied) {
+          _showError('Permiso de ubicación denegado');
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        _showError('Permisos de ubicación permanentemente denegados');
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      setState(() {
+        _selectedLat = position.latitude;
+        _selectedLon = position.longitude;
+      });
+
+      _mapController.move(LatLng(_selectedLat!, _selectedLon!), 17.0);
+    } catch (e) {
+      _showError('Error al obtener ubicación: $e');
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
       ),
     );
   }

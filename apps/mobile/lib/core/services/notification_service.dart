@@ -1,29 +1,46 @@
 // lib/core/services/notification_service.dart
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:typed_data';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Servicio de notificaciones usando ntfy.sh (sin Firebase)
+import '../config/api_config.dart';
+
+/// Servicio de notificaciones usando ntfy con SSE (Server-Sent Events)
+/// No requiere instalar la app ntfy - todo está integrado en la app
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
-  final Dio _dio = Dio();
 
-  // Configuracion de ntfy
-  static const String _ntfyBaseUrl = 'https://ntfy.sh';
+  // SSE streams para recibir notificaciones en tiempo real
+  final Map<String, StreamSubscription> _sseSubscriptions = {};
+  http.Client? _sseClient;
+
+  // Topics activos
   String? _userTopic;
   String? _tenantTopic;
+  String? _panicTopic;
+  String? _userRole;
 
-  // Callback para manejar notificaciones recibidas
+  // Callbacks para manejar notificaciones recibidas
   Function(Map<String, dynamic>)? onNotificationReceived;
   Function(Map<String, dynamic>)? onNotificationTapped;
+  Function(Map<String, dynamic>)? onPanicAlertReceived;
+
+  // Estado de conexión
+  bool _isConnected = false;
+  bool get isConnected => _isConnected;
+
+  // Timer para reconexión automática
+  Timer? _reconnectTimer;
 
   Future<void> initialize() async {
     await _initializeLocalNotifications();
@@ -52,6 +69,52 @@ class NotificationService {
       initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
+
+    // Crear canal de notificaciones para alertas de pánico (alta prioridad)
+    await _createNotificationChannels();
+
+    // Solicitar permiso de notificaciones (Android 13+)
+    await _requestNotificationPermission();
+  }
+
+  Future<void> _requestNotificationPermission() async {
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidPlugin != null) {
+      final granted = await androidPlugin.requestNotificationsPermission();
+      log('Notification permission granted: $granted');
+    }
+  }
+
+  Future<void> _createNotificationChannels() async {
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidPlugin != null) {
+      // Canal normal
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'frogio_channel',
+          'FROGIO Notifications',
+          description: 'Notificaciones generales de la app FROGIO',
+          importance: Importance.high,
+        ),
+      );
+
+      // Canal de emergencia para alertas de pánico
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'frogio_panic_channel',
+          'Alertas de Pánico',
+          description: 'Alertas de emergencia que requieren atención inmediata',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          enableLights: true,
+        ),
+      );
+    }
   }
 
   Future<void> _loadSavedTopics() async {
@@ -59,71 +122,296 @@ class NotificationService {
       final prefs = await SharedPreferences.getInstance();
       _userTopic = prefs.getString('ntfy_user_topic');
       _tenantTopic = prefs.getString('ntfy_tenant_topic');
+      _userRole = prefs.getString('user_role');
+
+      // Solo cargar panic topic si el usuario es inspector o admin
+      // Los ciudadanos NUNCA deben recibir alertas de pánico
+      if (_userRole == 'inspector' || _userRole == 'admin') {
+        _panicTopic = prefs.getString('ntfy_panic_topic');
+      } else {
+        _panicTopic = null;
+        // Limpiar el panic topic si existía para ciudadanos
+        await prefs.remove('ntfy_panic_topic');
+      }
     } catch (e) {
       log('Error loading saved topics: $e');
     }
   }
 
-  /// Configurar topics para el usuario
+  /// Configurar topics para el usuario y conectar a SSE
   Future<void> setupUserTopics({
     required String userId,
     required String tenantId,
     required String role,
   }) async {
     try {
-      // Crear topics unicos para el usuario y tenant
+      // Crear topics únicos para el usuario y tenant
       _userTopic = 'frogio_${tenantId}_user_$userId';
       _tenantTopic = 'frogio_${tenantId}_$role';
+      _userRole = role;
 
       // Guardar topics
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('ntfy_user_topic', _userTopic!);
       await prefs.setString('ntfy_tenant_topic', _tenantTopic!);
+      await prefs.setString('user_role', role);
 
-      log('Topics configurados: user=$_userTopic, tenant=$_tenantTopic');
+      // Solo inspectores y admins reciben alertas de pánico
+      // Los ciudadanos NUNCA deben suscribirse a este topic
+      if (role == 'inspector' || role == 'admin') {
+        _panicTopic = 'frogio-panic';
+        await prefs.setString('ntfy_panic_topic', _panicTopic!);
+        log('Topics configurados: user=$_userTopic, tenant=$_tenantTopic, panic=$_panicTopic');
+      } else {
+        _panicTopic = null;
+        await prefs.remove('ntfy_panic_topic');
+        log('Topics configurados (sin pánico): user=$_userTopic, tenant=$_tenantTopic');
+      }
+
+      // Conectar a SSE para recibir notificaciones en tiempo real
+      await connectToSSE();
     } catch (e) {
       log('Error setting up topics: $e');
     }
   }
 
-  /// Enviar notificacion via ntfy
-  Future<bool> sendNotification({
-    required String topic,
-    required String title,
-    required String message,
-    Map<String, dynamic>? data,
-    int priority = 3, // 1-5, 3 es normal
-  }) async {
-    try {
-      final response = await _dio.post(
-        '$_ntfyBaseUrl/$topic',
-        data: message,
-        options: Options(
-          headers: {
-            'Title': title,
-            'Priority': priority.toString(),
-            'Tags': 'frogio',
-            if (data != null) 'X-Data': jsonEncode(data),
-          },
-        ),
-      );
+  /// Conectar a ntfy via SSE para recibir notificaciones en tiempo real
+  Future<void> connectToSSE() async {
+    if (kIsWeb) {
+      log('SSE not available on web');
+      return;
+    }
 
-      return response.statusCode == 200;
+    // Desconectar primero si ya hay conexiones
+    await disconnectSSE();
+
+    _sseClient = http.Client();
+
+    // Determinar topics a suscribir
+    final topicsToSubscribe = <String>[];
+
+    if (_userTopic != null) topicsToSubscribe.add(_userTopic!);
+    if (_tenantTopic != null) topicsToSubscribe.add(_tenantTopic!);
+
+    // Solo inspectores y admins reciben alertas de pánico
+    if (_userRole == 'inspector' || _userRole == 'admin') {
+      if (_panicTopic != null) topicsToSubscribe.add(_panicTopic!);
+    }
+
+    for (final topic in topicsToSubscribe) {
+      await _subscribeToTopicSSE(topic);
+    }
+
+    _isConnected = true;
+    log('Conectado a SSE para ${topicsToSubscribe.length} topics');
+  }
+
+  Future<void> _subscribeToTopicSSE(String topic) async {
+    try {
+      final ntfyUrl = ApiConfig.activeNtfyUrl;
+      final uri = Uri.parse('$ntfyUrl/$topic/sse');
+
+      log('Subscribing to SSE: $uri');
+
+      final request = http.Request('GET', uri);
+      request.headers['Accept'] = 'text/event-stream';
+
+      final response = await _sseClient!.send(request);
+
+      if (response.statusCode == 200) {
+        final subscription = response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .listen(
+              (line) => _handleSSELine(line, topic),
+              onError: (error) {
+                log('SSE error for $topic: $error');
+                _scheduleReconnect();
+              },
+              onDone: () {
+                log('SSE connection closed for $topic');
+                _scheduleReconnect();
+              },
+              cancelOnError: false,
+            );
+
+        _sseSubscriptions[topic] = subscription;
+        log('SSE subscription active for topic: $topic');
+      } else {
+        log('Failed to subscribe to $topic: ${response.statusCode}');
+      }
     } catch (e) {
-      log('Error sending notification: $e');
-      return false;
+      log('Error subscribing to $topic: $e');
+      _scheduleReconnect();
     }
   }
 
-  /// Suscribirse a un topic y escuchar notificaciones
-  Future<void> subscribeToTopic(String topic) async {
-    log('Subscribed to topic: $topic');
-    // En una implementacion real, usar SSE o WebSocket para escuchar
-    // Por ahora, las notificaciones se manejan via polling o push del servidor
+  void _handleSSELine(String line, String topic) {
+    if (line.isEmpty || line.startsWith(':')) return; // Ignorar comentarios y líneas vacías
+
+    if (line.startsWith('data:')) {
+      final jsonStr = line.substring(5).trim();
+      if (jsonStr.isEmpty) return;
+
+      try {
+        final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+        _handleNotification(data, topic);
+      } catch (e) {
+        log('Error parsing SSE data: $e');
+      }
+    }
   }
 
-  Future<void> unsubscribeFromTopic(String topic) async {
-    log('Unsubscribed from topic: $topic');
+  void _handleNotification(Map<String, dynamic> data, String topic) {
+    log('Notification received from $topic: $data');
+
+    final title = data['title']?.toString() ?? '';
+    final message = data['message']?.toString() ?? '';
+    final priority = data['priority'] ?? 3;
+    final clickUrl = data['click'] ?? '';
+
+    // Ignorar notificaciones vacías o eventos keepalive de ntfy
+    // ntfy envía eventos con event: "open" o sin mensaje real
+    final eventType = data['event']?.toString() ?? '';
+    if (eventType == 'open' || eventType == 'keepalive') {
+      log('Ignoring SSE event: $eventType');
+      return;
+    }
+
+    // Ignorar si no hay título ni mensaje
+    if (title.isEmpty && message.isEmpty) {
+      log('Ignoring empty notification');
+      return;
+    }
+
+    // Extraer datos adicionales si existen
+    Map<String, dynamic>? extraData;
+    if (data['extras'] != null && data['extras']['data'] != null) {
+      try {
+        extraData = jsonDecode(data['extras']['data']) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+
+    // Intentar extraer coordenadas del click URL (formato: https://maps.google.com/?q=lat,lng)
+    double? latitude;
+    double? longitude;
+    if (clickUrl.contains('maps.google.com')) {
+      final match = RegExp(r'q=(-?[\d.]+),(-?[\d.]+)').firstMatch(clickUrl);
+      if (match != null) {
+        latitude = double.tryParse(match.group(1) ?? '');
+        longitude = double.tryParse(match.group(2) ?? '');
+      }
+    }
+
+    // Verificar si es una alerta de pánico
+    final tags = data['tags'];
+    final isPanicAlert = topic == _panicTopic ||
+                        (tags != null && tags is List && tags.contains('sos'));
+
+    if (isPanicAlert) {
+      // Ignorar alertas de pánico vacías o sin mensaje válido
+      if (message.isEmpty && (title.isEmpty || title == 'FROGIO')) {
+        log('Ignoring empty panic alert from SSE');
+        return;
+      }
+
+      final panicData = {
+        'title': title,
+        'message': message,
+        'topic': topic,
+        'latitude': latitude,
+        'longitude': longitude,
+        'click': clickUrl,
+        ...?extraData,
+      };
+
+      // Mostrar notificación de pánico con máxima prioridad
+      _showPanicNotification(title, message, panicData);
+      onPanicAlertReceived?.call(panicData);
+    } else {
+      // Notificación normal
+      showLocalNotification(
+        title: title,
+        body: message,
+        data: extraData,
+        highPriority: priority >= 4,
+      );
+    }
+
+    // Callback general
+    onNotificationReceived?.call({
+      'title': title,
+      'body': message,
+      'topic': topic,
+      'type': isPanicAlert ? 'panic' : 'general',
+      'latitude': latitude,
+      'longitude': longitude,
+      ...?extraData,
+    });
+  }
+
+  Future<void> _showPanicNotification(String title, String message, Map<String, dynamic>? data) async {
+    if (kIsWeb) return;
+
+    final androidDetails = AndroidNotificationDetails(
+      'frogio_panic_channel',
+      'Alertas de Pánico',
+      channelDescription: 'Alertas de emergencia',
+      importance: Importance.max,
+      priority: Priority.max,
+      icon: '@mipmap/ic_launcher',
+      fullScreenIntent: true,
+      category: AndroidNotificationCategory.alarm,
+      visibility: NotificationVisibility.public,
+      playSound: true,
+      enableVibration: true,
+      vibrationPattern: Int64List.fromList([0, 500, 200, 500, 200, 500]),
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.critical,
+    );
+
+    final notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      '🚨 $title',
+      message,
+      notificationDetails,
+      payload: data != null ? jsonEncode(data) : null,
+    );
+  }
+
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    _isConnected = false;
+
+    _reconnectTimer = Timer(const Duration(seconds: 5), () {
+      log('Attempting to reconnect to SSE...');
+      connectToSSE();
+    });
+  }
+
+  Future<void> disconnectSSE() async {
+    _reconnectTimer?.cancel();
+
+    for (final subscription in _sseSubscriptions.values) {
+      await subscription.cancel();
+    }
+    _sseSubscriptions.clear();
+
+    _sseClient?.close();
+    _sseClient = null;
+
+    _isConnected = false;
+    log('Disconnected from SSE');
   }
 
   void _onNotificationTapped(NotificationResponse response) {
@@ -138,29 +426,30 @@ class NotificationService {
     }
   }
 
-  /// Mostrar notificacion local
+  /// Mostrar notificación local
   Future<void> showLocalNotification({
     required String title,
     required String body,
     Map<String, dynamic>? data,
+    bool highPriority = false,
   }) async {
     if (kIsWeb) {
       log('Local notifications not supported on web');
       return;
     }
 
-    const androidDetails = AndroidNotificationDetails(
+    final androidDetails = AndroidNotificationDetails(
       'frogio_channel',
       'FROGIO Notifications',
       channelDescription: 'Notificaciones de la app FROGIO',
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: highPriority ? Importance.max : Importance.high,
+      priority: highPriority ? Priority.max : Priority.high,
       icon: '@mipmap/ic_launcher',
     );
 
     const iosDetails = DarwinNotificationDetails();
 
-    const notificationDetails = NotificationDetails(
+    final notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
@@ -174,14 +463,22 @@ class NotificationService {
     );
   }
 
-  /// Limpiar cuando el usuario cierre sesion
+  /// Limpiar cuando el usuario cierre sesión
   Future<void> clearTopics() async {
     try {
+      await disconnectSSE();
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('ntfy_user_topic');
       await prefs.remove('ntfy_tenant_topic');
+      await prefs.remove('ntfy_panic_topic');
+      await prefs.remove('user_role');
+
       _userTopic = null;
       _tenantTopic = null;
+      _panicTopic = null;
+      _userRole = null;
+
       log('Topics cleared');
     } catch (e) {
       log('Error clearing topics: $e');
@@ -191,4 +488,5 @@ class NotificationService {
   // Getters
   String? get userTopic => _userTopic;
   String? get tenantTopic => _tenantTopic;
+  String? get panicTopic => _panicTopic;
 }

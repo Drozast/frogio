@@ -76,6 +76,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
     try {
       // Mapear categoría del app a tipo de reporte del backend
       final reportType = _mapCategoryToType(params.category);
+      final priority = _mapPriorityToBackend(params.priority);
 
       // Crear el reporte primero
       final response = await client.post(
@@ -84,10 +85,11 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
         body: json.encode({
           'title': params.title,
           'description': params.description,
-          'reportType': reportType,
-          'priority': params.priority.name,
-          'location': '${params.location.latitude},${params.location.longitude}',
-          'locationDetails': params.location.address ?? '',
+          'type': reportType,
+          'priority': priority,
+          'address': params.location.address ?? '',
+          'latitude': params.location.latitude,
+          'longitude': params.location.longitude,
         }),
       );
 
@@ -281,24 +283,39 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
   }
 
   String _mapCategoryToType(String category) {
+    // Backend espera: 'denuncia' | 'sugerencia' | 'emergencia' | 'infraestructura' | 'otro'
     switch (category.toLowerCase()) {
-      case 'denuncia':
-      case 'complaint':
-        return 'complaint';
-      case 'sugerencia':
-      case 'suggestion':
-        return 'suggestion';
+      case 'infraestructura':
+        return 'infraestructura';
+      case 'seguridad':
+        return 'denuncia';
+      case 'medio ambiente':
+        return 'denuncia';
+      case 'servicios públicos':
+        return 'infraestructura';
+      case 'transporte':
+        return 'infraestructura';
       case 'emergencia':
-      case 'emergency':
-        return 'emergency';
-      case 'solicitud':
-      case 'request':
-        return 'request';
-      case 'incidente':
-      case 'incident':
-        return 'incident';
+        return 'emergencia';
+      case 'sugerencia':
+        return 'sugerencia';
+      case 'otro':
       default:
-        return 'complaint';
+        return 'otro';
+    }
+  }
+
+  String _mapPriorityToBackend(Priority priority) {
+    // Backend espera: 'baja' | 'media' | 'alta' | 'urgente'
+    switch (priority) {
+      case Priority.low:
+        return 'baja';
+      case Priority.medium:
+        return 'media';
+      case Priority.high:
+        return 'alta';
+      case Priority.urgent:
+        return 'urgente';
     }
   }
 

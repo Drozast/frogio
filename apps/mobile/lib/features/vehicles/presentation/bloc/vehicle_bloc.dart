@@ -77,16 +77,20 @@ class EndVehicleUsageEvent extends VehicleEvent {
   final double endKm;
   final String? observations;
   final List<String>? attachments;
-  
+  final List<LocationPoint>? route;
+  final List<TripStop>? stops;
+
   const EndVehicleUsageEvent({
     required this.logId,
     required this.endKm,
     this.observations,
     this.attachments,
+    this.route,
+    this.stops,
   });
-  
+
   @override
-  List<Object?> get props => [logId, endKm, observations, attachments];
+  List<Object?> get props => [logId, endKm, observations, attachments, route, stops];
 }
 
 class UpdateVehicleLocationEvent extends VehicleEvent {
@@ -598,7 +602,7 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
     Emitter<VehicleState> emit,
   ) async {
     emit(VehicleUsageEnding(logId: event.logId));
-    
+
     try {
       final result = await endVehicleUsage(
         EndVehicleUsageParams(
@@ -606,19 +610,21 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
           endKm: event.endKm,
           observations: event.observations,
           attachments: event.attachments,
+          route: event.route,
+          stops: event.stops,
         ),
       );
-      
+
       result.fold(
         (failure) => emit(VehicleError(message: failure.message)),
         (_) => emit(VehicleUsageEnded(
           logId: event.logId,
-          message: 'Uso de vehículo finalizado exitosamente',
+          message: 'Bitácora finalizada exitosamente',
         )),
       );
     } catch (e) {
       emit(VehicleError(
-        message: 'Error al finalizar uso de vehículo: ${e.toString()}',
+        message: 'Error al finalizar bitácora: ${e.toString()}',
       ));
     }
   }

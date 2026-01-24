@@ -34,6 +34,8 @@ abstract class VehicleRepository {
     required double endKm,
     String? observations,
     List<String>? attachments,
+    List<LocationPoint>? route,
+    List<TripStop>? stops,
   });
 
   /// Actualiza la ubicación del vehículo

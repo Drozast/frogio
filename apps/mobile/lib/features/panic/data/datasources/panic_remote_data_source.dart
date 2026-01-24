@@ -12,4 +12,6 @@ abstract class PanicRemoteDataSource {
   Future<PanicAlertEntity> cancelPanicAlert(String alertId);
 
   Future<PanicAlertEntity?> getActiveAlert();
+
+  Future<int> getTodayPanicCount();
 }

@@ -74,25 +74,25 @@ export default async function InfractionsPage() {
             title="Total Infracciones"
             value={infractions.length}
             icon={<ExclamationTriangleIcon className="h-6 w-6" />}
-            color="red"
+            color="destructive"
           />
           <StatCard
             title="Monto Total"
             value={`$${totalAmount.toLocaleString('es-CL')}`}
             icon={<CurrencyDollarIcon className="h-6 w-6" />}
-            color="indigo"
+            color="info"
           />
           <StatCard
             title="Pendiente de Pago"
             value={`$${pendingAmount.toLocaleString('es-CL')}`}
             icon={<ClockIcon className="h-6 w-6" />}
-            color="yellow"
+            color="warning"
           />
           <StatCard
             title="Monto Pagado"
             value={`$${paidAmount.toLocaleString('es-CL')}`}
             icon={<CurrencyDollarIcon className="h-6 w-6" />}
-            color="green"
+            color="success"
           />
         </div>
 

@@ -1,6 +1,9 @@
 // lib/features/auth/presentation/bloc/auth_bloc.dart
+import 'dart:developer';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/services/notification_manager.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../domain/usecases/forgot_password.dart';
 import '../../domain/usecases/get_current_user.dart';
@@ -42,10 +45,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       
       result.fold(
         (failure) => emit(Unauthenticated()),
-        (user) => user != null ? emit(Authenticated(user)) : emit(Unauthenticated()),
+        (user) {
+          if (user != null) {
+            // Suscribir a notificaciones después de autenticar
+            _subscribeToNotifications(user.id, user.role);
+            emit(Authenticated(user));
+          } else {
+            emit(Unauthenticated());
+          }
+        },
       );
     } catch (e) {
       emit(Unauthenticated());
+    }
+  }
+
+  Future<void> _subscribeToNotifications(String userId, String role) async {
+    try {
+      await NotificationManager().subscribeToUserTopics(userId, role);
+      log('Notificaciones activadas para usuario $userId con rol $role');
+    } catch (e) {
+      log('Error al suscribir notificaciones: $e');
     }
   }
 
@@ -65,7 +85,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       
       result.fold(
         (failure) => emit(AuthError(failure.message)),
-        (user) => emit(Authenticated(user)),
+        (user) {
+          // Suscribir a notificaciones después del login
+          _subscribeToNotifications(user.id, user.role);
+          emit(Authenticated(user));
+        },
       );
     } catch (e) {
       emit(AuthError('Error inesperado: ${e.toString()}'));
@@ -77,16 +101,32 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     emit(AuthLoading());
-    
+
     try {
       final result = await signOutUser(NoParams());
-      
+
+      // Desuscribir de notificaciones (no bloquear si falla)
+      try {
+        await NotificationManager().unsubscribeFromAllTopics();
+      } catch (_) {
+        // Ignorar errores de notificaciones
+      }
+
       result.fold(
-        (failure) => emit(AuthError(failure.message)),
-        (_) => emit(Unauthenticated()),
+        (failure) {
+          // Incluso si el servidor falla, cerrar sesión localmente
+          emit(Unauthenticated());
+        },
+        (_) {
+          emit(Unauthenticated());
+        },
       );
     } catch (e) {
-      emit(Unauthenticated()); // Forzar logout incluso si hay error
+      // Forzar logout incluso si hay error
+      try {
+        await NotificationManager().unsubscribeFromAllTopics();
+      } catch (_) {}
+      emit(Unauthenticated());
     }
   }
 
@@ -102,12 +142,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           email: event.email,
           password: event.password,
           name: event.name,
+          rut: event.rut,
         ),
       );
       
       result.fold(
         (failure) => emit(AuthError(failure.message)),
-        (user) => emit(Authenticated(user)),
+        (user) {
+          // Suscribir a notificaciones después del registro
+          _subscribeToNotifications(user.id, user.role);
+          emit(Authenticated(user));
+        },
       );
     } catch (e) {
       emit(AuthError('Error inesperado: ${e.toString()}'));

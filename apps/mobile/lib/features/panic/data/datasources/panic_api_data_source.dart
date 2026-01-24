@@ -89,6 +89,31 @@ class PanicApiDataSource implements PanicRemoteDataSource {
     return null;
   }
 
+  @override
+  Future<int> getTodayPanicCount() async {
+    try {
+      final response = await client.get(
+        Uri.parse('$baseUrl/api/panic'),
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final today = DateTime.now();
+        final todayAlerts = data.where((alert) {
+          final createdAt = DateTime.parse(alert['created_at']);
+          return createdAt.year == today.year &&
+              createdAt.month == today.month &&
+              createdAt.day == today.day;
+        }).toList();
+        return todayAlerts.length;
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
   PanicAlertEntity _mapToEntity(Map<String, dynamic> data) {
     return PanicAlertEntity(
       id: data['id'],

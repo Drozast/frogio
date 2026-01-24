@@ -34,9 +34,10 @@ class ApiConfig {
   static const String devNtfyUrl = 'http://192.168.31.115:8110';
 
   // Verificar si está en modo desarrollo
+  // TEMPORALMENTE forzado a true para pruebas locales
   static bool get isDevelopment => const bool.fromEnvironment(
     'DEVELOPMENT',
-    defaultValue: false,
+    defaultValue: true,
   );
 
   // URL activa según el modo

@@ -299,8 +299,10 @@ class _FileImageAvatarState extends State<_FileImageAvatar> {
 
   Future<void> _loadImageUrl() async {
     try {
+      debugPrint('🖼️ Loading image URL for fileId: ${widget.fileId}');
       final authDataSource = di.sl<AuthApiDataSource>();
       final url = await authDataSource.getFileUrl(widget.fileId);
+      debugPrint('🖼️ Got URL: $url');
 
       if (!mounted) return;
 
@@ -310,6 +312,7 @@ class _FileImageAvatarState extends State<_FileImageAvatar> {
         _hasError = url == null;
       });
     } catch (e) {
+      debugPrint('🖼️ Error loading URL: $e');
       if (!mounted) return;
 
       setState(() {
@@ -337,17 +340,27 @@ class _FileImageAvatarState extends State<_FileImageAvatar> {
       return widget.fallback;
     }
 
+    debugPrint('🖼️ Rendering CachedNetworkImage with URL: $_imageUrl');
     return CachedNetworkImage(
       imageUrl: _imageUrl!,
-      imageBuilder: (context, imageProvider) => CircleAvatar(
-        radius: widget.radius,
-        backgroundImage: imageProvider,
-      ),
-      placeholder: (context, url) => CircleAvatar(
-        radius: widget.radius,
-        child: const CircularProgressIndicator(),
-      ),
-      errorWidget: (context, url, error) => widget.fallback,
+      imageBuilder: (context, imageProvider) {
+        debugPrint('🖼️ Image loaded successfully!');
+        return CircleAvatar(
+          radius: widget.radius,
+          backgroundImage: imageProvider,
+        );
+      },
+      placeholder: (context, url) {
+        debugPrint('🖼️ Loading image...');
+        return CircleAvatar(
+          radius: widget.radius,
+          child: const CircularProgressIndicator(),
+        );
+      },
+      errorWidget: (context, url, error) {
+        debugPrint('🖼️ Error loading image: $error');
+        return widget.fallback;
+      },
     );
   }
 }

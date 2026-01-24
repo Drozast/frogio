@@ -81,7 +81,8 @@ model User {
   infractions      Infraction[]
   vehicleLogs      VehicleLog[]
   notifications    Notification[]
-  courtCitations   CourtCitation[]
+  courtCitations   CourtCitation[]   @relation("CitizenCitations")
+  issuedCitations  CourtCitation[]   @relation("IssuedCitations")
 
   @@index([email])
   @@index([rut])
@@ -233,31 +234,45 @@ model InfractionEvidence {
   @@map("infraction_evidence")
 }
 
-// CITACIONES AL JUZGADO
+// CITACIONES Y ADVERTENCIAS MUNICIPALES
 model CourtCitation {
   id                 String    @id @default(uuid())
   citationNumber     String    @unique
-  infractionId       String?
-  citizenId          String?
-  citizenRut         String
-  citizenName        String
-  courtDate          DateTime
-  courtLocation      String
+  citationType       String    @default("citacion") @map("citation_type") // 'advertencia' | 'citacion'
+  targetType         String    @default("persona") @map("target_type") // 'persona' | 'domicilio' | 'vehiculo' | 'comercio' | 'otro'
+  targetName         String?   @map("target_name")
+  targetRut          String?   @map("target_rut")
+  targetAddress      String?   @map("target_address")
+  targetPhone        String?   @map("target_phone")
+  targetPlate        String?   @map("target_plate")
+  locationAddress    String?   @map("location_address")
+  latitude           Float?
+  longitude          Float?
   reason             String
-  status             String    @default("pending") // 'pending' | 'notified' | 'attended' | 'missed'
-  notificationSentAt DateTime?
-  attendedAt         DateTime?
   notes              String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  photos             String?   // JSON array of photo URLs
+  infractionId       String?   @map("infraction_id")
+  userId             String?   @map("user_id") // ciudadano afectado
+  issuedBy           String?   @map("issued_by") // inspector que emite
+  courtName          String?   @map("court_name")
+  hearingDate        DateTime? @map("hearing_date")
+  address            String?   // dirección del juzgado o lugar de comparecencia
+  notificationMethod String?   @map("notification_method") // 'personal' | 'carta' | 'email' | 'telefono'
+  status             String    @default("pendiente") // 'pendiente' | 'notificado' | 'asistio' | 'no_asistio' | 'cancelado'
+  notifiedAt         DateTime? @map("notified_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
   // Relaciones
   infraction Infraction? @relation(fields: [infractionId], references: [id])
-  citizen    User?       @relation(fields: [citizenId], references: [id])
+  citizen    User?       @relation("CitizenCitations", fields: [userId], references: [id])
+  issuer     User?       @relation("IssuedCitations", fields: [issuedBy], references: [id])
 
-  @@index([citizenRut])
-  @@index([courtDate])
+  @@index([targetRut])
+  @@index([hearingDate])
   @@index([status])
+  @@index([issuedBy])
+  @@index([citationType])
   @@map("court_citations")
 }
 

@@ -15,10 +15,18 @@ import '../../../features/auth/presentation/pages/login_screen.dart';
 import '../../../features/auth/presentation/widgets/profile_avatar.dart';
 import '../../../features/citizen/presentation/pages/create_report_screen.dart';
 import '../../../features/citizen/presentation/pages/my_reports_screen.dart';
+import '../../../features/citizen/presentation/pages/citizen_home_screen.dart';
+import '../../../features/admin/presentation/bloc/statistics/statistics_bloc.dart';
+import '../../../features/admin/presentation/pages/admin_dashboard_screen.dart';
+import '../../../features/inspector/presentation/pages/inspector_home_screen.dart';
+import '../../../features/inspector/presentation/pages/inspector_home_screen_v2.dart';
+import '../../../features/inspector/presentation/pages/citations_main_screen.dart';
 import '../../../features/panic/presentation/bloc/panic_bloc.dart';
 import '../../../features/panic/presentation/bloc/panic_event.dart';
 import '../../../features/panic/presentation/bloc/panic_state.dart';
 import '../../../features/panic/presentation/widgets/panic_button.dart';
+import '../../../core/blocs/notification/notification_bloc.dart';
+import '../../../core/presentation/pages/notifications_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -241,6 +249,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       providers: [
         BlocProvider(create: (_) => di.sl<ProfileBloc>()),
         BlocProvider(create: (_) => di.sl<PanicBloc>()),
+        BlocProvider(create: (_) => di.sl<NotificationBloc>()..add(LoadNotificationsEvent())),
       ],
       child: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
@@ -422,7 +431,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Fila superior con título y botón salir
+                  // Fila superior con título y botones
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -435,35 +444,91 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           letterSpacing: 2,
                         ),
                       ),
-                      GestureDetector(
-                        onTap: _showLogoutConfirmationDialog,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12),
+                      Row(
+                        children: [
+                          // Boton de notificaciones
+                          BlocBuilder<NotificationBloc, NotificationState>(
+                            builder: (context, state) {
+                              int unreadCount = 0;
+                              if (state is NotificationLoaded) {
+                                unreadCount = state.unreadCount;
+                              }
+                              return GestureDetector(
+                                onTap: () => _navigateToNotifications(context),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      const Icon(
+                                        Icons.notifications_outlined,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                      if (unreadCount > 0)
+                                        Positioned(
+                                          right: 0,
+                                          top: 0,
+                                          child: Container(
+                                            padding: const EdgeInsets.all(2),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.red,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            constraints: const BoxConstraints(
+                                              minWidth: 16,
+                                              minHeight: 16,
+                                            ),
+                                            child: Text(
+                                              unreadCount > 9 ? '9+' : unreadCount.toString(),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                          child: const Icon(
-                            Icons.exit_to_app,
-                            color: Colors.white,
-                            size: 24,
+                          const SizedBox(width: 8),
+                          // Boton cerrar sesion
+                          GestureDetector(
+                            onTap: _showLogoutConfirmationDialog,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.exit_to_app,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ],
                   ),
 
                   const SizedBox(height: 20),
 
-                  // Tarjeta de usuario - clickeable para ir al perfil
+                  // Tarjeta de usuario - clickeable para ir al perfil (navbar)
                   GestureDetector(
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CompleteProfileScreen(user: user),
-                        ),
-                      );
+                      setState(() {
+                        _currentIndex = 2; // Ir a la pestaña de perfil
+                      });
                     },
                     child: Container(
                       padding: const EdgeInsets.all(16),
@@ -480,26 +545,11 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                       ),
                       child: Row(
                         children: [
-                          // Avatar
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: _lightGreen.withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Center(
-                              child: Text(
-                                user.displayName.isNotEmpty
-                                    ? user.displayName[0].toUpperCase()
-                                    : 'U',
-                                style: TextStyle(
-                                  color: _primaryGreen,
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
+                          // Avatar con imagen de perfil
+                          ProfileAvatar(
+                            user: user,
+                            radius: 30,
+                            isEditable: false,
                           ),
                           const SizedBox(width: 16),
                           // Info del usuario
@@ -614,15 +664,36 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home_rounded, 'Inicio', 0),
-              _buildNavItem(Icons.assignment_outlined, 'Denuncias', 1),
-              _buildNavItem(Icons.person_outline, 'Perfil', 2),
-            ],
+            children: _getNavItemsForRole(user.role),
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _getNavItemsForRole(String role) {
+    switch (role) {
+      case 'admin':
+        return [
+          _buildNavItem(Icons.dashboard_rounded, 'Dashboard', 0),
+          _buildNavItem(Icons.people_outline, 'Usuarios', 1),
+          _buildNavItem(Icons.analytics_outlined, 'Reportes', 2),
+          _buildNavItem(Icons.person_outline, 'Perfil', 3),
+        ];
+      case 'inspector':
+        return [
+          _buildNavItem(Icons.home_rounded, 'Inicio', 0),
+          _buildNavItem(Icons.assignment_outlined, 'Citaciones', 1),
+          _buildNavItem(Icons.person_outline, 'Perfil', 2),
+        ];
+      case 'citizen':
+      default:
+        return [
+          _buildNavItem(Icons.home_rounded, 'Inicio', 0),
+          _buildNavItem(Icons.assignment_outlined, 'Denuncias', 1),
+          _buildNavItem(Icons.person_outline, 'Perfil', 2),
+        ];
+    }
   }
 
   Widget _buildNavItem(IconData icon, String label, int index) {
@@ -809,16 +880,56 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
   Widget _getPage(int index, UserEntity user) {
     switch (user.role) {
+      case 'admin':
+        switch (index) {
+          case 0:
+            return BlocProvider(
+              create: (_) => di.sl<StatisticsBloc>(),
+              child: AdminDashboardScreen(user: user),
+            );
+          case 1:
+            return Center(
+              child: Text(
+                'Gestion de Usuarios - En desarrollo',
+                style: TextStyle(fontSize: 20, color: Colors.grey.shade600),
+              ),
+            );
+          case 2:
+            return Center(
+              child: Text(
+                'Reportes y Estadisticas - En desarrollo',
+                style: TextStyle(fontSize: 20, color: Colors.grey.shade600),
+              ),
+            );
+          case 3:
+            return _buildProfilePage(user);
+          default:
+            return BlocProvider(
+              create: (_) => di.sl<StatisticsBloc>(),
+              child: AdminDashboardScreen(user: user),
+            );
+        }
       case 'citizen':
         switch (index) {
           case 0:
-            return _buildHomeDashboard(user);
+            return CitizenHomeScreen(user: user);
           case 1:
             return MyReportsScreen(userId: user.id);
           case 2:
             return _buildProfilePage(user);
           default:
-            return _buildHomeDashboard(user);
+            return CitizenHomeScreen(user: user);
+        }
+      case 'inspector':
+        switch (index) {
+          case 0:
+            return InspectorHomeScreenV2(user: user);
+          case 1:
+            return CitationsMainScreen(user: user);
+          case 2:
+            return _buildProfilePage(user);
+          default:
+            return InspectorHomeScreenV2(user: user);
         }
       default:
         if (index == 0) {
@@ -828,7 +939,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         } else {
           return Center(
             child: Text(
-              'Página en desarrollo: $index',
+              'Pagina en desarrollo: $index',
               style: const TextStyle(fontSize: 20),
             ),
           );
@@ -867,55 +978,6 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
             children: _getQuickAccessItemsForRole(user),
-          ),
-
-          const SizedBox(height: 32),
-
-          // Sección de actividad reciente
-          const Text(
-            'Actividad Reciente',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Lista de actividad reciente
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.grey.shade200),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.history,
-                    size: 40,
-                    color: Colors.grey.shade300,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'No hay actividad reciente',
-                    style: TextStyle(
-                      color: Colors.grey.shade500,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
       ),
@@ -1286,6 +1348,18 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             child: const Text('Completar Perfil'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _navigateToNotifications(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: context.read<NotificationBloc>(),
+          child: const NotificationsScreen(),
+        ),
       ),
     );
   }

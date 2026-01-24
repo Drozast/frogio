@@ -18,6 +18,12 @@
     <!-- Permiso para vibración (alerta de pánico) -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Permiso para notificaciones (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Permiso para pantalla completa en notificaciones urgentes -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
     <application
         android:label="FROGIO"
         android:name="${applicationName}"

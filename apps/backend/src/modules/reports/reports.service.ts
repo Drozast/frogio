@@ -141,7 +141,72 @@ export class ReportsService {
       throw new Error('Reporte no encontrado');
     }
 
-    return report;
+    // Get version history for this report
+    const versions = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT rv.*, u.first_name as modifier_first_name, u.last_name as modifier_last_name
+       FROM "${tenantId}".report_versions rv
+       LEFT JOIN "${tenantId}".users u ON rv.modified_by = u.id
+       WHERE rv.report_id = $1::uuid
+       ORDER BY rv.version_number ASC`,
+      id
+    );
+
+    // Transform versions to statusHistory format for the mobile app
+    const statusHistory = versions.map(v => ({
+      timestamp: v.modified_at,
+      status: v.status,
+      comment: v.change_reason || v.resolution,
+      userId: v.modified_by,
+      userName: v.modifier_first_name && v.modifier_last_name
+        ? `${v.modifier_first_name} ${v.modifier_last_name}`
+        : null,
+    }));
+
+    // Add initial status entry if no versions exist
+    if (statusHistory.length === 0) {
+      statusHistory.push({
+        timestamp: report.created_at,
+        status: 'pendiente',
+        comment: null,
+        userId: report.user_id,
+        userName: report.first_name && report.last_name
+          ? `${report.first_name} ${report.last_name}`
+          : 'Ciudadano',
+      });
+    }
+
+    // Add current status if different from last version
+    if (statusHistory.length === 0 || statusHistory[statusHistory.length - 1].status !== report.status) {
+      statusHistory.push({
+        timestamp: report.updated_at,
+        status: report.status,
+        comment: report.resolution,
+        userId: null,
+        userName: null,
+      });
+    }
+
+    return {
+      ...report,
+      statusHistory,
+      // Format response if there's a resolution
+      responses: report.resolution ? [{
+        id: `res-${report.id}`,
+        responderId: report.assigned_to || '',
+        responderName: report.assigned_first_name && report.assigned_last_name
+          ? `${report.assigned_first_name} ${report.assigned_last_name}`
+          : 'Inspector',
+        message: report.resolution,
+        attachments: [],
+        isPublic: true,
+        createdAt: report.updated_at,
+      }] : [],
+      // Map assigned_to fields
+      assignedToId: report.assigned_to,
+      assignedToName: report.assigned_first_name && report.assigned_last_name
+        ? `${report.assigned_first_name} ${report.assigned_last_name}`
+        : null,
+    };
   }
 
   async update(id: string, data: UpdateReportDto, modifiedBy: string, tenantId: string) {

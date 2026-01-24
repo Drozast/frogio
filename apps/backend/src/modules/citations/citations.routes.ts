@@ -8,6 +8,9 @@ const citationsController = new CitationsController();
 // All routes require authentication
 router.use(authMiddleware);
 
+// Get my citations (inspector's own citations)
+router.get('/my', roleGuard('inspector', 'admin'), (req, res) => citationsController.getMyCitations(req as AuthRequest, res));
+
 // Get upcoming citations
 router.get('/upcoming', (req, res) => citationsController.getUpcoming(req as AuthRequest, res));
 

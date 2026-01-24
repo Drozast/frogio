@@ -96,33 +96,67 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
 
           // Mapa
           Expanded(
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _selectedLocation ?? _defaultLocation,
-                initialZoom: 15,
-                onTap: (tapPosition, point) => _onLocationSelected(point),
-              ),
+            child: Stack(
               children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.frogio.santajuana',
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _selectedLocation ?? _defaultLocation,
+                    initialZoom: 15,
+                    onTap: (tapPosition, point) => _onLocationSelected(point),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.frogio.santajuana',
+                    ),
+                    if (_selectedLocation != null)
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _selectedLocation!,
+                            width: 40,
+                            height: 40,
+                            child: const Icon(
+                              Icons.location_on,
+                              color: AppTheme.primaryColor,
+                              size: 40,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
                 ),
-                if (_selectedLocation != null)
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: _selectedLocation!,
-                        width: 40,
-                        height: 40,
-                        child: const Icon(
-                          Icons.location_on,
-                          color: AppTheme.primaryColor,
-                          size: 40,
-                        ),
+                // Controles de zoom
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: Column(
+                    children: [
+                      FloatingActionButton(
+                        mini: true,
+                        heroTag: 'zoom_in',
+                        backgroundColor: Colors.white,
+                        onPressed: () {
+                          final currentZoom = _mapController.camera.zoom;
+                          _mapController.move(_mapController.camera.center, currentZoom + 1);
+                        },
+                        child: const Icon(Icons.add, color: AppTheme.primaryColor),
+                      ),
+                      const SizedBox(height: 8),
+                      FloatingActionButton(
+                        mini: true,
+                        heroTag: 'zoom_out',
+                        backgroundColor: Colors.white,
+                        onPressed: () {
+                          final currentZoom = _mapController.camera.zoom;
+                          _mapController.move(_mapController.camera.center, currentZoom - 1);
+                        },
+                        child: const Icon(Icons.remove, color: AppTheme.primaryColor),
                       ),
                     ],
                   ),
+                ),
               ],
             ),
           ),

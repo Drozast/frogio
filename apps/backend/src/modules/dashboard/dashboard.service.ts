@@ -54,6 +54,30 @@ export class DashboardService {
        ORDER BY date ASC`
     );
 
+    // Vehicle logs (bitácora) stats
+    const [activeLogsCount] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT COUNT(*) as count FROM "${tenantId}".vehicle_logs WHERE status = 'active'`
+    );
+
+    const [completedLogsToday] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT COUNT(*) as count FROM "${tenantId}".vehicle_logs
+       WHERE status = 'completed' AND DATE(end_time) = CURRENT_DATE`
+    );
+
+    const [totalDistanceToday] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT COALESCE(SUM(total_distance_km), 0) as total
+       FROM "${tenantId}".vehicle_logs
+       WHERE status = 'completed' AND DATE(end_time) = CURRENT_DATE`
+    );
+
+    const recentLogs = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT vl.*, v.plate, v.brand, v.model
+       FROM "${tenantId}".vehicle_logs vl
+       LEFT JOIN "${tenantId}".vehicles v ON vl.vehicle_id::uuid = v.id::uuid
+       ORDER BY vl.created_at DESC
+       LIMIT 5`
+    );
+
     // Admin-only stats
     let adminStats = {};
     if (userRole === 'admin') {
@@ -78,6 +102,20 @@ export class DashboardService {
          LIMIT 5`
       );
 
+      // Top drivers by distance
+      const topDrivers = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT
+          driver_id, driver_name,
+          COUNT(*) as trip_count,
+          COALESCE(SUM(total_distance_km), 0) as total_km,
+          COALESCE(SUM(total_stop_time_seconds), 0) as total_stop_time
+         FROM "${tenantId}".vehicle_logs
+         WHERE status = 'completed'
+         GROUP BY driver_id, driver_name
+         ORDER BY total_km DESC
+         LIMIT 5`
+      );
+
       adminStats = {
         inspectorsCount: parseInt(inspectorsCount?.count || '0'),
         citizensCount: parseInt(citizensCount?.count || '0'),
@@ -85,6 +123,13 @@ export class DashboardService {
           id: i.id,
           name: `${i.first_name || ''} ${i.last_name || ''}`.trim() || i.email,
           infractionCount: parseInt(i.infraction_count || '0'),
+        })),
+        topDrivers: topDrivers.map((d: any) => ({
+          id: d.driver_id,
+          name: d.driver_name,
+          tripCount: parseInt(d.trip_count || '0'),
+          totalKm: parseFloat(d.total_km || '0'),
+          totalStopTime: parseInt(d.total_stop_time || '0'),
         })),
       };
     }
@@ -116,6 +161,27 @@ export class DashboardService {
         date: item.date,
         count: parseInt(item.count || '0'),
       })),
+      bitacora: {
+        activeTrips: parseInt(activeLogsCount?.count || '0'),
+        completedToday: parseInt(completedLogsToday?.count || '0'),
+        totalKmToday: parseFloat(totalDistanceToday?.total || '0'),
+        recentLogs: recentLogs.map((log: any) => ({
+          id: log.id,
+          vehiclePlate: log.plate,
+          vehicleInfo: `${log.brand || ''} ${log.model || ''}`.trim(),
+          driverName: log.driver_name,
+          usageType: log.usage_type,
+          purpose: log.purpose,
+          startTime: log.start_time,
+          endTime: log.end_time,
+          startKm: parseFloat(log.start_km || '0'),
+          endKm: log.end_km ? parseFloat(log.end_km) : null,
+          totalDistanceKm: log.total_distance_km ? parseFloat(log.total_distance_km) : null,
+          totalStopTimeSeconds: log.total_stop_time_seconds ? parseInt(log.total_stop_time_seconds) : null,
+          stopsCount: log.stops ? (Array.isArray(log.stops) ? log.stops.length : 0) : 0,
+          status: log.status,
+        })),
+      },
       ...adminStats,
     };
   }

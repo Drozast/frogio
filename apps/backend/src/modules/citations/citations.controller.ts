@@ -124,6 +124,20 @@ export class CitationsController {
     }
   }
 
+  async getMyCitations(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const tenantId = req.user!.tenantId;
+      const userId = req.user!.userId;
+
+      const citations = await citationsService.getMyCitations(tenantId, userId);
+
+      res.json(citations);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al obtener mis citaciones';
+      res.status(400).json({ error: message });
+    }
+  }
+
   async bulkImport(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantId = req.user!.tenantId;

@@ -183,6 +183,43 @@ export class PanicService {
       throw new Error('No puedes cancelar esta alerta');
     }
 
+    // Notificar a los inspectores que la alerta fue cancelada por el usuario
+    await prisma.$queryRawUnsafe(
+      `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
+       SELECT id, $1, $2, 'general', $3::jsonb, NOW()
+       FROM "${tenantId}".users WHERE role IN ('inspector', 'admin')`,
+      'Alerta de pánico cancelada',
+      'El ciudadano ha cancelado su alerta de emergencia',
+      JSON.stringify({ alertId: id, cancelledByUser: true })
+    );
+
+    return alert;
+  }
+
+  async dismiss(id: string, reason: string, dismissedBy: string, tenantId: string) {
+    const [alert] = await prisma.$queryRawUnsafe<any[]>(
+      `UPDATE "${tenantId}".panic_alerts
+       SET status = 'dismissed', notes = $1, resolved_at = NOW(), updated_at = NOW()
+       WHERE id = $2::uuid AND status IN ('active', 'responding')
+       RETURNING *`,
+      reason,
+      id
+    );
+
+    if (!alert) {
+      throw new Error('Alerta no encontrada o ya resuelta');
+    }
+
+    // Notificar al usuario que su alerta fue descartada
+    await prisma.$queryRawUnsafe(
+      `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
+       VALUES ($1::uuid, $2, $3, 'general', $4::jsonb, NOW())`,
+      alert.user_id,
+      'Alerta descartada',
+      `Tu alerta de emergencia fue descartada. Motivo: ${reason}`,
+      JSON.stringify({ alertId: id, reason, dismissedBy })
+    );
+
     return alert;
   }
 
@@ -194,6 +231,7 @@ export class PanicService {
         COUNT(*) FILTER (WHERE status = 'responding') as responding,
         COUNT(*) FILTER (WHERE status = 'resolved') as resolved,
         COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled,
+        COUNT(*) FILTER (WHERE status = 'dismissed') as dismissed,
         COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') as last_24h,
         COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') as last_7d
        FROM "${tenantId}".panic_alerts`
@@ -205,6 +243,7 @@ export class PanicService {
       responding: parseInt(stats?.responding || '0'),
       resolved: parseInt(stats?.resolved || '0'),
       cancelled: parseInt(stats?.cancelled || '0'),
+      dismissed: parseInt(stats?.dismissed || '0'),
       last24h: parseInt(stats?.last_24h || '0'),
       last7d: parseInt(stats?.last_7d || '0'),
     };

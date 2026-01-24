@@ -19,6 +19,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _rutController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -29,10 +30,121 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _rutController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  String _formatRut(String rut) {
+    // Eliminar puntos y guión existentes
+    String clean = rut.replaceAll('.', '').replaceAll('-', '').toUpperCase();
+    if (clean.isEmpty) return '';
+
+    // Separar cuerpo y dígito verificador
+    String body = clean.length > 1 ? clean.substring(0, clean.length - 1) : '';
+    String dv = clean.isNotEmpty ? clean[clean.length - 1] : '';
+
+    // Formatear con puntos
+    String formatted = '';
+    for (int i = body.length - 1, count = 0; i >= 0; i--, count++) {
+      if (count > 0 && count % 3 == 0) {
+        formatted = '.$formatted';
+      }
+      formatted = body[i] + formatted;
+    }
+
+    return dv.isNotEmpty ? '$formatted-$dv' : formatted;
+  }
+
+  bool _validateRut(String rut) {
+    String clean = rut.replaceAll('.', '').replaceAll('-', '').toUpperCase();
+    if (clean.length < 2) return false;
+
+    String body = clean.substring(0, clean.length - 1);
+    String dv = clean[clean.length - 1];
+
+    // Calcular dígito verificador
+    int sum = 0;
+    int multiplier = 2;
+
+    for (int i = body.length - 1; i >= 0; i--) {
+      sum += int.parse(body[i]) * multiplier;
+      multiplier = multiplier == 7 ? 2 : multiplier + 1;
+    }
+
+    int calculatedDv = 11 - (sum % 11);
+    String expectedDv = calculatedDv == 11 ? '0' : calculatedDv == 10 ? 'K' : calculatedDv.toString();
+
+    return dv == expectedDv;
+  }
+
+  void _showEmailVerificationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.mark_email_read, color: AppTheme.primaryColor, size: 32),
+            SizedBox(width: 12),
+            Text('¡Registro Exitoso!'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.email_outlined, size: 64, color: AppTheme.primaryColor),
+            const SizedBox(height: 16),
+            Text(
+              'Hemos enviado un correo de verificación a:',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _emailController.text,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade200),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.amber, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Revisa tu bandeja de entrada y haz clic en el enlace para activar tu cuenta.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const DashboardScreen()),
+              );
+            },
+            child: const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -40,9 +152,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is Authenticated) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-          );
+          // Mostrar diálogo de verificación de email
+          _showEmailVerificationDialog();
         } else if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -110,6 +221,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           }
                           if (value.length < 2) {
                             return 'El nombre debe tener al menos 2 caracteres';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      // Campo RUT
+                      TextFormField(
+                        controller: _rutController,
+                        keyboardType: TextInputType.text,
+                        decoration: const InputDecoration(
+                          labelText: 'RUT',
+                          hintText: '12.345.678-9',
+                          prefixIcon: Icon(Icons.badge),
+                        ),
+                        onChanged: (value) {
+                          final formatted = _formatRut(value);
+                          if (formatted != value) {
+                            _rutController.value = TextEditingValue(
+                              text: formatted,
+                              selection: TextSelection.collapsed(offset: formatted.length),
+                            );
+                          }
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Por favor ingresa tu RUT';
+                          }
+                          if (!_validateRut(value)) {
+                            return 'RUT inválido';
                           }
                           return null;
                         },
@@ -250,6 +390,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 email: _emailController.text.trim(),
                                 password: _passwordController.text,
                                 name: _nameController.text.trim(),
+                                rut: _rutController.text.trim(),
                               ),
                             );
                           }

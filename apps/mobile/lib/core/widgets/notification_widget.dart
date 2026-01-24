@@ -130,6 +130,14 @@ class NotificationWidget extends StatelessWidget {
         icon = Icons.schedule;
         color = Colors.amber;
         break;
+      case NotificationType.panicAlert:
+        icon = Icons.emergency;
+        color = Colors.red;
+        break;
+      case NotificationType.newCitizenReport:
+        icon = Icons.report_problem;
+        color = Colors.orange;
+        break;
       default:
         icon = Icons.notifications;
         color = Colors.grey;
@@ -331,4 +339,6 @@ enum NotificationType {
   newReport,
   reminder,
   general,
+  panicAlert,
+  newCitizenReport,
 }

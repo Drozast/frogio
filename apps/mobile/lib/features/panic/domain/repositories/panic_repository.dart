@@ -15,4 +15,6 @@ abstract class PanicRepository {
   Future<Either<Failure, PanicAlertEntity>> cancelPanicAlert(String alertId);
 
   Future<Either<Failure, PanicAlertEntity?>> getActiveAlert();
+
+  Future<Either<Failure, int>> getTodayPanicCount();
 }

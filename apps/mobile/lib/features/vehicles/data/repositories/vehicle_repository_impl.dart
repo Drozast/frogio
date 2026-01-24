@@ -86,6 +86,8 @@ class VehicleRepositoryImpl implements VehicleRepository {
     required double endKm,
     String? observations,
     List<String>? attachments,
+    List<LocationPoint>? route,
+    List<TripStop>? stops,
   }) async {
     try {
       await remoteDataSource.endVehicleUsage(
@@ -93,10 +95,12 @@ class VehicleRepositoryImpl implements VehicleRepository {
         endKm: endKm,
         observations: observations,
         attachments: attachments,
+        route: route?.map((p) => p.toJson()).toList(),
+        stops: stops?.map((s) => s.toJson()).toList(),
       );
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure('Error al finalizar uso de vehículo: ${e.toString()}'));
+      return Left(ServerFailure('Error al finalizar bitácora: ${e.toString()}'));
     }
   }
 

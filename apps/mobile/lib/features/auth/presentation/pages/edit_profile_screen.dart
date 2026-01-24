@@ -1,6 +1,7 @@
 // lib/features/auth/presentation/pages/edit_profile_screen.dart
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,6 +11,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/text_formatters.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../di/injection_container_api.dart' as di;
+import '../../data/datasources/auth_api_data_source.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../bloc/auth_bloc.dart';
@@ -30,19 +32,25 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _rutController;
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
   late AuthRepository _authRepository;
-  
+
   bool _isLoading = false;
   bool _isUploadingImage = false;
   UserEntity? _updatedUser;
+
+  // Verificar si es inspector o admin
+  bool get _isInspectorOrAdmin =>
+      widget.user.role == 'inspector' || widget.user.role == 'admin';
 
   @override
   void initState() {
     super.initState();
     _authRepository = di.sl<AuthRepository>();
     _nameController = TextEditingController(text: widget.user.name ?? '');
+    _rutController = TextEditingController(text: widget.user.rut ?? '');
     _phoneController = TextEditingController(text: widget.user.phoneNumber ?? '');
     _addressController = TextEditingController(text: widget.user.address ?? '');
     _updatedUser = widget.user;
@@ -51,6 +59,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _rutController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
     super.dispose();
@@ -95,6 +104,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Campo RUT (para inspectores/admin)
+              if (_isInspectorOrAdmin) ...[
+                TextFormField(
+                  controller: _rutController,
+                  keyboardType: TextInputType.text,
+                  decoration: const InputDecoration(
+                    labelText: 'RUT',
+                    prefixIcon: Icon(Icons.badge),
+                    hintText: 'Ej: 12.345.678-9',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Por favor ingrese su RUT';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+
               // Campo teléfono
               TextFormField(
                 controller: _phoneController,
@@ -129,20 +158,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Información de la cuenta',
-                        style: TextStyle(
+                      Text(
+                        _isInspectorOrAdmin
+                            ? 'Información institucional'
+                            : 'Información de la cuenta',
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _buildInfoRow('Email:', widget.user.email),
-                      _buildInfoRow('Rol:', _getRoleDisplayName(widget.user.role)),
                       _buildInfoRow(
-                        'Cuenta creada:',
-                        _formatDate(widget.user.createdAt),
+                        _isInspectorOrAdmin ? 'Email institucional:' : 'Email:',
+                        widget.user.email,
                       ),
+                      _buildInfoRow('Rol:', _getRoleDisplayName(widget.user.role)),
+                      if (!_isInspectorOrAdmin)
+                        _buildInfoRow(
+                          'Cuenta creada:',
+                          _formatDate(widget.user.createdAt),
+                        ),
                     ],
                   ),
                 ),
@@ -203,17 +238,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Widget _buildAvatarContent(UserEntity user) {
     if (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty) {
+      // Verificar si es una referencia a archivo (file://fileId)
+      if (user.profileImageUrl!.startsWith('file://')) {
+        final fileId = user.profileImageUrl!.substring(7);
+        return _FileImageWidget(
+          fileId: fileId,
+          size: 120,
+          fallback: _buildDefaultAvatar(user),
+        );
+      }
+      // URL directa
       return ClipOval(
-        child: Image.network(
-          user.profileImageUrl!,
+        child: CachedNetworkImage(
+          imageUrl: user.profileImageUrl!,
           width: 120,
           height: 120,
           fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return const CircularProgressIndicator();
-          },
-          errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(user),
+          placeholder: (context, url) => const CircularProgressIndicator(),
+          errorWidget: (context, url, error) => _buildDefaultAvatar(user),
         ),
       );
     }
@@ -381,12 +423,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       try {
         final name = _nameController.text.trim();
+        final rut = _rutController.text.trim();
         final phone = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
         final address = _addressController.text.trim();
 
         final result = await _authRepository.updateUserProfile(
           userId: widget.user.id,
           name: name.isNotEmpty ? name : null,
+          rut: rut.isNotEmpty ? rut : null,
           phoneNumber: phone.isNotEmpty ? phone : null,
           address: address.isNotEmpty ? address : null,
         );
@@ -425,6 +469,85 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: AppTheme.errorColor,
+      ),
+    );
+  }
+}
+
+/// Widget que carga una imagen desde un fileId
+class _FileImageWidget extends StatefulWidget {
+  final String fileId;
+  final double size;
+  final Widget fallback;
+
+  const _FileImageWidget({
+    required this.fileId,
+    required this.size,
+    required this.fallback,
+  });
+
+  @override
+  State<_FileImageWidget> createState() => _FileImageWidgetState();
+}
+
+class _FileImageWidgetState extends State<_FileImageWidget> {
+  String? _imageUrl;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImageUrl();
+  }
+
+  Future<void> _loadImageUrl() async {
+    try {
+      debugPrint('📷 EditProfile: Loading image URL for fileId: ${widget.fileId}');
+      final authDataSource = di.sl<AuthApiDataSource>();
+      final url = await authDataSource.getFileUrl(widget.fileId);
+      debugPrint('📷 EditProfile: Got URL: $url');
+
+      if (!mounted) return;
+
+      setState(() {
+        _imageUrl = url;
+        _isLoading = false;
+        _hasError = url == null;
+      });
+    } catch (e) {
+      debugPrint('📷 EditProfile: Error loading URL: $e');
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return SizedBox(
+        width: widget.size,
+        height: widget.size,
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_hasError || _imageUrl == null) {
+      return widget.fallback;
+    }
+
+    return ClipOval(
+      child: CachedNetworkImage(
+        imageUrl: _imageUrl!,
+        width: widget.size,
+        height: widget.size,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => const CircularProgressIndicator(),
+        errorWidget: (context, url, error) => widget.fallback,
       ),
     );
   }

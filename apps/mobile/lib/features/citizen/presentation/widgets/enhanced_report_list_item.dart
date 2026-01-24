@@ -16,6 +16,15 @@ class EnhancedReportListItem extends StatelessWidget {
     this.showActions = false,
   });
 
+  /// Capitaliza la primera letra de cada palabra
+  String _capitalize(String text) {
+    if (text.isEmpty) return text;
+    return text.split(' ').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -34,7 +43,7 @@ class EnhancedReportListItem extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      report.title,
+                      _capitalize(report.title),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -170,7 +179,7 @@ class EnhancedReportListItem extends StatelessWidget {
         border: Border.all(color: Colors.blue.shade200),
       ),
       child: Text(
-        report.category,
+        _capitalize(report.category),
         style: TextStyle(
           color: Colors.blue.shade700,
           fontSize: 11,

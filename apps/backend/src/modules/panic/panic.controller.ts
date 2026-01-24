@@ -160,4 +160,24 @@ export class PanicController {
       res.status(500).json({ error: message });
     }
   }
+
+  async dismiss(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const userId = req.user?.userId;
+      const tenantId = req.user?.tenantId;
+
+      if (!tenantId || !userId) {
+        res.status(400).json({ error: 'Datos de autenticación inválidos' });
+        return;
+      }
+
+      const alert = await panicService.dismiss(id, reason || 'Sin motivo', userId, tenantId);
+      res.json(alert);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al descartar alerta';
+      res.status(400).json({ error: message });
+    }
+  }
 }

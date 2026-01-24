@@ -6,10 +6,12 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/config/api_config.dart';
 import '../../../../core/services/gps_tracking_service.dart';
 import '../../domain/entities/vehicle_entity.dart';
+import '../../domain/entities/vehicle_log_entity.dart';
 import '../bloc/vehicle_bloc.dart';
 
 class ActiveTripPage extends StatefulWidget {
@@ -34,12 +36,15 @@ class _ActiveTripPageState extends State<ActiveTripPage> {
   final GpsTrackingService _gpsService = GpsTrackingService();
   final MapController _mapController = MapController();
   final List<LatLng> _routePoints = [];
+  final List<TripStop> _stops = [];
+  final _uuid = const Uuid();
 
   Timer? _updateTimer;
   DateTime _startTime = DateTime.now();
   double _totalDistance = 0.0;
   Position? _currentPosition;
   bool _isTracking = false;
+  TripStop? _activeStop;
 
   @override
   void initState() {
@@ -228,8 +233,17 @@ class _ActiveTripPageState extends State<ActiveTripPage> {
                   await _gpsService.stopTracking();
                   _updateTimer?.cancel();
 
-                  // End vehicle usage
+                  // End vehicle usage - send route and stops data
                   if (mounted) {
+                    // Convert route points to LocationPoint entities
+                    final routePoints = _routePoints.map((point) {
+                      return LocationPoint(
+                        latitude: point.latitude,
+                        longitude: point.longitude,
+                        timestamp: DateTime.now(), // Simplified timestamp
+                      );
+                    }).toList();
+
                     context.read<VehicleBloc>().add(
                           EndVehicleUsageEvent(
                             logId: widget.vehicleLogId,
@@ -237,6 +251,8 @@ class _ActiveTripPageState extends State<ActiveTripPage> {
                             observations: observationsController.text.isNotEmpty
                                 ? observationsController.text
                                 : null,
+                            route: routePoints,
+                            stops: _stops,
                           ),
                         );
 
@@ -266,6 +282,168 @@ class _ActiveTripPageState extends State<ActiveTripPage> {
     } else {
       return '${seconds}s';
     }
+  }
+
+  void _showStopDialog() {
+    if (_currentPosition == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Esperando ubicación GPS...')),
+      );
+      return;
+    }
+
+    StopReason? selectedReason;
+    final detailsController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.pause_circle, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Registrar Parada',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Motivo de la parada:',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: StopReason.values.map((reason) {
+                  final isSelected = selectedReason == reason;
+                  return ChoiceChip(
+                    avatar: Icon(
+                      reason.icon,
+                      size: 18,
+                      color: isSelected ? Colors.white : Colors.grey.shade700,
+                    ),
+                    label: Text(reason.displayName),
+                    selected: isSelected,
+                    selectedColor: Theme.of(context).primaryColor,
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black87,
+                    ),
+                    onSelected: (selected) {
+                      setModalState(() {
+                        selectedReason = selected ? reason : null;
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: detailsController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Detalles (opcional)',
+                  prefixIcon: Icon(Icons.notes),
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: selectedReason == null
+                      ? null
+                      : () {
+                          final stop = TripStop(
+                            id: _uuid.v4(),
+                            latitude: _currentPosition!.latitude,
+                            longitude: _currentPosition!.longitude,
+                            startTime: DateTime.now(),
+                            reason: selectedReason!,
+                            details: detailsController.text.isNotEmpty
+                                ? detailsController.text
+                                : null,
+                          );
+                          setState(() {
+                            _activeStop = stop;
+                          });
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Parada iniciada: ${selectedReason!.displayName}',
+                              ),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                        },
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Iniciar Parada'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _endStop() {
+    if (_activeStop == null) return;
+
+    final completedStop = _activeStop!.copyWith(
+      endTime: DateTime.now(),
+    );
+
+    setState(() {
+      _stops.add(completedStop);
+      _activeStop = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Parada finalizada: ${completedStop.reason.displayName} (${_formatDuration(completedStop.duration!)})',
+        ),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  Duration get _totalStopTime {
+    return _stops.fold(Duration.zero, (total, stop) {
+      if (stop.duration != null) {
+        return total + stop.duration!;
+      }
+      return total;
+    });
   }
 
   @override
@@ -437,44 +615,103 @@ class _ActiveTripPageState extends State<ActiveTripPage> {
                             'Distancia',
                           ),
                           _buildStatItem(
-                            Icons.speed,
-                            _currentPosition?.speed != null
-                                ? '${(_currentPosition!.speed * 3.6).toStringAsFixed(0)} km/h'
-                                : '0 km/h',
-                            'Velocidad',
+                            Icons.pause_circle,
+                            '${_stops.length}',
+                            'Paradas',
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
 
-                      // Stop Button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: _stopTracking,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                      // Active stop indicator
+                      if (_activeStop != null)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.orange),
                           ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          child: Row(
                             children: [
-                              Icon(Icons.stop, color: Colors.white),
-                              SizedBox(width: 8),
-                              Text(
-                                'Finalizar Viaje',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
+                              Icon(_activeStop!.reason.icon, color: Colors.orange),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Parada: ${_activeStop!.reason.displayName}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Duración: ${_formatDuration(DateTime.now().difference(_activeStop!.startTime))}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                              ),
+                              ElevatedButton(
+                                onPressed: _endStop,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                ),
+                                child: const Text('Continuar'),
                               ),
                             ],
                           ),
                         ),
+
+                      // Action Buttons
+                      Row(
+                        children: [
+                          // Stop/Pause Button
+                          Expanded(
+                            child: SizedBox(
+                              height: 50,
+                              child: ElevatedButton.icon(
+                                onPressed: _activeStop != null ? null : _showStopDialog,
+                                icon: const Icon(Icons.pause),
+                                label: const Text('Parada'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // End Trip Button
+                          Expanded(
+                            child: SizedBox(
+                              height: 50,
+                              child: ElevatedButton.icon(
+                                onPressed: _activeStop != null ? null : _stopTracking,
+                                icon: const Icon(Icons.stop),
+                                label: const Text('Finalizar'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

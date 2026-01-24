@@ -308,6 +308,24 @@ export class CitationsService {
     return citations;
   }
 
+  async getMyCitations(tenantId: string, issuedBy: string): Promise<Citation[]> {
+    const citations = await prisma.$queryRawUnsafe<Citation[]>(
+      `SELECT cc.*,
+       issuer.first_name as issuer_first_name, issuer.last_name as issuer_last_name,
+       u.first_name as user_first_name, u.last_name as user_last_name, u.email as user_email, u.phone as user_phone, u.rut as user_rut,
+       i.description as infraction_description, i.amount as infraction_amount
+       FROM "${tenantId}".court_citations cc
+       LEFT JOIN "${tenantId}".users issuer ON cc.issued_by = issuer.id
+       LEFT JOIN "${tenantId}".users u ON cc.user_id = u.id
+       LEFT JOIN "${tenantId}".infractions i ON cc.infraction_id = i.id
+       WHERE cc.issued_by = $1::uuid
+       ORDER BY cc.created_at DESC`,
+      issuedBy
+    );
+
+    return citations;
+  }
+
   async bulkImport(
     records: Array<{
       citationType?: string;

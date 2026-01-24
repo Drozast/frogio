@@ -48,10 +48,31 @@ export interface StartVehicleUsageDto {
   purpose?: string;
 }
 
+export interface RoutePoint {
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+  speed?: number;
+  accuracy?: number;
+}
+
+export interface TripStop {
+  id: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  startTime: string;
+  endTime?: string;
+  reason: 'inspection' | 'citation' | 'break_' | 'fuel' | 'maintenance' | 'citizen' | 'emergency' | 'other';
+  details?: string;
+}
+
 export interface EndVehicleUsageDto {
   endKm: number;
   observations?: string;
   attachments?: string[];
+  route?: RoutePoint[];
+  stops?: TripStop[];
 }
 
 export interface VehicleLogResponse {
@@ -67,6 +88,10 @@ export interface VehicleLogResponse {
   endTime?: Date;
   observations?: string;
   status: 'active' | 'completed' | 'cancelled';
+  route?: RoutePoint[];
+  stops?: TripStop[];
+  totalDistanceKm?: number;
+  totalStopTimeSeconds?: number;
   createdAt: Date;
   updatedAt: Date;
   vehicle?: {

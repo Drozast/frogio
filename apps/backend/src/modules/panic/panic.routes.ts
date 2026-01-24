@@ -21,5 +21,6 @@ router.get('/', roleGuard('inspector', 'admin'), (req, res) => panicController.f
 router.get('/:id', roleGuard('inspector', 'admin'), (req, res) => panicController.findById(req as AuthRequest, res));
 router.patch('/:id/respond', roleGuard('inspector', 'admin'), (req, res) => panicController.respond(req as AuthRequest, res));
 router.patch('/:id/resolve', roleGuard('inspector', 'admin'), (req, res) => panicController.resolve(req as AuthRequest, res));
+router.patch('/:id/dismiss', roleGuard('inspector', 'admin'), (req, res) => panicController.dismiss(req as AuthRequest, res));
 
 export default router;

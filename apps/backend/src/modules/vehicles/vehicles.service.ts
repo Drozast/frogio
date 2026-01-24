@@ -286,13 +286,85 @@ export class VehiclesService {
       throw new Error('El kilometraje final no puede ser menor al inicial');
     }
 
+    // Calculate total distance from route or odometer
+    const totalDistanceKm = data.endKm - log.start_km;
+
+    // Calculate total stop time from stops
+    let totalStopTimeSeconds = 0;
+    if (data.stops && Array.isArray(data.stops)) {
+      for (const stop of data.stops) {
+        if (stop.startTime && stop.endTime) {
+          const start = new Date(stop.startTime).getTime();
+          const end = new Date(stop.endTime).getTime();
+          totalStopTimeSeconds += Math.floor((end - start) / 1000);
+        }
+      }
+    }
+
     const [updatedLog] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".vehicle_logs
-       SET end_km = $1, end_time = NOW(), observations = $2, status = 'completed', updated_at = NOW()
-       WHERE id = $3
+       SET end_km = $1, end_time = NOW(), observations = $2, status = 'completed',
+           route = $3::jsonb, stops = $4::jsonb,
+           total_distance_km = $5, total_stop_time_seconds = $6,
+           updated_at = NOW()
+       WHERE id = $7
        RETURNING *`,
       data.endKm,
       data.observations || null,
+      JSON.stringify(data.route || []),
+      JSON.stringify(data.stops || []),
+      totalDistanceKm,
+      totalStopTimeSeconds,
+      logId
+    );
+
+    return updatedLog;
+  }
+
+  async addStopToLog(logId: string, stop: any, tenantId: string) {
+    const [log] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT * FROM "${tenantId}".vehicle_logs WHERE id = $1 AND status = 'active' LIMIT 1`,
+      logId
+    );
+
+    if (!log) {
+      throw new Error('Registro de uso no encontrado o no está activo');
+    }
+
+    const currentStops = log.stops || [];
+    currentStops.push(stop);
+
+    const [updatedLog] = await prisma.$queryRawUnsafe<any[]>(
+      `UPDATE "${tenantId}".vehicle_logs
+       SET stops = $1::jsonb, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      JSON.stringify(currentStops),
+      logId
+    );
+
+    return updatedLog;
+  }
+
+  async updateRoutePoints(logId: string, routePoints: any[], tenantId: string) {
+    const [log] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT * FROM "${tenantId}".vehicle_logs WHERE id = $1 AND status = 'active' LIMIT 1`,
+      logId
+    );
+
+    if (!log) {
+      throw new Error('Registro de uso no encontrado o no está activo');
+    }
+
+    const currentRoute = log.route || [];
+    currentRoute.push(...routePoints);
+
+    const [updatedLog] = await prisma.$queryRawUnsafe<any[]>(
+      `UPDATE "${tenantId}".vehicle_logs
+       SET route = $1::jsonb, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      JSON.stringify(currentRoute),
       logId
     );
 

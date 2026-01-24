@@ -23,33 +23,42 @@ class ReportModel extends ReportEntity {
   });
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
+    // Handle date parsing for both camelCase and snake_case
+    DateTime parseDate(String? camelCase, String? snakeCase) {
+      final dateStr = camelCase ?? snakeCase;
+      if (dateStr == null) return DateTime.now();
+      try {
+        return DateTime.parse(dateStr);
+      } catch (_) {
+        return DateTime.now();
+      }
+    }
+
     return ReportModel(
       id: json['id'] as String,
       title: json['title'] as String? ?? 'Sin titulo',
       description: json['description'] as String? ?? '',
-      category: json['category'] as String? ?? 'general',
+      // Backend sends 'type', frontend uses 'category'
+      category: json['category'] as String? ?? json['type'] as String? ?? 'general',
       references: json['references'] as String?,
       location: LocationDataModel.fromJson(
         json['location'] as Map<String, dynamic>? ?? {
-          'latitude': json['latitude'] ?? 0.0,
-          'longitude': json['longitude'] ?? 0.0,
+          'latitude': json['latitude'],
+          'longitude': json['longitude'],
           'address': json['address'],
         },
       ),
-      citizenId: json['citizenId'] as String? ?? json['userId'] as String? ?? '',
-      muniId: json['muniId'] as String? ?? json['tenantId'] as String? ?? '',
+      // Backend sends 'user_id', frontend uses 'citizenId'
+      citizenId: json['citizenId'] as String? ?? json['user_id'] as String? ?? json['userId'] as String? ?? '',
+      muniId: json['muniId'] as String? ?? json['tenant_id'] as String? ?? json['tenantId'] as String? ?? '',
       status: _parseStatus(json['status'] as String?),
       priority: _parsePriority(json['priority'] as String?),
       attachments: (json['attachments'] as List<dynamic>?)
               ?.map((e) => MediaAttachmentModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
-          : DateTime.now(),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
-          : DateTime.now(),
+      createdAt: parseDate(json['createdAt'] as String?, json['created_at'] as String?),
+      updatedAt: parseDate(json['updatedAt'] as String?, json['updated_at'] as String?),
       statusHistory: (json['statusHistory'] as List<dynamic>?)
               ?.map((e) => StatusHistoryItemModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -58,7 +67,8 @@ class ReportModel extends ReportEntity {
               ?.map((e) => ReportResponseModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      assignedToId: json['assignedToId'] as String?,
+      // Backend sends 'assigned_to', frontend uses 'assignedToId'
+      assignedToId: json['assignedToId'] as String? ?? json['assigned_to'] as String?,
       assignedToName: json['assignedToName'] as String?,
     );
   }
@@ -94,19 +104,26 @@ class ReportModel extends ReportEntity {
   static ReportStatus _parseStatus(String? status) {
     switch (status?.toLowerCase()) {
       case 'draft':
+      case 'borrador':
         return ReportStatus.draft;
       case 'submitted':
+      case 'pendiente':
         return ReportStatus.submitted;
       case 'reviewing':
+      case 'en_revision':
         return ReportStatus.reviewing;
       case 'in_progress':
       case 'inprogress':
+      case 'en_proceso':
         return ReportStatus.inProgress;
       case 'resolved':
+      case 'resuelto':
         return ReportStatus.resolved;
       case 'rejected':
+      case 'rechazado':
         return ReportStatus.rejected;
       case 'archived':
+      case 'archivado':
         return ReportStatus.archived;
       default:
         return ReportStatus.submitted;
@@ -116,12 +133,16 @@ class ReportModel extends ReportEntity {
   static Priority _parsePriority(String? priority) {
     switch (priority?.toLowerCase()) {
       case 'low':
+      case 'baja':
         return Priority.low;
       case 'medium':
+      case 'media':
         return Priority.medium;
       case 'high':
+      case 'alta':
         return Priority.high;
       case 'urgent':
+      case 'urgente':
         return Priority.urgent;
       default:
         return Priority.medium;
@@ -164,9 +185,17 @@ class LocationDataModel extends LocationData {
   });
 
   factory LocationDataModel.fromJson(Map<String, dynamic> json) {
+    // Manejar latitude/longitude que pueden venir como String o num
+    double parseCoordinate(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? 0.0;
+      return 0.0;
+    }
+
     return LocationDataModel(
-      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
-      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
+      latitude: parseCoordinate(json['latitude']),
+      longitude: parseCoordinate(json['longitude']),
       address: json['address'] as String?,
       manualAddress: json['manualAddress'] as String?,
       source: _parseSource(json['source'] as String?),
@@ -265,13 +294,22 @@ class StatusHistoryItemModel extends StatusHistoryItem {
   });
 
   factory StatusHistoryItemModel.fromJson(Map<String, dynamic> json) {
+    DateTime parseTimestamp() {
+      final ts = json['timestamp'] ?? json['modified_at'];
+      if (ts == null) return DateTime.now();
+      if (ts is DateTime) return ts;
+      try {
+        return DateTime.parse(ts.toString());
+      } catch (_) {
+        return DateTime.now();
+      }
+    }
+
     return StatusHistoryItemModel(
-      timestamp: json['timestamp'] != null
-          ? DateTime.parse(json['timestamp'] as String)
-          : DateTime.now(),
+      timestamp: parseTimestamp(),
       status: ReportModel._parseStatus(json['status'] as String?),
-      comment: json['comment'] as String?,
-      userId: json['userId'] as String?,
+      comment: json['comment'] as String? ?? json['change_reason'] as String?,
+      userId: json['userId'] as String? ?? json['user_id'] as String? ?? json['modified_by'] as String?,
       userName: json['userName'] as String?,
     );
   }

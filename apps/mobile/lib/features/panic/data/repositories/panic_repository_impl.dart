@@ -51,4 +51,14 @@ class PanicRepositoryImpl implements PanicRepository {
       return Left(ServerFailure(e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, int>> getTodayPanicCount() async {
+    try {
+      final count = await remoteDataSource.getTodayPanicCount();
+      return Right(count);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
 }

@@ -36,6 +36,15 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
   late TabController _tabController;
   final MapController _mapController = MapController();
 
+  /// Capitaliza la primera letra de cada palabra
+  String _capitalize(String text) {
+    if (text.isEmpty) return text;
+    return text.split(' ').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -144,7 +153,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
           tabs: const [
             Tab(icon: Icon(Icons.info), text: 'Detalles'),
             Tab(icon: Icon(Icons.forum), text: 'Respuestas'),
-            Tab(icon: Icon(Icons.history), text: 'Historial'),
+            Tab(icon: Icon(Icons.track_changes), text: 'Seguimiento'),
           ],
         ),
 
@@ -183,7 +192,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
             children: [
               Expanded(
                 child: Text(
-                  report.title,
+                  _capitalize(report.title),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -196,7 +205,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
           const SizedBox(height: 8),
           Row(
             children: [
-              _buildCategoryChip(report.category),
+              _buildCategoryChip(_capitalize(report.category)),
               const SizedBox(width: 8),
               if (report.location.address != null)
                 Expanded(
@@ -285,15 +294,14 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
             _buildLocationSection(report),
           ),
 
-          // Información adicional
+          // Información adicional (sin prioridad)
           _buildSection(
             'Información Adicional',
             Icons.info,
             Column(
               children: [
-                _buildInfoRow('Categoría', report.category),
+                _buildInfoRow('Categoría', _capitalize(report.category)),
                 _buildInfoRow('Estado', report.status.displayName),
-                _buildInfoRow('Prioridad', report.priority.displayName),
                 _buildInfoRow(
                   'Última actualización',
                   DateFormat('dd/MM/yyyy HH:mm').format(report.updatedAt),
@@ -322,59 +330,356 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
   }
 
   Widget _buildHistoryTab(ReportEntity report) {
-    if (report.statusHistory.isEmpty) {
-      return const Center(
-        child: Text('Sin historial de cambios'),
-      );
-    }
+    // Estados en orden de progreso
+    final statusOrder = [
+      ReportStatus.submitted,
+      ReportStatus.reviewing,
+      ReportStatus.inProgress,
+      ReportStatus.resolved,
+    ];
 
-    return ListView.builder(
+    final currentStatusIndex = statusOrder.indexOf(report.status);
+    final isRejected = report.status == ReportStatus.rejected;
+
+    // Ordenar historial por fecha
+    final historyItems = report.statusHistory.toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      itemCount: report.statusHistory.length,
-      itemBuilder: (context, index) {
-        final historyItem = report.statusHistory[index];
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(historyItem.status),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tracker visual de progreso
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
                     children: [
+                      Icon(Icons.track_changes, color: AppTheme.primaryColor),
+                      SizedBox(width: 8),
                       Text(
-                        historyItem.status.displayName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      if (historyItem.comment != null)
-                        Text(
-                          historyItem.comment!,
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      Text(
-                        DateFormat('dd/MM/yyyy HH:mm').format(historyItem.timestamp),
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        'Estado Actual',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  if (isRejected)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.errorColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.errorColor.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.cancel, color: AppTheme.errorColor),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Este reporte ha sido rechazado',
+                              style: TextStyle(color: AppTheme.errorColor, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Row(
+                      children: statusOrder.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final status = entry.value;
+                        final isCompleted = currentStatusIndex >= index;
+                        final isCurrent = currentStatusIndex == index;
+                        final isLast = index == statusOrder.length - 1;
+                        final color = isCompleted ? _getStatusColor(status) : Colors.grey.shade300;
+
+                        return Expanded(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    // Círculo de estado
+                                    AnimatedContainer(
+                                      duration: const Duration(milliseconds: 300),
+                                      width: isCurrent ? 40 : 32,
+                                      height: isCurrent ? 40 : 32,
+                                      decoration: BoxDecoration(
+                                        color: isCompleted ? color : Colors.white,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: color,
+                                          width: isCurrent ? 3 : 2,
+                                        ),
+                                        boxShadow: isCurrent
+                                            ? [
+                                                BoxShadow(
+                                                  color: color.withValues(alpha: 0.4),
+                                                  blurRadius: 8,
+                                                  spreadRadius: 2,
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                      child: Icon(
+                                        _getStatusIcon(status),
+                                        size: isCurrent ? 20 : 16,
+                                        color: isCompleted ? Colors.white : Colors.grey.shade400,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    // Etiqueta
+                                    Text(
+                                      _getShortStatusName(status),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                        color: isCompleted ? color : Colors.grey,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Línea conectora
+                              if (!isLast)
+                                Expanded(
+                                  child: Container(
+                                    height: 3,
+                                    margin: const EdgeInsets.only(bottom: 24),
+                                    decoration: BoxDecoration(
+                                      color: currentStatusIndex > index
+                                          ? _getStatusColor(statusOrder[index + 1])
+                                          : Colors.grey.shade300,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                ],
+              ),
             ),
           ),
-        );
-      },
+
+          const SizedBox(height: 16),
+
+          // Timeline de historial
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.history, color: AppTheme.primaryColor),
+                      SizedBox(width: 8),
+                      Text(
+                        'Historial de Cambios',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (historyItems.isEmpty)
+                    const Text(
+                      'Sin historial de cambios',
+                      style: TextStyle(color: Colors.grey),
+                    )
+                  else
+                    ...historyItems.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final historyItem = entry.value;
+                      final isLastItem = index == historyItems.length - 1;
+                      final color = _getStatusColor(historyItem.status);
+
+                      return IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Timeline visual
+                            Column(
+                              children: [
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: isLastItem ? color : color.withValues(alpha: 0.3),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: color,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: isLastItem
+                                      ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                      : null,
+                                ),
+                                if (!isLastItem)
+                                  Expanded(
+                                    child: Container(
+                                      width: 2,
+                                      margin: const EdgeInsets.symmetric(vertical: 4),
+                                      color: color.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(width: 12),
+                            // Contenido
+                            Expanded(
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isLastItem ? color.withValues(alpha: 0.1) : Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isLastItem ? color.withValues(alpha: 0.3) : Colors.grey.shade200,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          _getStatusIcon(historyItem.status),
+                                          size: 16,
+                                          color: color,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            historyItem.status.displayName,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: isLastItem ? color : Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                        if (isLastItem)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: color,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: const Text(
+                                              'Actual',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      DateFormat('dd/MM/yyyy HH:mm').format(historyItem.timestamp),
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    ),
+                                    if (historyItem.comment != null && historyItem.comment!.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Icon(Icons.comment, size: 14, color: Colors.grey),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                historyItem.comment!,
+                                                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                    if (historyItem.userName != null) ...[
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.person, size: 12, color: Colors.grey),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            historyItem.userName!,
+                                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  IconData _getStatusIcon(ReportStatus status) {
+    switch (status) {
+      case ReportStatus.draft:
+        return Icons.edit_note;
+      case ReportStatus.submitted:
+        return Icons.send;
+      case ReportStatus.reviewing:
+        return Icons.search;
+      case ReportStatus.inProgress:
+        return Icons.engineering;
+      case ReportStatus.resolved:
+        return Icons.check_circle;
+      case ReportStatus.rejected:
+        return Icons.cancel;
+      case ReportStatus.archived:
+        return Icons.archive;
+    }
+  }
+
+  String _getShortStatusName(ReportStatus status) {
+    switch (status) {
+      case ReportStatus.draft:
+        return 'Borrador';
+      case ReportStatus.submitted:
+        return 'Enviado';
+      case ReportStatus.reviewing:
+        return 'Revisión';
+      case ReportStatus.inProgress:
+        return 'En Proceso';
+      case ReportStatus.resolved:
+        return 'Resuelto';
+      case ReportStatus.rejected:
+        return 'Rechazado';
+      case ReportStatus.archived:
+        return 'Archivado';
+    }
   }
 
   Widget _buildSection(String title, IconData icon, Widget content) {
@@ -480,40 +785,73 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
           ),
           const SizedBox(height: 12),
 
-          // Mapa
-          Container(
-            height: 200,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: LatLng(location.latitude, location.longitude),
-                initialZoom: 15,
+          // Mapa interactivo (click para expandir)
+          GestureDetector(
+            onTap: () => _showFullscreenMap(LatLng(location.latitude, location.longitude), location.address),
+            child: Container(
+              height: 200,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
               ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.frogio.santajuana',
-                ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: LatLng(location.latitude, location.longitude),
-                      width: 40,
-                      height: 40,
-                      child: const Icon(
-                        Icons.location_pin,
-                        color: Colors.red,
-                        size: 40,
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: LatLng(location.latitude, location.longitude),
+                      initialZoom: 15,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.none,
                       ),
                     ),
-                  ],
-                ),
-              ],
+                    children: [
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.frogio.santajuana',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: LatLng(location.latitude, location.longitude),
+                            width: 40,
+                            height: 40,
+                            child: const Icon(
+                              Icons.location_pin,
+                              color: Colors.red,
+                              size: 40,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  // Indicador para expandir
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.fullscreen, size: 16, color: AppTheme.primaryColor),
+                          SizedBox(width: 4),
+                          Text(
+                            'Ampliar',
+                            style: TextStyle(fontSize: 12, color: AppTheme.primaryColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -769,6 +1107,86 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
       SnackBar(
         content: Text(message),
         backgroundColor: AppTheme.errorColor,
+      ),
+    );
+  }
+
+  void _showFullscreenMap(LatLng location, String? address) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: AppTheme.primaryColor,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Ubicación del Reporte',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            if (address != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                color: Colors.grey.shade100,
+                child: Text(
+                  address,
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+            SizedBox(
+              height: 400,
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: location,
+                  initialZoom: 16,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.frogio.santajuana',
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: location,
+                        width: 50,
+                        height: 50,
+                        child: const Icon(
+                          Icons.location_on,
+                          color: AppTheme.primaryColor,
+                          size: 50,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

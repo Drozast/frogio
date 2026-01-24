@@ -73,12 +73,15 @@ class AuthApiDataSource implements AuthRemoteDataSource {
   }
 
   @override
-  Future<UserModel> registerWithEmailAndPassword(String email, String password, String name) async {
+  Future<UserModel> registerWithEmailAndPassword(String email, String password, String name, String rut) async {
     try {
       // Dividir el nombre en nombres y apellidos (simplificado)
       final nameParts = name.split(' ');
       final firstName = nameParts.first;
       final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+      // Limpiar RUT (quitar puntos y guión para el backend)
+      final cleanRut = rut.replaceAll('.', '').replaceAll('-', '');
 
       final response = await client.post(
         Uri.parse('$baseUrl/api/auth/register'),
@@ -88,7 +91,7 @@ class AuthApiDataSource implements AuthRemoteDataSource {
           'password': password,
           'firstName': firstName,
           'lastName': lastName,
-          'rut': '', // RUT será solicitado en pantalla de registro
+          'rut': cleanRut,
           'role': 'citizen',
         }),
       );
@@ -147,9 +150,9 @@ class AuthApiDataSource implements AuthRemoteDataSource {
         return null;
       }
 
-      // Obtener datos actualizados del usuario
+      // Obtener datos actualizados del usuario (incluyendo profileImageUrl)
       final response = await client.get(
-        Uri.parse('$baseUrl/api/auth/me'),
+        Uri.parse('$baseUrl/api/auth/profile'),
         headers: _authHeaders,
       );
 

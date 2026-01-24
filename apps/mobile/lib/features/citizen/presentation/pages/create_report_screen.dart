@@ -36,7 +36,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   final _referencesController = TextEditingController();
 
   String _selectedCategory = 'Infraestructura';
-  Priority _selectedPriority = Priority.medium;
   LocationData? _selectedLocation;
   final List<File> _selectedImages = [];
 
@@ -99,7 +98,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                           children: [
                             _buildBasicInfo(),
                             const SizedBox(height: 24),
-                            _buildCategoryAndPriority(),
+                            _buildCategorySection(),
                             const SizedBox(height: 24),
                             _buildLocationSection(),
                             const SizedBox(height: 24),
@@ -164,24 +163,17 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     );
   }
 
-  Widget _buildCategoryAndPriority() {
+  Widget _buildCategorySection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Categoría y Prioridad',
+          'Categoría',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-
-        // Categoría
-        const Text(
-          'Categoría',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-        const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          initialValue: _selectedCategory,
+          value: _selectedCategory,
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
           ),
@@ -194,31 +186,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           onChanged: (value) {
             setState(() {
               _selectedCategory = value!;
-            });
-          },
-        ),
-        const SizedBox(height: 16),
-
-        // Prioridad
-        const Text(
-          'Prioridad',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<Priority>(
-          initialValue: _selectedPriority,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-          ),
-          items: Priority.values.map((priority) {
-            return DropdownMenuItem(
-              value: priority,
-              child: Text(priority.displayName),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedPriority = value!;
             });
           },
         ),
@@ -487,7 +454,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           : null,
       location: _selectedLocation!,
       userId: widget.userId,
-      priority: _selectedPriority,
+      priority: Priority.medium, // Prioridad por defecto
       attachments: _selectedImages,
     );
 

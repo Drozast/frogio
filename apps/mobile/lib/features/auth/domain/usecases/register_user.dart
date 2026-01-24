@@ -16,6 +16,7 @@ class RegisterUser implements UseCase<UserEntity, RegisterParams> {
       params.email,
       params.password,
       params.name,
+      params.rut,
     );
   }
 }
@@ -24,10 +25,12 @@ class RegisterParams {
   final String email;
   final String password;
   final String name;
+  final String rut;
 
   RegisterParams({
     required this.email,
     required this.password,
     required this.name,
+    required this.rut,
   });
 }

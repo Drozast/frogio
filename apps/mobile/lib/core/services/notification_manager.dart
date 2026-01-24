@@ -14,6 +14,9 @@ class NotificationManager {
   final NotificationService _notificationService = NotificationService();
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+  // Callback para alertas de pánico (para actualizar UI en tiempo real)
+  Function(Map<String, dynamic>)? onPanicAlertReceived;
+
   Future<void> initialize() async {
     await _notificationService.initialize();
     _setupCallbacks();
@@ -22,6 +25,7 @@ class NotificationManager {
   void _setupCallbacks() {
     _notificationService.onNotificationReceived = _handleNotificationReceived;
     _notificationService.onNotificationTapped = _handleNotificationTapped;
+    _notificationService.onPanicAlertReceived = _handlePanicAlertReceived;
   }
 
   void _handleNotificationReceived(Map<String, dynamic> data) {
@@ -36,10 +40,138 @@ class NotificationManager {
     _navigateBasedOnNotification(data);
   }
 
+  void _handlePanicAlertReceived(Map<String, dynamic> data) {
+    log('PANIC ALERT RECEIVED: $data');
+
+    // Validar que la alerta tenga datos válidos
+    final message = data['message']?.toString() ?? '';
+    final title = data['title']?.toString() ?? '';
+
+    // No mostrar diálogo si no hay mensaje o es un mensaje vacío/de prueba
+    if (message.isEmpty && title.isEmpty) {
+      log('Ignoring empty panic alert');
+      return;
+    }
+
+    // Notificar a cualquier listener (ej: InspectorMapScreen)
+    onPanicAlertReceived?.call(data);
+
+    // Mostrar diálogo de alerta si hay contexto disponible
+    final context = navigatorKey.currentContext;
+    if (context != null) {
+      _showPanicAlertDialog(context, data);
+    }
+  }
+
+  void _showPanicAlertDialog(BuildContext context, Map<String, dynamic> data) {
+    final title = data['title']?.toString() ?? 'ALERTA DE PÁNICO';
+    final message = data['message']?.toString() ?? 'Un ciudadano necesita ayuda';
+    final latitude = data['latitude'];
+    final longitude = data['longitude'];
+    final hasLocation = latitude != null && longitude != null;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.red.shade50,
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red, size: 32),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '🚨 $title',
+                style: TextStyle(
+                  color: Colors.red.shade900,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Text(
+                message,
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+            if (hasLocation) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.location_on, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Ubicación disponible',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cerrar'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              // Forzar recarga del mapa
+              _refreshAndNavigateToMap(context);
+            },
+            icon: const Icon(Icons.map),
+            label: const Text('Ver en Mapa'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _refreshAndNavigateToMap(BuildContext context) {
+    // Navegar al mapa - el mapa se recargará automáticamente
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/inspector-map',
+      (route) => route.isFirst,
+    );
+  }
+
   void _showInAppNotification(BuildContext context, Map<String, dynamic> data) {
     final notificationType = data['type'] ?? 'general';
     final title = data['title'] ?? 'FROGIO';
     final body = data['body'] ?? 'Nueva notificacion';
+
+    // No mostrar snackbar para alertas de pánico (ya se muestra el diálogo)
+    if (notificationType == 'panic') return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -89,8 +221,12 @@ class NotificationManager {
     final type = data['type'];
     final reportId = data['reportId'];
     final screen = data['screen'];
+    final alertId = data['alertId'];
 
     switch (type) {
+      case 'panic':
+        Navigator.of(context).pushNamed('/inspector-map');
+        break;
       case 'report_status_changed':
         _navigateToReportDetail(context, reportId);
         break;
@@ -107,7 +243,9 @@ class NotificationManager {
         _handleReminder(context, data);
         break;
       default:
-        if (screen != null) {
+        if (alertId != null) {
+          Navigator.of(context).pushNamed('/inspector-map');
+        } else if (screen != null) {
           _navigateToScreen(context, screen);
         }
     }
@@ -144,6 +282,8 @@ class NotificationManager {
 
   IconData _getNotificationIcon(String type) {
     switch (type) {
+      case 'panic':
+        return Icons.warning;
       case 'report_status_changed':
         return Icons.update;
       case 'report_response':
@@ -161,6 +301,8 @@ class NotificationManager {
 
   Color _getNotificationColor(String type) {
     switch (type) {
+      case 'panic':
+        return Colors.red;
       case 'report_status_changed':
         return Colors.blue;
       case 'report_response':
@@ -176,41 +318,40 @@ class NotificationManager {
     }
   }
 
-  // Metodos para suscripciones basadas en roles
+  // Métodos para suscripciones basadas en roles
   Future<void> subscribeToUserTopics(String userId, String role, {String tenantId = 'santa_juana'}) async {
-    // Configurar topics para el usuario
+    // Configurar topics para el usuario y conectar a SSE
     await _notificationService.setupUserTopics(
       userId: userId,
       tenantId: tenantId,
       role: role,
     );
 
-    // Suscribirse a notificaciones generales
-    await _notificationService.subscribeToTopic('frogio_${tenantId}_all');
-
-    // Suscribirse segun rol
-    switch (role) {
-      case 'citizen':
-        await _notificationService.subscribeToTopic('frogio_${tenantId}_citizens');
-        break;
-      case 'inspector':
-        await _notificationService.subscribeToTopic('frogio_${tenantId}_inspectors');
-        break;
-      case 'admin':
-        await _notificationService.subscribeToTopic('frogio_${tenantId}_admins');
-        break;
-    }
+    log('Usuario suscrito a notificaciones: $userId (role: $role)');
   }
 
   Future<void> unsubscribeFromAllTopics() async {
     await _notificationService.clearTopics();
   }
 
+  // Reconectar a notificaciones (útil cuando la app vuelve al foreground)
+  Future<void> reconnect() async {
+    await _notificationService.connectToSSE();
+  }
+
+  // Desconectar (útil cuando la app va a background)
+  Future<void> disconnect() async {
+    await _notificationService.disconnectSSE();
+  }
+
+  // Estado de conexión
+  bool get isConnected => _notificationService.isConnected;
+
   // Mostrar notificaciones locales para acciones de la app
   Future<void> showReportStatusUpdate(String reportId, String newStatus) async {
     await _notificationService.showLocalNotification(
       title: 'Estado actualizado',
-      body: 'Tu denuncia cambio a: $newStatus',
+      body: 'Tu denuncia cambió a: $newStatus',
       data: {
         'type': 'report_status_changed',
         'reportId': reportId,
@@ -221,7 +362,7 @@ class NotificationManager {
   Future<void> showNewResponse(String reportId, String responderName) async {
     await _notificationService.showLocalNotification(
       title: 'Nueva respuesta',
-      body: '$responderName respondio a tu denuncia',
+      body: '$responderName respondió a tu denuncia',
       data: {
         'type': 'report_response',
         'reportId': reportId,
@@ -248,6 +389,19 @@ class NotificationManager {
         'type': 'reminder',
         'reminderType': type,
       },
+    );
+  }
+
+  Future<void> showPanicAlert(String userName, String? address, double? lat, double? lng) async {
+    await _notificationService.showLocalNotification(
+      title: '🚨 ALERTA DE PÁNICO',
+      body: '$userName necesita ayuda!\n${address ?? 'Ubicación: $lat, $lng'}',
+      data: {
+        'type': 'panic',
+        'latitude': lat,
+        'longitude': lng,
+      },
+      highPriority: true,
     );
   }
 }

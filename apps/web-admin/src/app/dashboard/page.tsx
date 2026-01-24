@@ -16,7 +16,8 @@ import {
   TruckIcon,
   ClockIcon,
   CheckCircleIcon,
-  HeartIcon,
+  PlusIcon,
+  ArrowRightIcon,
 } from '@heroicons/react/24/outline';
 
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -81,6 +82,7 @@ export default async function DashboardPage() {
     totalReports: reports.length,
     pendingReports: reports.filter((r: any) => r.status === 'pendiente').length,
     resolvedReports: reports.filter((r: any) => r.status === 'resuelto').length,
+    inProgressReports: reports.filter((r: any) => r.status === 'en_proceso').length,
     totalCitations: citations.length,
     pendingCitations: citations.filter((c: any) => c.status === 'pendiente').length,
     totalUsers: users.length,
@@ -93,157 +95,125 @@ export default async function DashboardPage() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         {/* Page Header */}
-        <div className="md:flex md:items-center md:justify-between">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
               Dashboard
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
               Resumen general del sistema de gestión municipal
             </p>
           </div>
-          <div className="mt-4 flex md:mt-0 md:ml-4">
-            <Link
-              href="/reports/new"
-              className="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Nuevo Reporte
-            </Link>
-          </div>
+          <Link
+            href="/reports/new"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium text-sm shadow-sm hover:opacity-90 active:scale-[0.98] transition-all"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Nuevo Reporte
+          </Link>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Primary Stats Grid */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Reportes"
             value={stats.totalReports}
             icon={<DocumentTextIcon className="h-6 w-6" />}
-            color="blue"
+            color="primary"
             href="/reports"
+            subtitle="Todos los reportes"
           />
           <StatCard
-            title="Reportes Pendientes"
+            title="Pendientes"
             value={stats.pendingReports}
             icon={<ClockIcon className="h-6 w-6" />}
-            color="yellow"
+            color="warning"
             href="/reports?status=pendiente"
+            subtitle="Requieren atención"
           />
           <StatCard
-            title="Reportes Resueltos"
+            title="En Proceso"
+            value={stats.inProgressReports}
+            icon={<DocumentTextIcon className="h-6 w-6" />}
+            color="info"
+            href="/reports?status=en_proceso"
+            subtitle="Siendo atendidos"
+          />
+          <StatCard
+            title="Resueltos"
             value={stats.resolvedReports}
             icon={<CheckCircleIcon className="h-6 w-6" />}
-            color="green"
+            color="success"
             href="/reports?status=resuelto"
-          />
-          <StatCard
-            title="Total Citaciones"
-            value={stats.totalCitations}
-            icon={<ScaleIcon className="h-6 w-6" />}
-            color="yellow"
-            href="/citations"
+            subtitle="Completados"
           />
         </div>
 
         {/* Secondary Stats */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatCard
-            title="Total Usuarios"
-            value={stats.totalUsers}
+            title="Total Citaciones"
+            value={stats.totalCitations}
+            icon={<ScaleIcon className="h-6 w-6" />}
+            color="warning"
+            href="/citations"
+          />
+          <StatCard
+            title="Usuarios"
+            value={`${stats.activeUsers}/${stats.totalUsers}`}
             icon={<UserGroupIcon className="h-6 w-6" />}
-            color="indigo"
+            color="info"
             href="/users"
+            subtitle="Activos / Total"
           />
           <StatCard
-            title="Usuarios Activos"
-            value={stats.activeUsers}
-            icon={<CheckCircleIcon className="h-6 w-6" />}
-            color="green"
-            href="/users?status=active"
-          />
-          <StatCard
-            title="Total Vehículos"
+            title="Vehículos"
             value={stats.totalVehicles}
             icon={<TruckIcon className="h-6 w-6" />}
-            color="purple"
-            href="/vehicles"
+            color="muted"
+            href="/fleet"
           />
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+        <div className="bg-card rounded-xl border border-border/50 shadow-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-border/50">
+            <h3 className="text-base font-semibold text-foreground">
               Acciones Rápidas
             </h3>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-              <Link
-                href="/reports"
-                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
-              >
-                <div className="flex flex-col items-center">
-                  <DocumentTextIcon className="h-8 w-8 text-indigo-600 mb-2" />
-                  <span className="text-sm font-medium text-gray-900 text-center">
-                    Reportes
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { href: '/reports', icon: DocumentTextIcon, label: 'Reportes', color: 'text-primary' },
+                { href: '/citations', icon: ScaleIcon, label: 'Citaciones', color: 'text-warning' },
+                { href: '/fleet', icon: TruckIcon, label: 'Flota', color: 'text-info' },
+                { href: '/users', icon: UserGroupIcon, label: 'Usuarios', color: 'text-primary' },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="group flex flex-col items-center gap-2 p-4 rounded-xl border border-border/50 bg-background hover:bg-accent hover:border-primary/20 transition-all duration-200"
+                >
+                  <item.icon className={`h-7 w-7 ${item.color} group-hover:scale-110 transition-transform`} />
+                  <span className="text-sm font-medium text-foreground">
+                    {item.label}
                   </span>
-                </div>
-              </Link>
-              <Link
-                href="/citations"
-                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
-              >
-                <div className="flex flex-col items-center">
-                  <ScaleIcon className="h-8 w-8 text-orange-600 mb-2" />
-                  <span className="text-sm font-medium text-gray-900 text-center">
-                    Citaciones
-                  </span>
-                </div>
-              </Link>
-              <Link
-                href="/vehicles"
-                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
-              >
-                <div className="flex flex-col items-center">
-                  <TruckIcon className="h-8 w-8 text-purple-600 mb-2" />
-                  <span className="text-sm font-medium text-gray-900 text-center">
-                    Vehículos
-                  </span>
-                </div>
-              </Link>
-              <Link
-                href="/medical-records"
-                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
-              >
-                <div className="flex flex-col items-center">
-                  <HeartIcon className="h-8 w-8 text-pink-600 mb-2" />
-                  <span className="text-sm font-medium text-gray-900 text-center">
-                    Fichas Médicas
-                  </span>
-                </div>
-              </Link>
-              <Link
-                href="/users"
-                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 hover:bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all"
-              >
-                <div className="flex flex-col items-center">
-                  <UserGroupIcon className="h-8 w-8 text-blue-600 mb-2" />
-                  <span className="text-sm font-medium text-gray-900 text-center">
-                    Usuarios
-                  </span>
-                </div>
-              </Link>
+                </Link>
+              ))}
             </div>
           </div>
         </div>
 
         {/* Charts Section */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           <ReportsByStatusChart
             data={[
               { name: 'Pendientes', value: stats.pendingReports, color: '#F59E0B' },
-              { name: 'En Proceso', value: reports.filter((r: any) => r.status === 'en_proceso').length, color: '#3B82F6' },
-              { name: 'Resueltos', value: stats.resolvedReports, color: '#10B981' },
+              { name: 'En Proceso', value: stats.inProgressReports, color: '#3B82F6' },
+              { name: 'Resueltos', value: stats.resolvedReports, color: '#1B5E20' },
               { name: 'Rechazados', value: reports.filter((r: any) => r.status === 'rechazado').length, color: '#EF4444' },
             ].filter(d => d.value > 0)}
           />
@@ -251,78 +221,73 @@ export default async function DashboardPage() {
             data={[
               { name: 'Pendientes', value: stats.pendingCitations, color: '#F59E0B' },
               { name: 'Notificadas', value: citations.filter((c: any) => c.status === 'notificada').length, color: '#3B82F6' },
-              { name: 'Comparecidas', value: citations.filter((c: any) => c.status === 'comparecida').length, color: '#10B981' },
+              { name: 'Comparecidas', value: citations.filter((c: any) => c.status === 'comparecida').length, color: '#1B5E20' },
               { name: 'No Comparecidas', value: citations.filter((c: any) => c.status === 'no_comparecida').length, color: '#EF4444' },
             ].filter(d => d.value > 0)}
           />
           <UsersByRoleChart
             data={[
               { name: 'Ciudadanos', value: users.filter((u: any) => u.role === 'citizen').length, color: '#3B82F6' },
-              { name: 'Inspectores', value: users.filter((u: any) => u.role === 'inspector').length, color: '#10B981' },
+              { name: 'Inspectores', value: users.filter((u: any) => u.role === 'inspector').length, color: '#1B5E20' },
               { name: 'Administradores', value: users.filter((u: any) => u.role === 'admin').length, color: '#8B5CF6' },
             ].filter(d => d.value > 0)}
           />
         </div>
 
         {/* Recent Reports Table */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+        <div className="bg-card rounded-xl border border-border/50 shadow-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-border/50">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
+              <h3 className="text-base font-semibold text-foreground">
                 Reportes Recientes
               </h3>
               <Link
                 href="/reports"
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
               >
-                Ver todos →
+                Ver todos
+                <ArrowRightIcon className="w-4 h-4" />
               </Link>
             </div>
           </div>
           <div className="overflow-x-auto">
             {recentReports.length === 0 ? (
-              <div className="px-6 py-12 text-center text-gray-500">
-                <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <p>No hay reportes disponibles</p>
+              <div className="px-6 py-12 text-center">
+                <div className="w-12 h-12 mx-auto rounded-xl bg-muted flex items-center justify-center mb-4">
+                  <DocumentTextIcon className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground">No hay reportes disponibles</p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="table-minimal">
+                <thead>
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Título
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tipo
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Prioridad
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha
-                    </th>
+                    <th>Título</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th>Prioridad</th>
+                    <th>Fecha</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody>
                   {recentReports.map((report: any) => (
-                    <tr key={report.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{report.title}</div>
+                    <tr key={report.id}>
+                      <td>
+                        <span className="font-medium text-foreground">{report.title}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{report.type || 'General'}</div>
+                      <td>
+                        <span className="text-muted-foreground">{report.type || 'General'}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td>
                         <StatusBadge status={report.status} />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td>
                         <PriorityBadge priority={report.priority} />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(report.createdAt).toLocaleDateString('es-CL')}
+                      <td>
+                        <span className="text-muted-foreground">
+                          {new Date(report.createdAt).toLocaleDateString('es-CL')}
+                        </span>
                       </td>
                     </tr>
                   ))}

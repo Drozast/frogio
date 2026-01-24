@@ -45,6 +45,13 @@ import '../features/inspector/domain/usecases/get_infractions_by_inspector.dart'
 import '../features/inspector/domain/usecases/update_infraction_status.dart';
 import '../features/inspector/domain/usecases/upload_infraction_image.dart';
 
+// Inspector Citations Feature
+import '../features/inspector/data/datasources/citation_api_data_source.dart';
+import '../features/inspector/data/datasources/citation_remote_data_source.dart';
+import '../features/inspector/data/repositories/citation_repository_impl.dart';
+import '../features/inspector/domain/repositories/citation_repository.dart';
+import '../features/inspector/presentation/bloc/citation_bloc.dart';
+
 // Vehicles Feature
 import '../features/vehicles/data/datasources/vehicle_api_data_source.dart';
 import '../features/vehicles/data/datasources/vehicle_remote_data_source.dart';
@@ -63,6 +70,18 @@ import '../features/panic/domain/repositories/panic_repository.dart';
 import '../features/panic/domain/usecases/send_panic_alert.dart';
 import '../features/panic/domain/usecases/cancel_panic_alert.dart';
 import '../features/panic/presentation/bloc/panic_bloc.dart';
+
+// Notifications Feature
+import '../core/data/notification_api_data_source.dart';
+import '../core/blocs/notification/notification_bloc.dart';
+
+// Admin Feature
+import '../features/admin/data/datasources/admin_api_data_source.dart';
+import '../features/admin/data/datasources/admin_remote_data_source.dart';
+import '../features/admin/data/repositories/admin_repository_impl.dart';
+import '../features/admin/domain/repositories/admin_repository.dart';
+import '../features/admin/domain/usecases/get_municipal_statistics.dart';
+import '../features/admin/presentation/bloc/statistics/statistics_bloc.dart';
 
 final sl = GetIt.instance;
 final logger = Logger();
@@ -207,6 +226,32 @@ Future<void> initApi() async {
   sl.registerLazySingleton(() => UpdateInfractionStatus(sl()));
   sl.registerLazySingleton(() => UploadInfractionImage(sl()));
 
+  // ===== INSPECTOR CITATIONS FEATURE =====
+  logger.i('  - Inspector citations feature');
+
+  // Data sources
+  sl.registerLazySingleton<CitationRemoteDataSource>(
+    () => CitationApiDataSource(
+      client: sl(),
+      prefs: sl(),
+      baseUrl: ApiConfig.activeBaseUrl,
+    ),
+  );
+
+  // Repository
+  sl.registerLazySingleton<CitationRepository>(
+    () => CitationRepositoryImpl(
+      remoteDataSource: sl(),
+    ),
+  );
+
+  // BLoC
+  sl.registerFactory(
+    () => CitationBloc(
+      repository: sl(),
+    ),
+  );
+
   // ===== VEHICLES FEATURE =====
   logger.i('  - Vehicles feature');
 
@@ -268,6 +313,54 @@ Future<void> initApi() async {
     () => PanicBloc(
       sendPanicAlert: sl(),
       cancelPanicAlert: sl(),
+    ),
+  );
+
+  // ===== NOTIFICATIONS FEATURE =====
+  logger.i('  - Notifications feature');
+
+  // Data sources
+  sl.registerLazySingleton<NotificationApiDataSource>(
+    () => NotificationApiDataSource(
+      client: sl(),
+      prefs: sl(),
+      baseUrl: ApiConfig.activeBaseUrl,
+    ),
+  );
+
+  // BLoC
+  sl.registerFactory(
+    () => NotificationBloc(
+      apiDataSource: sl(),
+    ),
+  );
+
+  // ===== ADMIN FEATURE =====
+  logger.i('  - Admin feature');
+
+  // Data sources
+  sl.registerLazySingleton<AdminRemoteDataSource>(
+    () => AdminApiDataSource(
+      client: sl(),
+      prefs: sl(),
+      baseUrl: ApiConfig.activeBaseUrl,
+    ),
+  );
+
+  // Repository
+  sl.registerLazySingleton<AdminRepository>(
+    () => AdminRepositoryImpl(
+      remoteDataSource: sl(),
+    ),
+  );
+
+  // Use cases
+  sl.registerLazySingleton(() => GetMunicipalStatistics(sl()));
+
+  // BLoC
+  sl.registerFactory(
+    () => StatisticsBloc(
+      getMunicipalStatistics: sl(),
     ),
   );
 

@@ -22,6 +22,8 @@ abstract class VehicleRemoteDataSource {
     required double endKm,
     String? observations,
     List<String>? attachments,
+    List<Map<String, dynamic>>? route,
+    List<Map<String, dynamic>>? stops,
   });
   
   Future<void> updateVehicleLocation({

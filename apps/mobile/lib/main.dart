@@ -16,6 +16,7 @@ import 'features/auth/presentation/pages/edit_profile_screen.dart';
 import 'features/auth/presentation/pages/splash_screen.dart';
 import 'features/citizen/presentation/pages/enhanced_my_reports_screen.dart';
 import 'features/citizen/presentation/pages/enhanced_report_detail_screen.dart';
+import 'features/inspector/presentation/pages/inspector_map_screen.dart';
 import 'features/panic/presentation/pages/panic_screen.dart';
 
 void main() async {
@@ -105,6 +106,11 @@ class MyApp extends StatelessWidget {
                     }
                   },
                 ),
+              );
+
+            case '/inspector-map':
+              return MaterialPageRoute(
+                builder: (_) => const InspectorMapScreen(),
               );
 
             default:
