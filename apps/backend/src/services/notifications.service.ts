@@ -17,7 +17,7 @@ export class NotificationsService {
       const [notification] = await prisma.$queryRawUnsafe<any[]>(
         `INSERT INTO "${tenantId}".notifications
          (user_id, title, message, type, is_read, metadata, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         VALUES ($1::uuid, $2, $3, $4, $5, $6, NOW())
          RETURNING *`,
         userId,
         title,
@@ -55,7 +55,7 @@ export class NotificationsService {
   async getUserNotifications(userId: string, tenantId: string, limit: number = 50) {
     const notifications = await prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM "${tenantId}".notifications
-       WHERE user_id = $1
+       WHERE user_id = $1::uuid
        ORDER BY created_at DESC
        LIMIT $2`,
       userId,
@@ -69,7 +69,7 @@ export class NotificationsService {
     const [notification] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".notifications
        SET is_read = true
-       WHERE id = $1
+       WHERE id = $1::uuid
        RETURNING *`,
       notificationId
     );
@@ -85,7 +85,7 @@ export class NotificationsService {
     await prisma.$queryRawUnsafe(
       `UPDATE "${tenantId}".notifications
        SET is_read = true
-       WHERE user_id = $1 AND is_read = false`,
+       WHERE user_id = $1::uuid AND is_read = false`,
       userId
     );
 
@@ -96,7 +96,7 @@ export class NotificationsService {
     const [result] = await prisma.$queryRawUnsafe<any[]>(
       `SELECT COUNT(*) as count
        FROM "${tenantId}".notifications
-       WHERE user_id = $1 AND is_read = false`,
+       WHERE user_id = $1::uuid AND is_read = false`,
       userId
     );
 
@@ -105,7 +105,7 @@ export class NotificationsService {
 
   async deleteNotification(notificationId: string, tenantId: string) {
     const [deleted] = await prisma.$queryRawUnsafe<any[]>(
-      `DELETE FROM "${tenantId}".notifications WHERE id = $1 RETURNING id`,
+      `DELETE FROM "${tenantId}".notifications WHERE id = $1::uuid RETURNING id`,
       notificationId
     );
 
