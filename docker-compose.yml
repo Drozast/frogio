@@ -7,11 +7,12 @@ services:
     container_name: frogio-postgres
     restart: unless-stopped
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - frogio_postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: frogio_production
       POSTGRES_USER: frogio
       POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      PGDATA: /var/lib/postgresql/data
     ports:
       - "5432:5432"
     networks:
@@ -174,8 +175,8 @@ services:
       ADMINER_DEFAULT_SERVER: postgres
 
 volumes:
-  postgres_data:
-    driver: local
+  frogio_postgres_data:
+    external: true
   redis_data:
     driver: local
   minio_data:
