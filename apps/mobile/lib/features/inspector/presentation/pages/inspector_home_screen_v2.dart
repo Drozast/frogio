@@ -1,5 +1,7 @@
 // lib/features/inspector/presentation/pages/inspector_home_screen_v2.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,6 +9,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
 import '../../../auth/domain/entities/user_entity.dart';
+import '../../../auth/presentation/bloc/profile/profile_bloc.dart';
+import '../../../auth/presentation/widgets/profile_avatar.dart';
 import '../../../panic/domain/repositories/panic_repository.dart';
 import '../../../vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../../../vehicles/presentation/pages/vehicle_selection_page.dart';
@@ -37,6 +41,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   int _panicCount = 0;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
@@ -52,6 +57,22 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
     );
 
     _loadPanicCount();
+    _startAutoRefresh();
+  }
+
+  void _startAutoRefresh() {
+    // Actualizar datos cada 30 segundos
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _refreshData();
+    });
+  }
+
+  Future<void> _refreshData() async {
+    await _loadPanicCount();
+    // Recargar citaciones
+    if (mounted) {
+      context.read<CitationBloc>().add(LoadMyCitationsEvent());
+    }
   }
 
   Future<void> _loadPanicCount() async {
@@ -72,6 +93,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
   @override
   void dispose() {
     _fadeController.dispose();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
@@ -83,6 +105,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
           create: (_) => di.sl<CitationBloc>()..add(LoadMyCitationsEvent()),
         ),
         BlocProvider(create: (_) => di.sl<VehicleBloc>()),
+        BlocProvider(create: (_) => di.sl<ProfileBloc>()),
       ],
       child: Container(
         color: AppTheme.surface,
@@ -90,9 +113,13 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
           top: false,
           child: FadeTransition(
             opacity: _fadeAnimation,
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
+            child: RefreshIndicator(
+              onRefresh: _refreshData,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                slivers: [
                 // Contenido principal
                 SliverToBoxAdapter(
                   child: Padding(
@@ -129,6 +156,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
                   ),
                 ),
               ],
+              ),
             ),
           ),
         ),
@@ -166,6 +194,12 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
               ),
             ],
           ),
+        ),
+        const SizedBox(width: 12),
+        ProfileAvatar(
+          user: widget.user,
+          radius: 30,
+          isEditable: false,
         ),
       ],
     );

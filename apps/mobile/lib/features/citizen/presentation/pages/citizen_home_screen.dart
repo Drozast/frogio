@@ -10,11 +10,14 @@ import 'package:geocoding/geocoding.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
 import '../../../auth/domain/entities/user_entity.dart';
+import '../../../auth/presentation/bloc/profile/profile_bloc.dart';
+import '../../../auth/presentation/widgets/profile_avatar.dart';
 import '../../../panic/presentation/bloc/panic_bloc.dart';
 import '../../../panic/presentation/bloc/panic_event.dart';
 import '../../../panic/presentation/bloc/panic_state.dart';
 import '../../domain/entities/enhanced_report_entity.dart';
 import '../bloc/report/report_bloc.dart';
+import '../bloc/report/report_event.dart';
 import '../bloc/report/report_state.dart';
 import 'create_report_screen.dart';
 
@@ -54,11 +57,30 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
   double _sosProgress = 0.0;
   Timer? _sosTimer;
 
+  // Timer para actualización automática
+  Timer? _refreshTimer;
+
   @override
   void initState() {
     super.initState();
     _initAnimations();
     _getCurrentLocation();
+    _startAutoRefresh();
+  }
+
+  void _startAutoRefresh() {
+    // Actualizar datos cada 30 segundos
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _refreshData();
+    });
+  }
+
+  Future<void> _refreshData() async {
+    // Recargar denuncias si el ReportBloc está disponible
+    if (mounted) {
+      final reportBloc = context.read<ReportBloc>();
+      reportBloc.add(LoadReportsEvent(userId: widget.user.id));
+    }
   }
 
   void _initAnimations() {
@@ -310,13 +332,17 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
     _pulseController.dispose();
     _breatheController.dispose();
     _sosTimer?.cancel();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => di.sl<PanicBloc>(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => di.sl<PanicBloc>()),
+        BlocProvider(create: (_) => di.sl<ProfileBloc>()),
+      ],
       child: BlocListener<PanicBloc, PanicState>(
         listener: (context, panicState) {
           if (panicState is PanicAlertSent) {
@@ -396,17 +422,31 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
       greeting = 'Buenas noches';
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          greeting,
-          style: AppTheme.bodyMedium,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                greeting,
+                style: AppTheme.bodyMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                widget.user.displayName,
+                style: AppTheme.headlineMedium,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          widget.user.displayName,
-          style: AppTheme.headlineMedium,
+        const SizedBox(width: 12),
+        ProfileAvatar(
+          user: widget.user,
+          radius: 30,
+          isEditable: false,
         ),
       ],
     );
