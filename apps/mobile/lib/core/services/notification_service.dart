@@ -41,6 +41,11 @@ class NotificationService {
   // Timer para reconexión automática
   Timer? _reconnectTimer;
 
+  // Control de backoff exponencial
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 10;
+  static const int _baseReconnectDelay = 5; // segundos
+
   Future<void> initialize() async {
     await _initializeLocalNotifications();
     await _loadSavedTopics();
@@ -168,17 +173,22 @@ class NotificationService {
       }
 
       // Conectar a SSE para recibir notificaciones en tiempo real
-      await connectToSSE();
+      await connectToSSE(resetAttempts: true);
     } catch (e) {
       log('Error setting up topics: $e');
     }
   }
 
   /// Conectar a ntfy via SSE para recibir notificaciones en tiempo real
-  Future<void> connectToSSE() async {
+  Future<void> connectToSSE({bool resetAttempts = false}) async {
     if (kIsWeb) {
       log('SSE not available on web');
       return;
+    }
+
+    // Resetear contador si se solicita (ej: reconexión manual)
+    if (resetAttempts) {
+      _reconnectAttempts = 0;
     }
 
     // Desconectar primero si ya hay conexiones
@@ -215,7 +225,12 @@ class NotificationService {
       final request = http.Request('GET', uri);
       request.headers['Accept'] = 'text/event-stream';
 
-      final response = await _sseClient!.send(request);
+      final response = await _sseClient!.send(request).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Connection timeout for $topic');
+        },
+      );
 
       if (response.statusCode == 200) {
         final subscription = response.stream
@@ -235,12 +250,17 @@ class NotificationService {
             );
 
         _sseSubscriptions[topic] = subscription;
+        _reconnectAttempts = 0; // Reset counter on success
         log('SSE subscription active for topic: $topic');
       } else {
         log('Failed to subscribe to $topic: ${response.statusCode}');
       }
     } catch (e) {
-      log('Error subscribing to $topic: $e');
+      if (e.toString().contains('Connection refused') || e is TimeoutException) {
+        log('Cannot reach ntfy server for $topic: $e');
+      } else {
+        log('Error subscribing to $topic: $e');
+      }
       _scheduleReconnect();
     }
   }
@@ -392,14 +412,28 @@ class NotificationService {
     _reconnectTimer?.cancel();
     _isConnected = false;
 
-    _reconnectTimer = Timer(const Duration(seconds: 5), () {
-      log('Attempting to reconnect to SSE...');
+    // Verificar límite de reintentos
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      log('Max reconnection attempts reached ($_maxReconnectAttempts). Stopping reconnection.');
+      return;
+    }
+
+    _reconnectAttempts++;
+
+    // Calcular delay con backoff exponencial: 5, 10, 20, 40, 80... hasta max 300 segundos (5 min)
+    final delay = (_baseReconnectDelay * (1 << (_reconnectAttempts - 1))).clamp(5, 300);
+
+    log('Scheduling reconnection attempt $_reconnectAttempts/$_maxReconnectAttempts in $delay seconds...');
+
+    _reconnectTimer = Timer(Duration(seconds: delay), () {
+      log('Attempting to reconnect to SSE (attempt $_reconnectAttempts/$_maxReconnectAttempts)...');
       connectToSSE();
     });
   }
 
   Future<void> disconnectSSE() async {
     _reconnectTimer?.cancel();
+    _reconnectAttempts = 0; // Reset counter
 
     for (final subscription in _sseSubscriptions.values) {
       await subscription.cancel();
