@@ -168,7 +168,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: _primaryGreen.withOpacity(0.4),
+                color: _primaryGreen.withValues(alpha: 0.4),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -187,7 +187,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
                     height: 150,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                     ),
                   ),
                 ),
@@ -199,7 +199,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
                     height: 100,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.03),
+                      color: Colors.white.withValues(alpha: 0.03),
                     ),
                   ),
                 ),
@@ -220,7 +220,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
                               Text(
                                 _getGreeting(),
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.8),
+                                  color: Colors.white.withValues(alpha: 0.8),
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -295,13 +295,13 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
           color: isHighlighted
-              ? (highlightColor ?? Colors.white).withOpacity(0.2)
-              : Colors.white.withOpacity(0.1),
+              ? (highlightColor ?? Colors.white).withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isHighlighted
-                ? (highlightColor ?? Colors.white).withOpacity(0.4)
-                : Colors.white.withOpacity(0.1),
+                ? (highlightColor ?? Colors.white).withValues(alpha: 0.4)
+                : Colors.white.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
@@ -311,7 +311,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
               icon,
               color: isHighlighted
                   ? (highlightColor ?? Colors.white)
-                  : Colors.white.withOpacity(0.7),
+                  : Colors.white.withValues(alpha: 0.7),
               size: 20,
             ),
             const SizedBox(height: 8),
@@ -327,7 +327,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
             Text(
               label,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
               ),
@@ -396,7 +396,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: gradient.first.withOpacity(0.4),
+              color: gradient.first.withValues(alpha: 0.4),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -407,7 +407,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(icon, color: Colors.white, size: 28),
@@ -429,7 +429,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 11,
                     ),
                   ),
@@ -438,7 +438,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
             ),
             Icon(
               Icons.arrow_forward_ios_rounded,
-              color: Colors.white.withOpacity(0.6),
+              color: Colors.white.withValues(alpha: 0.6),
               size: 16,
             ),
           ],
@@ -462,9 +462,9 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.3), width: 2),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 2),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -507,10 +507,10 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
                 margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: _warningOrange.withOpacity(0.1),
+                  color: _warningOrange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: _warningOrange.withOpacity(0.3),
+                    color: _warningOrange.withValues(alpha: 0.3),
                     width: 2,
                   ),
                 ),
@@ -519,7 +519,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: _warningOrange.withOpacity(0.2),
+                        color: _warningOrange.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
@@ -554,7 +554,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
                     ),
                     Icon(
                       Icons.chevron_right_rounded,
-                      color: _warningOrange.withOpacity(0.6),
+                      color: _warningOrange.withValues(alpha: 0.6),
                     ),
                   ],
                 ),
@@ -669,7 +669,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -681,7 +681,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 24),
@@ -812,13 +812,13 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _primaryGreen.withOpacity(0.1),
+              color: _primaryGreen.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.assignment_outlined,
               size: 40,
-              color: _primaryGreen.withOpacity(0.6),
+              color: _primaryGreen.withValues(alpha: 0.6),
             ),
           ),
           const SizedBox(height: 16),
@@ -870,7 +870,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -906,7 +906,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(typeIcon, color: statusColor, size: 20),
@@ -937,7 +937,7 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: statusColor.withOpacity(0.1),
+                              color: statusColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -999,22 +999,22 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: _urgentRed.withOpacity(0.05),
+        color: _urgentRed.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _urgentRed.withOpacity(0.2)),
+        border: Border.all(color: _urgentRed.withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [
           Icon(
             Icons.error_outline_rounded,
             size: 40,
-            color: _urgentRed.withOpacity(0.6),
+            color: _urgentRed.withValues(alpha: 0.6),
           ),
           const SizedBox(height: 12),
           Text(
             'Error al cargar',
             style: TextStyle(
-              color: _urgentRed.withOpacity(0.8),
+              color: _urgentRed.withValues(alpha: 0.8),
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),

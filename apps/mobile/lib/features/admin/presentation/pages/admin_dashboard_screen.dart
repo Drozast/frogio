@@ -53,7 +53,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     // Load statistics
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<StatisticsBloc>().add(
-            LoadMunicipalStatisticsEvent(muniId: 'santa_juana'),
+            const LoadMunicipalStatisticsEvent(muniId: 'santa_juana'),
           );
     });
   }
@@ -124,7 +124,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       elevation: 0,
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -179,7 +179,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                           const SizedBox(width: 8),
                           Text(
                             greeting,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: _highlightBlue,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -216,13 +216,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             Container(
                               width: 8,
                               height: 8,
-                              decoration: BoxDecoration(
+                              decoration: const BoxDecoration(
                                 color: _successGreen,
                                 shape: BoxShape.circle,
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
+                            const Text(
                               'Administrador Municipal',
                               style: TextStyle(
                                 color: _successGreen,
@@ -249,7 +249,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           },
           icon: Stack(
             children: [
-              Icon(Icons.notifications_outlined, color: _highlightBlue),
+              const Icon(Icons.notifications_outlined, color: _highlightBlue),
               Positioned(
                 right: 0,
                 top: 0,
@@ -278,10 +278,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           onPressed: () {
             HapticFeedback.lightImpact();
             context.read<StatisticsBloc>().add(
-                  RefreshStatisticsEvent(muniId: 'santa_juana'),
+                  const RefreshStatisticsEvent(muniId: 'santa_juana'),
                 );
           },
-          icon: Icon(Icons.refresh_rounded, color: _highlightBlue),
+          icon: const Icon(Icons.refresh_rounded, color: _highlightBlue),
         ),
         const SizedBox(width: 8),
       ],
@@ -296,10 +296,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         }
 
         // Default mock data for demo
-        final totalReports = 156;
-        final pendingReports = 23;
-        final totalCitations = 89;
-        final activeUsers = 1247;
+        const totalReports = 156;
+        const pendingReports = 23;
+        const totalCitations = 89;
+        const activeUsers = 1247;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,12 +320,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     HapticFeedback.selectionClick();
                     // Navigate to full statistics
                   },
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.analytics_outlined,
                     color: _infoBlue,
                     size: 18,
                   ),
-                  label: Text(
+                  label: const Text(
                     'Ver todo',
                     style: TextStyle(
                       color: _infoBlue,
@@ -433,7 +433,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         color: _secondaryDark,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Center(
+      child: const Center(
         child: CircularProgressIndicator(
           strokeWidth: 2,
           valueColor: AlwaysStoppedAnimation(_highlightBlue),
@@ -530,7 +530,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             const SizedBox(height: 4),
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 color: _highlightBlue,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -751,7 +751,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   Expanded(
                     child: Text(
                       title,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: _highlightBlue,
                         fontSize: 13,
                       ),
@@ -839,7 +839,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             ),
             TextButton(
               onPressed: () {},
-              child: Text(
+              child: const Text(
                 'Ver historial',
                 style: TextStyle(
                   color: _infoBlue,
@@ -937,9 +937,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       isScrollControlled: true,
       builder: (context) => Container(
         height: MediaQuery.of(context).size.height * 0.7,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: _secondaryDark,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           children: [
@@ -968,7 +968,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   ),
                   TextButton(
                     onPressed: () {},
-                    child: Text(
+                    child: const Text(
                       'Marcar leidas',
                       style: TextStyle(color: _infoBlue),
                     ),

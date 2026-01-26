@@ -368,7 +368,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.photo_camera, color: _primaryGreen, size: 20),
+                  const Icon(Icons.photo_camera, color: _primaryGreen, size: 20),
                   const SizedBox(width: 8),
                   Text(
                     'Fotos adjuntas',
@@ -387,7 +387,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
                 ),
                 child: Text(
                   '${_photos.length}/$_maxPhotos',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: _primaryGreen,
@@ -432,7 +432,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
                 label: Text(_isProcessingPhoto ? 'Procesando...' : 'Agregar foto'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: _primaryGreen,
-                  side: BorderSide(color: _primaryGreen),
+                  side: const BorderSide(color: _primaryGreen),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -555,7 +555,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.numbers, color: _primaryGreen, size: 24),
+              const Icon(Icons.numbers, color: _primaryGreen, size: 24),
               const SizedBox(width: 12),
               Text(
                 'Número de Citación',
@@ -607,7 +607,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: _primaryGreen, width: 2),
+                      borderSide: const BorderSide(color: _primaryGreen, width: 2),
                     ),
                   ),
                   validator: (value) {
@@ -808,7 +808,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
                 label: Text(_isLoadingLocation ? 'Obteniendo...' : 'Usar GPS'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: _primaryGreen,
-                  side: BorderSide(color: _primaryGreen),
+                  side: const BorderSide(color: _primaryGreen),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -821,7 +821,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
                 label: const Text('Buscar en Mapa'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: _primaryGreen,
-                  side: BorderSide(color: _primaryGreen),
+                  side: const BorderSide(color: _primaryGreen),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -833,10 +833,10 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
         TextFormField(
           controller: _locationAddressController,
           maxLines: 2,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             labelText: 'Dirección de la fiscalización',
-            prefixIcon: const Icon(Icons.location_on_outlined),
-            border: const OutlineInputBorder(),
+            prefixIcon: Icon(Icons.location_on_outlined),
+            border: OutlineInputBorder(),
             hintText: 'Escriba la dirección o use las opciones de arriba',
           ),
         ),
@@ -1310,7 +1310,7 @@ class _MapPickerScreenState extends State<_MapPickerScreen> {
                                 height: 20,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : Icon(Icons.my_location, color: _primaryGreen),
+                            : const Icon(Icons.my_location, color: _primaryGreen),
                       ),
                       const SizedBox(height: 8),
                       // Botón Zoom In
@@ -1318,7 +1318,7 @@ class _MapPickerScreenState extends State<_MapPickerScreen> {
                         heroTag: 'zoom_in',
                         onPressed: _zoomIn,
                         backgroundColor: Colors.white,
-                        child: Icon(Icons.add, color: _primaryGreen),
+                        child: const Icon(Icons.add, color: _primaryGreen),
                       ),
                       const SizedBox(height: 8),
                       // Botón Zoom Out
@@ -1326,7 +1326,7 @@ class _MapPickerScreenState extends State<_MapPickerScreen> {
                         heroTag: 'zoom_out',
                         onPressed: _zoomOut,
                         backgroundColor: Colors.white,
-                        child: Icon(Icons.remove, color: _primaryGreen),
+                        child: const Icon(Icons.remove, color: _primaryGreen),
                       ),
                     ],
                   ),

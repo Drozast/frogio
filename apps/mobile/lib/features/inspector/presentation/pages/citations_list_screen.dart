@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../di/injection_container_api.dart' as di;
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../domain/entities/citation_entity.dart';
@@ -818,7 +817,7 @@ class _FilterSheetState extends State<_FilterSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Filtrar Citaciones', style: AppTheme.headlineSmall),
+          const Text('Filtrar Citaciones', style: AppTheme.headlineSmall),
           const SizedBox(height: AppTheme.spacing24),
           _buildFilterSection<CitationStatus>(
             title: 'Por Estado',
@@ -982,7 +981,7 @@ class _UpdateStatusSheetState extends State<_UpdateStatusSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Actualizar Estado', style: AppTheme.headlineSmall),
+            const Text('Actualizar Estado', style: AppTheme.headlineSmall),
             const SizedBox(height: AppTheme.spacing8),
             Text(
               'Citación: ${widget.citation.citationNumber}',
@@ -990,7 +989,7 @@ class _UpdateStatusSheetState extends State<_UpdateStatusSheet> {
             ),
             const SizedBox(height: AppTheme.spacing24),
             
-            Text('Seleccionar nuevo estado:', style: AppTheme.titleSmall),
+            const Text('Seleccionar nuevo estado:', style: AppTheme.titleSmall),
             const SizedBox(height: AppTheme.spacing12),
             Wrap(
               spacing: AppTheme.spacing8,

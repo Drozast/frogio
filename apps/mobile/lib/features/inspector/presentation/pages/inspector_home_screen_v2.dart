@@ -199,7 +199,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
               BoxShadow(
                 color: AppTheme.primary.withValues(alpha: 0.3),
                 blurRadius: 20,
-                offset: Offset(0, 8),
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -260,7 +260,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(height: 2),
+        const SizedBox(height: 2),
         Text(
           label,
           style: AppTheme.labelSmall.copyWith(
@@ -287,7 +287,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
       },
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: AppTheme.info,
           borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
@@ -295,19 +295,19 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
             BoxShadow(
               color: AppTheme.info.withValues(alpha: 0.3),
               blurRadius: 16,
-              offset: Offset(0, 6),
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.add_circle_rounded,
                 color: Colors.white,
                 size: 32,
@@ -400,7 +400,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
         child: Column(
           children: [
             Container(
-              padding: EdgeInsets.all(10),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -412,7 +412,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
               title,
               style: AppTheme.titleSmall,
             ),
-            SizedBox(height: 2),
+            const SizedBox(height: 2),
             Text(
               subtitle,
               style: AppTheme.labelSmall,
@@ -430,7 +430,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
+            const Text(
               'Citaciones recientes',
               style: AppTheme.titleMedium,
             ),
@@ -475,7 +475,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
     return Container(
       padding: const EdgeInsets.all(40),
       decoration: AppTheme.cardBorderedDecoration,
-      child: Center(
+      child: const Center(
         child: CircularProgressIndicator(
           strokeWidth: 2,
           color: AppTheme.primary,
@@ -508,16 +508,16 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
             style: AppTheme.titleSmall.copyWith(color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Las citaciones que crees apareceran aqui',
             style: AppTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: _navigateToCreateCitation,
-            icon: Icon(Icons.add, size: 18),
-            label: Text('Crear Citacion'),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Crear Citacion'),
           ),
         ],
       ),
@@ -526,7 +526,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
 
   Widget _buildErrorState(BuildContext context, String message) {
     return Container(
-      padding: EdgeInsets.all(24),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppTheme.emergencyLight,
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
@@ -539,24 +539,24 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
             size: 40,
             color: AppTheme.emergency.withValues(alpha: 0.6),
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text(
             'Error al cargar',
             style: AppTheme.titleSmall.copyWith(color: AppTheme.emergency),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
             message,
             style: AppTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           TextButton.icon(
             onPressed: () {
               context.read<CitationBloc>().add(LoadMyCitationsEvent());
             },
-            icon: Icon(Icons.refresh_rounded, size: 18),
-            label: Text('Reintentar'),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Reintentar'),
             style: TextButton.styleFrom(foregroundColor: AppTheme.emergency),
           ),
         ],
@@ -568,7 +568,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
     final statusColor = _getStatusColor(citation.status);
 
     return Container(
-      margin: EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: AppTheme.cardBorderedDecoration,
       child: Material(
         color: Colors.transparent,
@@ -583,7 +583,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
             );
           },
           child: Padding(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 // Indicador de estado
@@ -595,10 +595,10 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 // Icono de tipo
                 Container(
-                  padding: EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -609,7 +609,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
                     size: 20,
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 // Contenido
                 Expanded(
                   child: Column(
@@ -626,7 +626,7 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
                             ),
                           ),
                           Container(
-                            padding: EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                               horizontal: 8,
                               vertical: 4,
                             ),
@@ -645,21 +645,21 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
                           ),
                         ],
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
                         citation.targetDisplayName,
                         style: AppTheme.bodySmall,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.access_time_rounded,
                             size: 12,
                             color: AppTheme.textTertiary,
                           ),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                           Text(
                             _formatRelativeDate(citation.createdAt),
                             style: AppTheme.labelSmall,
@@ -669,8 +669,8 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
                     ],
                   ),
                 ),
-                SizedBox(width: 8),
-                Icon(
+                const SizedBox(width: 8),
+                const Icon(
                   Icons.chevron_right_rounded,
                   color: AppTheme.textTertiary,
                   size: 20,

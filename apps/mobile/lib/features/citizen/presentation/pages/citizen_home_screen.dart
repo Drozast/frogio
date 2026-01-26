@@ -13,6 +13,7 @@ import '../../../auth/domain/entities/user_entity.dart';
 import '../../../panic/presentation/bloc/panic_bloc.dart';
 import '../../../panic/presentation/bloc/panic_event.dart';
 import '../../../panic/presentation/bloc/panic_state.dart';
+import '../../domain/entities/enhanced_report_entity.dart';
 import '../bloc/report/report_bloc.dart';
 import '../bloc/report/report_state.dart';
 import 'create_report_screen.dart';
@@ -186,7 +187,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
     if (_currentPosition == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
+          content: const Row(
             children: [
               Icon(Icons.location_off, color: Colors.white, size: 20),
               SizedBox(width: 12),
@@ -229,8 +230,8 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        padding: EdgeInsets.all(24),
-        decoration: BoxDecoration(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
           color: AppTheme.surfaceWhite,
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppTheme.radiusXLarge),
@@ -247,40 +248,40 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
                 color: AppTheme.warningLight,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.warning_amber_rounded,
                 size: 32,
                 color: AppTheme.warning,
               ),
             ),
-            SizedBox(height: 16),
-            Text(
+            const SizedBox(height: 16),
+            const Text(
               '¿Cancelar la alerta?',
               style: AppTheme.headlineSmall,
             ),
-            SizedBox(height: 8),
-            Text(
+            const SizedBox(height: 8),
+            const Text(
               'Solo cancela si la emergencia fue un error',
               style: AppTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: Text('Mantener'),
+                    child: const Text('Mantener'),
                   ),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
@@ -292,12 +293,12 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.emergency,
                     ),
-                    child: Text('Cancelar'),
+                    child: const Text('Cancelar'),
                   ),
                 ),
               ],
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -349,29 +350,29 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                 // Contenido principal
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Saludo minimalista
                         _buildGreeting(),
 
-                        SizedBox(height: 32),
+                        const SizedBox(height: 32),
 
                         // HERO: Boton SOS
                         _buildSOSHero(),
 
-                        SizedBox(height: 32),
+                        const SizedBox(height: 32),
 
                         // Acciones rapidas
                         _buildQuickActions(),
 
-                        SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
                         // Resumen de denuncias
                         _buildReportsSummary(),
 
-                        SizedBox(height: 64),
+                        const SizedBox(height: 64),
                       ],
                     ),
                   ),
@@ -402,7 +403,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
           greeting,
           style: AppTheme.bodyMedium,
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Text(
           widget.user.displayName,
           style: AppTheme.headlineMedium,
@@ -419,7 +420,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
 
         return Container(
           width: double.infinity,
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: AppTheme.surfaceWhite,
             borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
@@ -436,7 +437,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                     color: isActive ? AppTheme.success : AppTheme.emergency,
                     size: 24,
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     isActive ? 'ALERTA ACTIVA' : 'EMERGENCIA',
                     style: AppTheme.titleMedium.copyWith(
@@ -447,17 +448,17 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                 ],
               ),
 
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
 
               // Estado de ubicacion
               if (!isActive) _buildLocationStatus(),
 
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
 
               // Boton SOS Hero
               _buildSOSButton(isLoading, isActive),
 
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
 
               // Instrucciones
               Text(
@@ -473,11 +474,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
 
               // Boton cancelar
               if (isActive && _activeAlertId != null) ...[
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 TextButton.icon(
                   onPressed: _cancelAlert,
-                  icon: Icon(Icons.close_rounded, size: 18),
-                  label: Text('Cancelar alerta'),
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  label: const Text('Cancelar alerta'),
                   style: TextButton.styleFrom(
                     foregroundColor: AppTheme.warning,
                   ),
@@ -512,7 +513,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
     return GestureDetector(
       onTap: _locationError != null ? _getCurrentLocation : null,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: statusColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(AppTheme.radiusRound),
@@ -521,7 +522,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(statusIcon, size: 16, color: statusColor),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Flexible(
               child: Text(
                 statusText,
@@ -530,7 +531,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
               ),
             ),
             if (_locationError != null) ...[
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Icon(Icons.refresh, size: 14, color: statusColor),
             ],
           ],
@@ -590,7 +591,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                     value: _sosProgress,
                     strokeWidth: 4,
                     backgroundColor: AppTheme.emergencyLight,
-                    valueColor: AlwaysStoppedAnimation(AppTheme.emergency),
+                    valueColor: const AlwaysStoppedAnimation(AppTheme.emergency),
                   ),
                 ),
 
@@ -604,7 +605,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                   boxShadow: AppTheme.shadowEmergency(isActive),
                 ),
                 child: isLoading
-                    ? Center(
+                    ? const Center(
                         child: SizedBox(
                           width: 40,
                           height: 40,
@@ -624,7 +625,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                             color: Colors.white,
                             size: 48,
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
                             isActive ? 'ACTIVA' : 'SOS',
                             style: AppTheme.titleLarge.copyWith(
@@ -647,11 +648,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Acciones rapidas',
           style: AppTheme.titleMedium,
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         Row(
           children: [
             // Nueva denuncia - CTA principal
@@ -677,7 +678,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                 },
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             // Mis denuncias
             Expanded(
               child: _buildActionCard(
@@ -718,7 +719,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                   BoxShadow(
                     color: color.withValues(alpha: 0.3),
                     blurRadius: 12,
-                    offset: Offset(0, 4),
+                    offset: const Offset(0, 4),
                   ),
                 ],
               )
@@ -727,14 +728,14 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
             ? Row(
                 children: [
                   Container(
-                    padding: EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                     ),
                     child: Icon(icon, color: Colors.white, size: 28),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -744,7 +745,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                           style: AppTheme.titleSmall.copyWith(color: Colors.white),
                         ),
                         if (subtitle != null) ...[
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
                             subtitle,
                             style: AppTheme.labelSmall.copyWith(
@@ -766,14 +767,14 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                     ),
                     child: Icon(icon, color: color, size: 24),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
                     title,
                     style: AppTheme.labelMedium.copyWith(color: AppTheme.textPrimary),
@@ -795,15 +796,15 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
         if (state is ReportsLoaded) {
           totalReports = state.reports.length;
           pendingReports = state.reports
-              .where((r) => r.status == 'pending' || r.status == 'in_progress')
+              .where((r) => r.status == ReportStatus.submitted || r.status == ReportStatus.inProgress || r.status == ReportStatus.reviewing)
               .length;
           resolvedReports = state.reports
-              .where((r) => r.status == 'resolved')
+              .where((r) => r.status == ReportStatus.resolved)
               .length;
         }
 
         return Container(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           decoration: AppTheme.cardBorderedDecoration,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -811,7 +812,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
+                  const Text(
                     'Mis denuncias',
                     style: AppTheme.titleMedium,
                   ),
@@ -819,11 +820,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                     onPressed: () {
                       // Navegar a lista completa
                     },
-                    child: Text('Ver todas'),
+                    child: const Text('Ver todas'),
                   ),
                 ],
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
@@ -880,7 +881,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Text(
           label,
           style: AppTheme.labelSmall,
@@ -899,37 +900,37 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
         title: Row(
           children: [
             Container(
-              padding: EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: AppTheme.warningLight,
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.person_outline,
                 color: AppTheme.warning,
                 size: 24,
               ),
             ),
-            SizedBox(width: 12),
-            Expanded(
+            const SizedBox(width: 12),
+            const Expanded(
               child: Text('Perfil incompleto'),
             ),
           ],
         ),
-        content: Text(
+        content: const Text(
           'Para crear denuncias necesitas completar tu perfil con nombre, telefono y direccion.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar'),
+            child: const Text('Cancelar'),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               // Navegar a completar perfil
             },
-            child: Text('Completar'),
+            child: const Text('Completar'),
           ),
         ],
       ),

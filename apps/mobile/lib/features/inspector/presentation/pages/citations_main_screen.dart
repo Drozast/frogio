@@ -1,8 +1,6 @@
 // lib/features/inspector/presentation/pages/citations_main_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../di/injection_container_api.dart' as di;
 import '../../../auth/domain/entities/user_entity.dart';
 import '../bloc/citation_bloc.dart';
 import 'citations_list_screen.dart';

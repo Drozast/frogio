@@ -1174,7 +1174,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedRelationship,
+                    initialValue: selectedRelationship,
                     decoration: const InputDecoration(
                       labelText: 'Relación *',
                       prefixIcon: Icon(Icons.family_restroom),

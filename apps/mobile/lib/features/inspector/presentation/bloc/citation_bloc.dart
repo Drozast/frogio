@@ -515,7 +515,7 @@ class CitationBloc extends Bloc<CitationEvent, CitationState> {
       }
 
       int numberKey(CitationEntity c) {
-        final match = RegExp(r"\d+").firstMatch(c.citationNumber);
+        final match = RegExp(r'\d+').firstMatch(c.citationNumber);
         if (match != null) {
           return int.tryParse(match.group(0)!) ?? 0;
         }

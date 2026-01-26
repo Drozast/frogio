@@ -648,7 +648,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
         point: LatLng(0, 0),
         width: 0,
         height: 0,
-        child: const SizedBox.shrink(),
+        child: SizedBox.shrink(),
       );
     }
 
@@ -1537,14 +1537,18 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
                     style: TextStyle(fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 12),
-                  ...['Falsa alarma', 'Prueba del sistema', 'Error del usuario', 'Duplicada', 'Otro'].map(
-                    (reason) => RadioListTile<String>(
-                      title: Text(reason),
-                      value: reason,
-                      groupValue: selectedReason,
-                      onChanged: (value) => setState(() => selectedReason = value ?? ''),
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
+                  RadioGroup<String>(
+                    groupValue: selectedReason,
+                    onChanged: (value) => setState(() => selectedReason = value ?? ''),
+                    child: Column(
+                      children: ['Falsa alarma', 'Prueba del sistema', 'Error del usuario', 'Duplicada', 'Otro'].map(
+                        (reason) => RadioListTile<String>(
+                          title: Text(reason),
+                          value: reason,
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                        ),
+                      ).toList(),
                     ),
                   ),
                 ],

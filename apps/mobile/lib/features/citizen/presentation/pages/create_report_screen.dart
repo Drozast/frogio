@@ -173,7 +173,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          value: _selectedCategory,
+          initialValue: _selectedCategory,
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
           ),

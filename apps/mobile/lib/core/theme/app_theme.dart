@@ -99,7 +99,7 @@ class AppTheme {
 
   static List<BoxShadow> get shadowSmall => [
     BoxShadow(
-      color: Colors.black.withOpacity(0.04),
+      color: Colors.black.withValues(alpha: 0.04),
       blurRadius: 8,
       offset: const Offset(0, 2),
     ),
@@ -107,7 +107,7 @@ class AppTheme {
 
   static List<BoxShadow> get shadowMedium => [
     BoxShadow(
-      color: Colors.black.withOpacity(0.06),
+      color: Colors.black.withValues(alpha: 0.06),
       blurRadius: 16,
       offset: const Offset(0, 4),
     ),
@@ -115,7 +115,7 @@ class AppTheme {
 
   static List<BoxShadow> get shadowLarge => [
     BoxShadow(
-      color: Colors.black.withOpacity(0.08),
+      color: Colors.black.withValues(alpha: 0.08),
       blurRadius: 24,
       offset: const Offset(0, 8),
     ),
@@ -124,7 +124,7 @@ class AppTheme {
   // Sombra para botón SOS (emergencia)
   static List<BoxShadow> shadowEmergency(bool isActive) => [
     BoxShadow(
-      color: (isActive ? success : emergency).withOpacity(0.3),
+      color: (isActive ? success : emergency).withValues(alpha: 0.3),
       blurRadius: 20,
       spreadRadius: 2,
     ),
@@ -273,14 +273,14 @@ class AppTheme {
 
   /// Tarjeta destacada (para CTAs)
   static BoxDecoration cardHighlightDecoration(Color color) => BoxDecoration(
-    color: color.withOpacity(0.08),
+    color: color.withValues(alpha: 0.08),
     borderRadius: BorderRadius.circular(radiusLarge),
-    border: Border.all(color: color.withOpacity(0.2), width: 1.5),
+    border: Border.all(color: color.withValues(alpha: 0.2), width: 1.5),
   );
 
   /// Chip/Badge
   static BoxDecoration chipDecoration(Color color) => BoxDecoration(
-    color: color.withOpacity(0.1),
+    color: color.withValues(alpha: 0.1),
     borderRadius: BorderRadius.circular(radiusRound),
   );
 

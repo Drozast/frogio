@@ -293,11 +293,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            const Row(
                               children: [
-                                const Icon(Icons.task_alt, color: _primaryGreen),
-                                const SizedBox(width: 8),
-                                const Text(
+                                Icon(Icons.task_alt, color: _primaryGreen),
+                                SizedBox(width: 8),
+                                Text(
                                   'Cerrar Denuncia',
                                   style: TextStyle(
                                     fontSize: 18,
@@ -317,12 +317,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            ...(_resolutionTypes.map((type) => RadioListTile<String>(
+                            RadioGroup<String>(
+                              groupValue: _selectedResolutionType,
+                              onChanged: (value) {
+                                setState(() => _selectedResolutionType = value!);
+                              },
+                              child: Column(
+                                children: _resolutionTypes.map((type) => RadioListTile<String>(
                                   value: type['value']!,
-                                  groupValue: _selectedResolutionType,
-                                  onChanged: (value) {
-                                    setState(() => _selectedResolutionType = value!);
-                                  },
                                   title: Text(type['label']!),
                                   subtitle: Text(
                                     type['description']!,
@@ -334,7 +336,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                   contentPadding: EdgeInsets.zero,
                                   dense: true,
                                   activeColor: _primaryGreen,
-                                ))),
+                                )).toList(),
+                              ),
+                            ),
 
                             const SizedBox(height: 16),
 
@@ -350,7 +354,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: _primaryGreen, width: 2),
+                                  borderSide: const BorderSide(color: _primaryGreen, width: 2),
                                 ),
                               ),
                               validator: (value) {
