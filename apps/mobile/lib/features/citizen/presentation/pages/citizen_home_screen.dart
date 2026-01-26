@@ -342,6 +342,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
       providers: [
         BlocProvider(create: (_) => di.sl<PanicBloc>()),
         BlocProvider(create: (_) => di.sl<ProfileBloc>()),
+        BlocProvider(
+          create: (_) => di.sl<ReportBloc>()
+            ..add(LoadReportsEvent(userId: widget.user.id)),
+        ),
       ],
       child: BlocListener<PanicBloc, PanicState>(
         listener: (context, panicState) {
