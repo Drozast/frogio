@@ -837,7 +837,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
         int pendingReports = 0;
         int resolvedReports = 0;
 
+        // Debug: log current state
+        debugPrint('📋 ReportBloc state: ${state.runtimeType}');
+
         if (state is ReportsLoaded) {
+          debugPrint('📋 Reports loaded: ${state.reports.length} total');
           totalReports = state.reports.length;
           pendingReports = state.reports
               .where((r) => r.status == ReportStatus.submitted || r.status == ReportStatus.inProgress || r.status == ReportStatus.reviewing)
@@ -845,6 +849,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
           resolvedReports = state.reports
               .where((r) => r.status == ReportStatus.resolved)
               .length;
+          debugPrint('📋 Total: $totalReports, Pending: $pendingReports, Resolved: $resolvedReports');
+        } else if (state is ReportError) {
+          debugPrint('❌ Report error: ${state.message}');
+        } else if (state is ReportLoading) {
+          debugPrint('⏳ Reports loading...');
         }
 
         return Container(

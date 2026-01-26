@@ -211,7 +211,11 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
         int todayCitations = 0;
         int pendingCitations = 0;
 
+        // Debug: log current state
+        debugPrint('📊 CitationBloc state: ${state.runtimeType}');
+
         if (state is CitationsLoaded) {
+          debugPrint('📊 Citations loaded: ${state.citations.length} total');
           final today = DateTime.now();
 
           todayCitations = state.citations
@@ -222,6 +226,11 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
               .length;
 
           pendingCitations = state.statusCounts[CitationStatus.pendiente] ?? 0;
+          debugPrint('📊 Today: $todayCitations, Pending: $pendingCitations');
+        } else if (state is CitationError) {
+          debugPrint('❌ Citation error: ${state.message}');
+        } else if (state is CitationLoading) {
+          debugPrint('⏳ Citations loading...');
         }
 
         return Container(
