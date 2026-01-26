@@ -30,17 +30,20 @@ class ApiConfig {
   };
 
   // Para desarrollo local / red interna (mismo servidor)
+  // Solo se usan si se define DEVELOPMENT=true al compilar
   static const String devBaseUrl = 'http://192.168.31.115:3110';
   static const String devNtfyUrl = 'http://192.168.31.115:8110';
 
   // Verificar si está en modo desarrollo
-  // TEMPORALMENTE forzado a true para pruebas locales
+  // Por defecto usa Cloudflare (false) - solo local si se define DEVELOPMENT=true
   static bool get isDevelopment => const bool.fromEnvironment(
     'DEVELOPMENT',
-    defaultValue: true,
+    defaultValue: false,
   );
 
   // URL activa según el modo
+  // Por defecto: Cloudflare (seguro desde cualquier red)
+  // Con DEVELOPMENT=true: Red local (solo para desarrollo en LAN)
   static String get activeBaseUrl => isDevelopment ? devBaseUrl : baseUrl;
   static String get activeNtfyUrl => isDevelopment ? devNtfyUrl : ntfyUrl;
 }
