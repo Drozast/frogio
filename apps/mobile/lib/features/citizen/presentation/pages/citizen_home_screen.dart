@@ -65,7 +65,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
     super.initState();
     _initAnimations();
     _getCurrentLocation();
-    _startAutoRefresh();
+
+    // Iniciar auto-refresh después de que el widget esté construido
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startAutoRefresh();
+    });
   }
 
   void _startAutoRefresh() {
@@ -78,8 +82,12 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
   Future<void> _refreshData() async {
     // Recargar denuncias si el ReportBloc está disponible
     if (mounted) {
-      final reportBloc = context.read<ReportBloc>();
-      reportBloc.add(LoadReportsEvent(userId: widget.user.id));
+      try {
+        final reportBloc = context.read<ReportBloc>();
+        reportBloc.add(LoadReportsEvent(userId: widget.user.id));
+      } catch (e) {
+        debugPrint('⚠️ Error accessing ReportBloc: $e');
+      }
     }
   }
 

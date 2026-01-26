@@ -57,7 +57,11 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
     );
 
     _loadPanicCount();
-    _startAutoRefresh();
+
+    // Iniciar auto-refresh después de que el widget esté construido
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startAutoRefresh();
+    });
   }
 
   void _startAutoRefresh() {
@@ -71,7 +75,11 @@ class _InspectorHomeScreenV2State extends State<InspectorHomeScreenV2>
     await _loadPanicCount();
     // Recargar citaciones
     if (mounted) {
-      context.read<CitationBloc>().add(LoadMyCitationsEvent());
+      try {
+        context.read<CitationBloc>().add(LoadMyCitationsEvent());
+      } catch (e) {
+        debugPrint('⚠️ Error accessing CitationBloc: $e');
+      }
     }
   }
 
