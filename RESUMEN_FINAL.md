@@ -156,7 +156,7 @@ El proyecto **FROGIO** (Sistema de Gestión de Seguridad Pública Municipal) est
 ### Datos de Prueba
 - ✅ Tenant: "Municipalidad de Santa Juana"
 - ✅ 3 usuarios creados:
-  - `ciudadano@test.cl` / `citizen123` (citizen)
+  - `ciudadano@test.cl` / `Admin123` (citizen)
   - `inspector@test.cl` / `inspector123` (inspector)
   - `admin@test.cl` / `admin123` (admin)
 
@@ -319,7 +319,7 @@ Inspector:
 
 Ciudadano:
   Email: ciudadano@test.cl
-  Password: citizen123
+  Password: Admin123
 ```
 
 ---

@@ -30,6 +30,28 @@ export class PanicController {
     }
   }
 
+  async findMyActive(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      const tenantId = req.user?.tenantId;
+
+      if (!tenantId || !userId) {
+        res.status(400).json({ error: 'Datos de autenticación inválidos' });
+        return;
+      }
+
+      const alerts = await panicService.findAll(tenantId, {
+        status: 'active',
+        userId: userId,
+      });
+
+      res.json(alerts);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al obtener alerta activa';
+      res.status(500).json({ error: message });
+    }
+  }
+
   async findAll(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;

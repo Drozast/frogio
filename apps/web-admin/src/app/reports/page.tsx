@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import AppLayout from '@/components/layout/AppLayout';
-import ReportsTable from '@/components/reports/ReportsTable';
+import ReportsClient from '@/components/reports/ReportsClient';
 
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -56,22 +56,7 @@ export default async function ReportsPage() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        {/* Page Header */}
-        <div className="md:flex md:items-center md:justify-between">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-              Reportes Ciudadanos
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Gestiona reportes, asigna inspectores y actualiza estados
-            </p>
-          </div>
-        </div>
-
-        {/* Reports Table */}
-        <ReportsTable reports={reports} inspectors={inspectors} />
-      </div>
+      <ReportsClient initialReports={reports} initialInspectors={inspectors} />
     </AppLayout>
   );
 }

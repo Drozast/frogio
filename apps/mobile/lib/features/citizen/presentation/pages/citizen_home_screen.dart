@@ -11,14 +11,13 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/presentation/bloc/profile/profile_bloc.dart';
-import '../../../auth/presentation/widgets/profile_avatar.dart';
 import '../../../panic/presentation/bloc/panic_bloc.dart';
 import '../../../panic/presentation/bloc/panic_event.dart';
 import '../../../panic/presentation/bloc/panic_state.dart';
 import '../../domain/entities/enhanced_report_entity.dart';
-import '../bloc/report/report_bloc.dart';
-import '../bloc/report/report_event.dart';
-import '../bloc/report/report_state.dart';
+import '../bloc/report/enhanced_report_bloc.dart';
+import '../bloc/report/enhanced_report_event.dart';
+import '../bloc/report/enhanced_report_state.dart';
 import 'create_report_screen.dart';
 
 /// Pantalla principal del Ciudadano - Diseno Moderno Minimalista
@@ -60,16 +59,25 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
   // Timer para actualización automática
   Timer? _refreshTimer;
 
+  // Referencia al PanicBloc para usar fuera del build context
+  PanicBloc? _panicBloc;
+
   @override
   void initState() {
     super.initState();
     _initAnimations();
     _getCurrentLocation();
 
-    // Iniciar auto-refresh después de que el widget esté construido
+    // Iniciar auto-refresh y cargar alerta activa después de que el widget esté construido
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadActiveAlert();
       _startAutoRefresh();
     });
+  }
+
+  void _loadActiveAlert() {
+    _panicBloc ??= di.sl<PanicBloc>();
+    _panicBloc!.add(const LoadActiveAlertEvent());
   }
 
   void _startAutoRefresh() {
@@ -214,35 +222,20 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
   void _triggerSOS() {
     HapticFeedback.heavyImpact();
 
-    if (_currentPosition == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.location_off, color: Colors.white, size: 20),
-              SizedBox(width: 12),
-              Text('Esperando ubicacion...'),
-            ],
-          ),
-          backgroundColor: AppTheme.warning,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-          ),
-        ),
-      );
-      setState(() {
-        _isSOSPressed = false;
-        _sosProgress = 0.0;
-      });
-      return;
-    }
+    debugPrint('🚨 SOS triggered! Position: $_currentPosition');
 
-    context.read<PanicBloc>().add(
+    // Usar ubicacion actual o fallback (Santa Juana centro)
+    final latitude = _currentPosition?.latitude ?? -37.1765;
+    final longitude = _currentPosition?.longitude ?? -72.9383;
+    final address = _currentAddress ?? 'Santa Juana, Bío Bío';
+
+    debugPrint('🚨 Sending panic alert: lat=$latitude, lng=$longitude');
+
+    _panicBloc?.add(
           SendPanicAlertEvent(
-            latitude: _currentPosition!.latitude,
-            longitude: _currentPosition!.longitude,
-            address: _currentAddress,
+            latitude: latitude,
+            longitude: longitude,
+            address: address,
             message: 'Alerta de emergencia',
             contactPhone: widget.user.phoneNumber,
           ),
@@ -250,7 +243,31 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
 
     setState(() {
       _isSOSPressed = false;
+      _sosProgress = 0.0;
     });
+
+    // Mostrar feedback inmediato
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
+            ),
+            SizedBox(width: 12),
+            Text('Enviando alerta de emergencia...'),
+          ],
+        ),
+        backgroundColor: AppTheme.emergency,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   void _cancelAlert() {
@@ -346,9 +363,12 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Crear el bloc una sola vez
+    _panicBloc ??= di.sl<PanicBloc>();
+
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => di.sl<PanicBloc>()),
+        BlocProvider.value(value: _panicBloc!),
         BlocProvider(create: (_) => di.sl<ProfileBloc>()),
         BlocProvider(
           create: (_) => di.sl<ReportBloc>()
@@ -357,8 +377,34 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
       ],
       child: BlocListener<PanicBloc, PanicState>(
         listener: (context, panicState) {
-          if (panicState is PanicAlertSent) {
+          debugPrint('🚨 PanicState changed: ${panicState.runtimeType}');
+          if (panicState is PanicAlertActive) {
+            debugPrint('✅ Active alert restored: ${panicState.alert.id}');
             setState(() => _activeAlertId = panicState.alert.id);
+          } else if (panicState is PanicAlertSent) {
+            debugPrint('✅ Panic alert sent successfully: ${panicState.alert.id}');
+            setState(() => _activeAlertId = panicState.alert.id);
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white, size: 20),
+                    SizedBox(width: 12),
+                    Text('¡Alerta enviada! Ayuda en camino.'),
+                  ],
+                ),
+                backgroundColor: AppTheme.success,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+            // Refrescar denuncias para mostrar la alerta de emergencia creada
+            Future.delayed(const Duration(seconds: 1), () {
+              if (mounted) {
+                context.read<ReportBloc>().add(LoadReportsEvent(userId: widget.user.id));
+              }
+            });
           } else if (panicState is PanicAlertCancelled) {
             setState(() {
               _activeAlertId = null;
@@ -392,12 +438,9 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Saludo minimalista
-                        _buildGreeting(),
+                        const SizedBox(height: 8),
 
-                        const SizedBox(height: 32),
-
-                        // HERO: Boton SOS
+                        // HERO: Boton SOS (más prominente)
                         _buildSOSHero(),
 
                         const SizedBox(height: 32),
@@ -420,47 +463,6 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildGreeting() {
-    final hour = DateTime.now().hour;
-    String greeting;
-    if (hour < 12) {
-      greeting = 'Buenos dias';
-    } else if (hour < 19) {
-      greeting = 'Buenas tardes';
-    } else {
-      greeting = 'Buenas noches';
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                greeting,
-                style: AppTheme.bodyMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.user.displayName,
-                style: AppTheme.headlineMedium,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        ProfileAvatar(
-          user: widget.user,
-          radius: 30,
-          isEditable: false,
-        ),
-      ],
     );
   }
 
@@ -593,7 +595,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
   }
 
   Widget _buildSOSButton(bool isLoading, bool isActive) {
-    const size = 180.0;
+    const size = 220.0;
 
     return GestureDetector(
       onLongPressStart: isActive || isLoading ? null : (_) => _onSOSPressStart(),
@@ -675,15 +677,16 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                                 ? Icons.shield_rounded
                                 : Icons.emergency_share_rounded,
                             color: Colors.white,
-                            size: 48,
+                            size: 60,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 8),
                           Text(
                             isActive ? 'ACTIVA' : 'SOS',
-                            style: AppTheme.titleLarge.copyWith(
+                            style: const TextStyle(
                               color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 3,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 28,
+                              letterSpacing: 4,
                             ),
                           ),
                         ],

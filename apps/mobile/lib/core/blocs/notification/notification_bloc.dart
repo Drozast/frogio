@@ -15,6 +15,9 @@ abstract class NotificationEvent extends Equatable {
 
 class LoadNotificationsEvent extends NotificationEvent {}
 
+/// Evento para refrescar notificaciones sin mostrar loading (evita parpadeo)
+class RefreshNotificationsEvent extends NotificationEvent {}
+
 class AddNotificationEvent extends NotificationEvent {
   final AppNotification notification;
 
@@ -87,6 +90,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
 
   NotificationBloc({this.apiDataSource}) : super(NotificationInitial()) {
     on<LoadNotificationsEvent>(_onLoadNotifications);
+    on<RefreshNotificationsEvent>(_onRefreshNotifications);
     on<AddNotificationEvent>(_onAddNotification);
     on<MarkAsReadEvent>(_onMarkAsRead);
     on<DismissNotificationEvent>(_onDismissNotification);
@@ -98,7 +102,10 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     LoadNotificationsEvent event,
     Emitter<NotificationState> emit,
   ) async {
-    emit(NotificationLoading());
+    // Solo mostrar loading si no hay datos previos
+    if (state is! NotificationLoaded) {
+      emit(NotificationLoading());
+    }
 
     try {
       if (apiDataSource != null) {
@@ -114,7 +121,32 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
         unreadCount: unreadCount,
       ));
     } catch (e) {
-      emit(NotificationError('Error al cargar notificaciones: ${e.toString()}'));
+      // Solo emitir error si no hay datos previos
+      if (state is! NotificationLoaded) {
+        emit(NotificationError('Error al cargar notificaciones: ${e.toString()}'));
+      }
+    }
+  }
+
+  /// Refresca notificaciones sin mostrar loading (para auto-refresh)
+  Future<void> _onRefreshNotifications(
+    RefreshNotificationsEvent event,
+    Emitter<NotificationState> emit,
+  ) async {
+    try {
+      if (apiDataSource != null) {
+        final notifications = await apiDataSource!.getNotifications(limit: 50);
+        _notifications.clear();
+        _notifications.addAll(notifications);
+      }
+
+      final unreadCount = _notifications.where((n) => !n.isRead).length;
+      emit(NotificationLoaded(
+        notifications: List.from(_notifications),
+        unreadCount: unreadCount,
+      ));
+    } catch (e) {
+      // Silenciar errores en refresh automático
     }
   }
 

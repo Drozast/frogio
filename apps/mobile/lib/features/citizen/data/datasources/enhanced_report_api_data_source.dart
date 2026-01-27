@@ -335,6 +335,10 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
         return 'rechazado';
       case ReportStatus.archived:
         return 'archivado';
+      case ReportStatus.duplicate:
+        return 'duplicate';
+      case ReportStatus.cancelled:
+        return 'cancelled';
     }
   }
 }

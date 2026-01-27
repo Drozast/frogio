@@ -8,7 +8,7 @@
 - ✅ Schema `santa_juana` creado con 9 tablas
 - ✅ Tenant "Municipalidad de Santa Juana" registrado
 - ✅ 3 usuarios de prueba creados:
-  - `ciudadano@test.cl` / `citizen123` (role: citizen)
+  - `ciudadano@test.cl` / `Admin123` (role: citizen)
   - `inspector@test.cl` / `inspector123` (role: inspector)
   - `admin@test.cl` / `admin123` (role: admin)
 
@@ -444,6 +444,6 @@ docker restart frogio-web-admin
 - **API Docs:** https://api.drozast.xyz/api-docs
 
 **Usuarios de Prueba:**
-- Ciudadano: `ciudadano@test.cl` / `citizen123`
+- Ciudadano: `ciudadano@test.cl` / `Admin123`
 - Inspector: `inspector@test.cl` / `inspector123`
 - Admin: `admin@test.cl` / `admin123`

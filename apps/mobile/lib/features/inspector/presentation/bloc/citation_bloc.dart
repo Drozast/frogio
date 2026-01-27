@@ -134,6 +134,8 @@ class CitationsLoaded extends CitationState {
   final CitationType? currentTypeFilter;
   final TargetType? currentTargetFilter;
   final String? searchQuery;
+  final DateTime? startDateFilter;
+  final DateTime? endDateFilter;
   final Map<CitationStatus, int> statusCounts;
 
   const CitationsLoaded({
@@ -143,6 +145,8 @@ class CitationsLoaded extends CitationState {
     this.currentTypeFilter,
     this.currentTargetFilter,
     this.searchQuery,
+    this.startDateFilter,
+    this.endDateFilter,
     required this.statusCounts,
   }) : filteredCitations = filteredCitations ?? citations;
 
@@ -154,6 +158,8 @@ class CitationsLoaded extends CitationState {
         currentTypeFilter,
         currentTargetFilter,
         searchQuery,
+        startDateFilter,
+        endDateFilter,
         statusCounts,
       ];
 
@@ -164,6 +170,8 @@ class CitationsLoaded extends CitationState {
     CitationType? currentTypeFilter,
     TargetType? currentTargetFilter,
     String? searchQuery,
+    DateTime? startDateFilter,
+    DateTime? endDateFilter,
     Map<CitationStatus, int>? statusCounts,
   }) {
     return CitationsLoaded(
@@ -173,6 +181,8 @@ class CitationsLoaded extends CitationState {
       currentTypeFilter: currentTypeFilter ?? this.currentTypeFilter,
       currentTargetFilter: currentTargetFilter ?? this.currentTargetFilter,
       searchQuery: searchQuery ?? this.searchQuery,
+      startDateFilter: startDateFilter ?? this.startDateFilter,
+      endDateFilter: endDateFilter ?? this.endDateFilter,
       statusCounts: statusCounts ?? this.statusCounts,
     );
   }
@@ -544,6 +554,8 @@ class CitationBloc extends Bloc<CitationEvent, CitationState> {
         currentTypeFilter: event.citationType,
         currentTargetFilter: event.targetType,
         searchQuery: event.searchQuery,
+        startDateFilter: event.startDate,
+        endDateFilter: event.endDate,
       ));
     }
   }
@@ -552,7 +564,92 @@ class CitationBloc extends Bloc<CitationEvent, CitationState> {
     RefreshCitationsEvent event,
     Emitter<CitationState> emit,
   ) async {
-    add(LoadMyCitationsEvent());
+    // No emitir loading state para evitar parpadeo
+    // Mantener el estado actual mientras se actualizan los datos
+    final currentState = state;
+
+    final result = await repository.getMyCitations();
+
+    result.fold(
+      (failure) {
+        // Solo emitir error si no hay datos previos
+        if (currentState is! CitationsLoaded) {
+          emit(CitationError(message: failure.message));
+        }
+      },
+      (citations) {
+        final statusCounts = _calculateStatusCounts(citations);
+
+        // Preservar filtros actuales si existen
+        if (currentState is CitationsLoaded) {
+          // Aplicar los mismos filtros a los nuevos datos
+          List<CitationEntity> filteredCitations = citations;
+
+          if (currentState.currentStatusFilter != null) {
+            filteredCitations = filteredCitations
+                .where((c) => c.status == currentState.currentStatusFilter)
+                .toList();
+          }
+
+          if (currentState.currentTypeFilter != null) {
+            filteredCitations = filteredCitations
+                .where((c) => c.citationType == currentState.currentTypeFilter)
+                .toList();
+          }
+
+          if (currentState.currentTargetFilter != null) {
+            filteredCitations = filteredCitations
+                .where((c) => c.targetType == currentState.currentTargetFilter)
+                .toList();
+          }
+
+          if (currentState.searchQuery != null && currentState.searchQuery!.isNotEmpty) {
+            final query = currentState.searchQuery!.toLowerCase();
+            filteredCitations = filteredCitations.where((c) {
+              return c.citationNumber.toLowerCase().contains(query) ||
+                  (c.targetName?.toLowerCase().contains(query) ?? false) ||
+                  (c.targetRut?.toLowerCase().contains(query) ?? false) ||
+                  (c.targetPlate?.toLowerCase().contains(query) ?? false) ||
+                  c.reason.toLowerCase().contains(query);
+            }).toList();
+          }
+
+          // Aplicar filtro por rango de fechas
+          if (currentState.startDateFilter != null || currentState.endDateFilter != null) {
+            final start = currentState.startDateFilter != null
+                ? DateTime(currentState.startDateFilter!.year, currentState.startDateFilter!.month, currentState.startDateFilter!.day)
+                : null;
+            final end = currentState.endDateFilter != null
+                ? DateTime(currentState.endDateFilter!.year, currentState.endDateFilter!.month, currentState.endDateFilter!.day, 23, 59, 59, 999)
+                : null;
+
+            filteredCitations = filteredCitations.where((c) {
+              final created = c.createdAt;
+              final afterStart = start == null || !created.isBefore(start);
+              final beforeEnd = end == null || !created.isAfter(end);
+              return afterStart && beforeEnd;
+            }).toList();
+          }
+
+          emit(CitationsLoaded(
+            citations: citations,
+            filteredCitations: filteredCitations,
+            currentStatusFilter: currentState.currentStatusFilter,
+            currentTypeFilter: currentState.currentTypeFilter,
+            currentTargetFilter: currentState.currentTargetFilter,
+            searchQuery: currentState.searchQuery,
+            startDateFilter: currentState.startDateFilter,
+            endDateFilter: currentState.endDateFilter,
+            statusCounts: statusCounts,
+          ));
+        } else {
+          emit(CitationsLoaded(
+            citations: citations,
+            statusCounts: statusCounts,
+          ));
+        }
+      },
+    );
   }
 
   Future<void> _onUpdateCitationStatus(

@@ -6,9 +6,9 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../domain/entities/report_entity.dart';
-import '../bloc/report/report_bloc.dart';
-import '../bloc/report/report_event.dart';
-import '../bloc/report/report_state.dart';
+import '../bloc/report/enhanced_report_bloc.dart';
+import '../bloc/report/enhanced_report_event.dart';
+import '../bloc/report/enhanced_report_state.dart';
 
 class EnhancedStatusUpdateWidget extends StatefulWidget {
   final ReportEntity report;
@@ -131,7 +131,7 @@ class _EnhancedStatusUpdateWidgetState extends State<EnhancedStatusUpdateWidget>
   Widget build(BuildContext context) {
     return BlocListener<ReportBloc, ReportState>(
       listener: (context, state) {
-        if (state is ReportDetailLoaded) {
+        if (state is ReportLoaded) {
           Navigator.of(context).pop();
           widget.onStatusUpdated?.call();
           _showSuccessSnackBar('Estado actualizado exitosamente');

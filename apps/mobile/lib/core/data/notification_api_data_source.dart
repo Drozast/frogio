@@ -110,12 +110,11 @@ class NotificationApiDataSource {
         return NotificationType.reminder;
       case 'panic_alert':
       case 'panic':
+      case 'urgent':
         return NotificationType.panicAlert;
       case 'new_citizen_report':
       case 'citizen_report':
         return NotificationType.newCitizenReport;
-      case 'urgent':
-        return NotificationType.general;
       default:
         return NotificationType.general;
     }

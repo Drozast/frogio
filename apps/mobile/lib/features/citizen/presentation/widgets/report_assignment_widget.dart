@@ -288,6 +288,10 @@ class _ReportAssignmentWidgetState extends State<ReportAssignmentWidget> {
         return AppTheme.errorColor;
       case ReportStatus.archived:
         return Colors.grey;
+      case ReportStatus.duplicate:
+        return Colors.amber;
+      case ReportStatus.cancelled:
+        return Colors.grey.shade500;
     }
   }
 

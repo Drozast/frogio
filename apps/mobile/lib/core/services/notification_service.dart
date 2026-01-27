@@ -369,6 +369,7 @@ class NotificationService {
     });
   }
 
+  /// Muestra notificación de pánico 3 veces con intervalos para máxima atención
   Future<void> _showPanicNotification(String title, String message, Map<String, dynamic>? data) async {
     if (kIsWeb) return;
 
@@ -384,7 +385,7 @@ class NotificationService {
       visibility: NotificationVisibility.public,
       playSound: true,
       enableVibration: true,
-      vibrationPattern: Int64List.fromList([0, 500, 200, 500, 200, 500]),
+      vibrationPattern: Int64List.fromList([0, 500, 200, 500, 200, 500, 200, 500]),
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -399,13 +400,22 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    await _localNotifications.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      '🚨 $title',
-      message,
-      notificationDetails,
-      payload: data != null ? jsonEncode(data) : null,
-    );
+    final payload = data != null ? jsonEncode(data) : null;
+    final baseId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    // Repetir 3 veces con 2 segundos de intervalo para máxima atención
+    for (int i = 0; i < 3; i++) {
+      if (i > 0) {
+        await Future.delayed(const Duration(seconds: 2));
+      }
+      await _localNotifications.show(
+        baseId + i,
+        '🚨 $title',
+        i == 0 ? message : '[${i + 1}/3] $message',
+        notificationDetails,
+        payload: payload,
+      );
+    }
   }
 
   void _scheduleReconnect() {

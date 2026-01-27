@@ -1,9 +1,12 @@
 // lib/features/inspector/presentation/pages/citations_list_screen.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../di/injection_container_api.dart' as di;
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../domain/entities/citation_entity.dart';
@@ -11,12 +14,67 @@ import '../bloc/citation_bloc.dart';
 import '../utils/citation_ui_extensions.dart';
 import 'create_citation_screen.dart';
 
-class CitationsListScreen extends StatelessWidget {
+class CitationsListScreen extends StatefulWidget {
   const CitationsListScreen({super.key});
 
   @override
+  State<CitationsListScreen> createState() => _CitationsListScreenState();
+}
+
+class _CitationsListScreenState extends State<CitationsListScreen>
+    with WidgetsBindingObserver {
+  Timer? _autoRefreshTimer;
+  CitationBloc? _citationBloc;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_citationBloc != null && mounted) {
+        _citationBloc!.add(RefreshCitationsEvent());
+      }
+    });
+  }
+
+  void _stopAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startAutoRefresh();
+    } else if (state == AppLifecycleState.paused) {
+      _stopAutoRefresh();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopAutoRefresh();
+    _citationBloc?.close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    _citationBloc ??= di.sl<CitationBloc>()..add(LoadMyCitationsEvent());
+
+    // Start auto-refresh if not already running
+    if (_autoRefreshTimer == null) {
+      _startAutoRefresh();
+    }
+
+    return BlocProvider.value(
+      value: _citationBloc!,
+      child: Scaffold(
         backgroundColor: const Color(0xFFF5F5F5),
         appBar: AppBar(
           title: const Text(
@@ -163,7 +221,8 @@ class CitationsListScreen extends StatelessWidget {
             );
           },
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildStatsHeader(BuildContext context, CitationsLoaded state) {
@@ -793,6 +852,8 @@ class _FilterSheet extends StatefulWidget {
 class _FilterSheetState extends State<_FilterSheet> {
   CitationStatus? _selectedStatus;
   CitationType? _selectedType;
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   @override
   void initState() {
@@ -801,6 +862,47 @@ class _FilterSheetState extends State<_FilterSheet> {
     if (currentState is CitationsLoaded) {
       _selectedStatus = currentState.currentStatusFilter;
       _selectedType = currentState.currentTypeFilter;
+      _startDate = currentState.startDateFilter;
+      _endDate = currentState.endDateFilter;
+    }
+  }
+
+  Future<void> _selectDateRange(BuildContext context) async {
+    final now = DateTime.now();
+    final firstDate = DateTime(now.year - 2);
+    final lastDate = DateTime(now.year + 1);
+
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      initialDateRange: _startDate != null && _endDate != null
+          ? DateTimeRange(start: _startDate!, end: _endDate!)
+          : DateTimeRange(
+              start: now.subtract(const Duration(days: 30)),
+              end: now,
+            ),
+      locale: const Locale('es', 'CL'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.primary,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: AppTheme.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
     }
   }
 
@@ -813,38 +915,98 @@ class _FilterSheetState extends State<_FilterSheet> {
         AppTheme.spacing24,
         AppTheme.spacing32,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Filtrar Citaciones', style: AppTheme.headlineSmall),
-          const SizedBox(height: AppTheme.spacing24),
-          _buildFilterSection<CitationStatus>(
-            title: 'Por Estado',
-            items: CitationStatus.values,
-            selectedItem: _selectedStatus,
-            onSelected: (status) {
-              setState(() {
-                _selectedStatus = (_selectedStatus == status) ? null : status;
-              });
-            },
-            itemLabel: (status) => status.displayName,
-          ),
-          const SizedBox(height: AppTheme.spacing24),
-          _buildFilterSection<CitationType>(
-            title: 'Por Tipo',
-            items: CitationType.values,
-            selectedItem: _selectedType,
-            onSelected: (type) {
-              setState(() {
-                _selectedType = (_selectedType == type) ? null : type;
-              });
-            },
-            itemLabel: (type) => type.displayName,
-          ),
-          const SizedBox(height: AppTheme.spacing32),
-          _buildActionButtons(),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Filtrar Citaciones', style: AppTheme.headlineSmall),
+            const SizedBox(height: AppTheme.spacing24),
+
+            // Filtro por rango de fechas
+            Text('Por Fecha', style: AppTheme.titleSmall),
+            const SizedBox(height: AppTheme.spacing12),
+            InkWell(
+              onTap: () => _selectDateRange(context),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spacing16,
+                  vertical: AppTheme.spacing12,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: _startDate != null ? AppTheme.primary : AppTheme.border,
+                  ),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  color: _startDate != null ? AppTheme.primarySurface : Colors.transparent,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.date_range_rounded,
+                      color: _startDate != null ? AppTheme.primary : AppTheme.textSecondary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: AppTheme.spacing12),
+                    Expanded(
+                      child: Text(
+                        _startDate != null && _endDate != null
+                            ? '${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}'
+                            : 'Seleccionar rango de fechas',
+                        style: TextStyle(
+                          color: _startDate != null ? AppTheme.primary : AppTheme.textSecondary,
+                          fontWeight: _startDate != null ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                    if (_startDate != null)
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _startDate = null;
+                            _endDate = null;
+                          });
+                        },
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: AppTheme.textSecondary,
+                          size: 18,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: AppTheme.spacing24),
+            _buildFilterSection<CitationStatus>(
+              title: 'Por Estado',
+              items: CitationStatus.values,
+              selectedItem: _selectedStatus,
+              onSelected: (status) {
+                setState(() {
+                  _selectedStatus = (_selectedStatus == status) ? null : status;
+                });
+              },
+              itemLabel: (status) => status.displayName,
+            ),
+            const SizedBox(height: AppTheme.spacing24),
+            _buildFilterSection<CitationType>(
+              title: 'Por Tipo',
+              items: CitationType.values,
+              selectedItem: _selectedType,
+              onSelected: (type) {
+                setState(() {
+                  _selectedType = (_selectedType == type) ? null : type;
+                });
+              },
+              itemLabel: (type) => type.displayName,
+            ),
+            const SizedBox(height: AppTheme.spacing32),
+            _buildActionButtons(),
+          ],
+        ),
       ),
     );
   }
@@ -891,6 +1053,8 @@ class _FilterSheetState extends State<_FilterSheet> {
               setState(() {
                 _selectedStatus = null;
                 _selectedType = null;
+                _startDate = null;
+                _endDate = null;
               });
               context.read<CitationBloc>().add(const FilterCitationsEvent());
               Navigator.pop(context);
@@ -906,6 +1070,8 @@ class _FilterSheetState extends State<_FilterSheet> {
                     FilterCitationsEvent(
                       status: _selectedStatus,
                       citationType: _selectedType,
+                      startDate: _startDate,
+                      endDate: _endDate,
                     ),
                   );
               Navigator.pop(context);

@@ -27,9 +27,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        title: const Text('Notificaciones'),
+        title: const Text(
+          'Notificaciones',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
         actions: [
           BlocBuilder<NotificationBloc, NotificationState>(
@@ -105,7 +113,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
             return RefreshIndicator(
               onRefresh: () async {
-                context.read<NotificationBloc>().add(LoadNotificationsEvent());
+                context.read<NotificationBloc>().add(RefreshNotificationsEvent());
               },
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 8),

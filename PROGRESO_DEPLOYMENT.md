@@ -42,7 +42,7 @@ subscription_status: trial
 
 | Email | Password | Rol | Nombre |
 |-------|----------|-----|---------|
-| `ciudadano@test.cl` | `citizen123` | citizen | María González |
+| `ciudadano@test.cl` | `Admin123` | citizen | María González |
 | `inspector@test.cl` | `inspector123` | inspector | Carlos Ramírez |
 | `admin@test.cl` | `admin123` | admin | Ana Soto |
 

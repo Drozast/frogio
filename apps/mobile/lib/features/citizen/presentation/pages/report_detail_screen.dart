@@ -671,6 +671,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         return Icons.cancel;
       case ReportStatus.archived:
         return Icons.archive;
+      case ReportStatus.duplicate:
+        return Icons.content_copy;
+      case ReportStatus.cancelled:
+        return Icons.block;
     }
   }
 
@@ -823,6 +827,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         return 'Rechazado';
       case ReportStatus.archived:
         return 'Archivado';
+      case ReportStatus.duplicate:
+        return 'Duplicada';
+      case ReportStatus.cancelled:
+        return 'Cancelada';
     }
   }
 
@@ -910,6 +918,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         return AppTheme.errorColor;
       case ReportStatus.archived:
         return Colors.grey.shade600;
+      case ReportStatus.duplicate:
+        return Colors.amber;
+      case ReportStatus.cancelled:
+        return Colors.grey.shade500;
     }
   }
 

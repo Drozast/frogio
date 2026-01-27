@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import AppLayout from '@/components/layout/AppLayout';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -21,6 +22,7 @@ import {
   XMarkIcon,
   ArrowUpTrayIcon,
   DocumentArrowDownIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import * as XLSX from 'xlsx';
 
@@ -57,33 +59,44 @@ const targetTypeIcons: Record<string, typeof UserIcon> = {
 export default function CitationsPage() {
   const [citations, setCitations] = useState<Citation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterTargetType, setFilterTargetType] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
+  const [useRange, setUseRange] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; errors: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetchCitations();
-  }, []);
-
-  async function fetchCitations() {
+  const fetchCitations = useCallback(async () => {
     try {
+      setIsRefreshing(true);
       const response = await fetch('/api/citations');
       if (response.ok) {
         const data = await response.json();
         setCitations(data);
+        setLastUpdate(new Date());
       }
     } catch (error) {
       console.error('Error fetching citations:', error);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchCitations();
+  }, [fetchCitations]);
+
+  // Auto-refresh every 3 seconds
+  useAutoRefresh(fetchCitations, { interval: 3000 });
 
   const getDateKey = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -127,14 +140,18 @@ export default function CitationsPage() {
       if (filterType && citation.citation_type !== filterType) return false;
       if (filterTargetType && citation.target_type !== filterTargetType) return false;
 
-      if (selectedDate) {
+      if (useRange) {
+        const citationDate = getDateKey(citation.created_at);
+        if (startDate && citationDate < startDate) return false;
+        if (endDate && citationDate > endDate) return false;
+      } else if (selectedDate) {
         const citationDate = getDateKey(citation.created_at);
         if (citationDate !== selectedDate) return false;
       }
 
       return true;
     });
-  }, [citations, searchQuery, filterType, filterTargetType, selectedDate]);
+  }, [citations, searchQuery, filterType, filterTargetType, selectedDate, useRange, startDate, endDate]);
 
   const groupedCitations = useMemo(() => {
     const groups: Record<string, Citation[]> = {};
@@ -165,9 +182,17 @@ export default function CitationsPage() {
     setFilterType('');
     setFilterTargetType('');
     setSelectedDate('');
+    setUseRange(false);
+    setStartDate('');
+    setEndDate('');
   };
 
-  const hasActiveFilters = searchQuery || filterType || filterTargetType || selectedDate;
+  const hasActiveFilters =
+    searchQuery ||
+    filterType ||
+    filterTargetType ||
+    selectedDate ||
+    (useRange && (startDate || endDate));
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -284,8 +309,12 @@ export default function CitationsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Notificaciones</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
               Advertencias y citaciones emitidas
+              <span className="inline-flex items-center gap-1 text-xs">
+                <ArrowPathIcon className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {lastUpdate.toLocaleTimeString('es-CL')}
+              </span>
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -450,6 +479,47 @@ export default function CitationsPage() {
                 <option value="comercio">Comercio</option>
                 <option value="otro">Otro</option>
               </select>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={useRange}
+                    onChange={(e) => {
+                      setUseRange(e.target.checked);
+                      // Al activar rango, limpiamos fecha única
+                      if (e.target.checked) {
+                        setSelectedDate('');
+                      } else {
+                        setStartDate('');
+                        setEndDate('');
+                      }
+                    }}
+                  />
+                  Rango de fechas
+                </label>
+                {useRange ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">Desde</span>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">Hasta</span>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
@@ -472,15 +542,37 @@ export default function CitationsPage() {
             </button>
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-4 w-4 text-gray-400" />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-              />
-              {selectedDate && (
+              {useRange ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <span className="text-gray-400">—</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              ) : (
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                />
+              )}
+              {(selectedDate || startDate || endDate) && (
                 <button
-                  onClick={() => setSelectedDate('')}
+                  onClick={() => {
+                    setSelectedDate('');
+                    setStartDate('');
+                    setEndDate('');
+                  }}
                   className="text-sm text-indigo-600 hover:text-indigo-800"
                 >
                   Ver todas

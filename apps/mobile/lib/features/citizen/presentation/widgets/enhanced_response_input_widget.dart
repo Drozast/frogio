@@ -7,9 +7,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/custom_button.dart';
-import '../bloc/report/report_bloc.dart';
-import '../bloc/report/report_event.dart';
-import '../bloc/report/report_state.dart';
+import '../bloc/report/enhanced_report_bloc.dart';
+import '../bloc/report/enhanced_report_event.dart';
+import '../bloc/report/enhanced_report_state.dart';
 
 class EnhancedResponseInputWidget extends StatefulWidget {
   final String reportId;
@@ -84,7 +84,7 @@ class _EnhancedResponseInputWidgetState extends State<EnhancedResponseInputWidge
   Widget build(BuildContext context) {
     return BlocListener<ReportBloc, ReportState>(
       listener: (context, state) {
-        if (state is ReportDetailLoaded) {
+        if (state is ReportLoaded) {
           _clearForm();
           widget.onResponseAdded?.call();
           _showSuccessSnackBar('Respuesta agregada exitosamente');
@@ -615,7 +615,6 @@ class _EnhancedResponseInputWidgetState extends State<EnhancedResponseInputWidge
           responderId: widget.currentUserId,
           responderName: widget.currentUserName,
           message: _messageController.text.trim(),
-          attachments: _attachments.isEmpty ? null : _attachments,
           isPublic: _isPublic,
         ),
       );

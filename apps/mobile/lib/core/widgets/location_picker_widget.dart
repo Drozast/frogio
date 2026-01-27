@@ -310,18 +310,36 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _useCurrentLocation,
-                  icon: const Icon(Icons.my_location),
-                  label: const Text('Usar mi ubicacion'),
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    onPressed: _useCurrentLocation,
+                    icon: const Icon(Icons.my_location, size: 20),
+                    label: const Text(
+                      'Mi ubicación',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _showAddressDialog,
-                  icon: const Icon(Icons.search),
-                  label: const Text('Buscar direccion'),
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    onPressed: _showAddressDialog,
+                    icon: const Icon(Icons.search, size: 20),
+                    label: const Text(
+                      'Buscar',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                  ),
                 ),
               ),
             ],

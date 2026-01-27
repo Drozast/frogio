@@ -225,6 +225,10 @@ class EnhancedReportListItem extends StatelessWidget {
         return AppTheme.errorColor;
       case ReportStatus.archived:
         return Colors.grey.shade600;
+      case ReportStatus.duplicate:
+        return Colors.amber;
+      case ReportStatus.cancelled:
+        return Colors.grey.shade500;
     }
   }
 

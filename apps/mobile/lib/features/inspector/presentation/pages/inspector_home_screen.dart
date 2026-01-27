@@ -1,4 +1,6 @@
 // lib/features/inspector/presentation/pages/inspector_home_screen.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,11 +26,14 @@ class InspectorHomeScreen extends StatefulWidget {
 }
 
 class _InspectorHomeScreenState extends State<InspectorHomeScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _pulseController;
   late AnimationController _slideController;
   late Animation<double> _pulseAnimation;
   late Animation<Offset> _slideAnimation;
+
+  Timer? _autoRefreshTimer;
+  CitationBloc? _citationBloc;
 
   // Design System Colors
   static const Color _primaryDark = Color(0xFF0D3B1E);
@@ -46,7 +51,31 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initAnimations();
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_citationBloc != null && mounted) {
+        _citationBloc!.add(RefreshCitationsEvent());
+      }
+    });
+  }
+
+  void _stopAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startAutoRefresh();
+    } else if (state == AppLifecycleState.paused) {
+      _stopAutoRefresh();
+    }
   }
 
   void _initAnimations() {
@@ -72,6 +101,9 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopAutoRefresh();
+    _citationBloc?.close();
     _pulseController.dispose();
     _slideController.dispose();
     super.dispose();
@@ -79,10 +111,16 @@ class _InspectorHomeScreenState extends State<InspectorHomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    _citationBloc ??= di.sl<CitationBloc>()..add(LoadMyCitationsEvent());
+
+    // Start auto-refresh if not already running
+    if (_autoRefreshTimer == null) {
+      _startAutoRefresh();
+    }
+
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-            create: (_) => di.sl<CitationBloc>()..add(LoadMyCitationsEvent())),
+        BlocProvider.value(value: _citationBloc!),
         BlocProvider(create: (_) => di.sl<VehicleBloc>()),
       ],
       child: Container(

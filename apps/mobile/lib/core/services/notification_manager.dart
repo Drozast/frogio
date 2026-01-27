@@ -1,7 +1,9 @@
 // lib/core/services/notification_manager.dart
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 import 'notification_service.dart';
@@ -40,6 +42,8 @@ class NotificationManager {
     _navigateBasedOnNotification(data);
   }
 
+  OverlayEntry? _activePanicOverlay;
+
   void _handlePanicAlertReceived(Map<String, dynamic> data) {
     log('PANIC ALERT RECEIVED: $data');
 
@@ -56,32 +60,91 @@ class NotificationManager {
     // Notificar a cualquier listener (ej: InspectorMapScreen)
     onPanicAlertReceived?.call(data);
 
-    // Mostrar diálogo de alerta si hay contexto disponible
+    // Mostrar banner superior de alerta que se repite 3 veces
     final context = navigatorKey.currentContext;
     if (context != null) {
-      _showPanicAlertDialog(context, data);
+      _showRepeatingPanicBanner(context, data);
     }
   }
 
-  void _showPanicAlertDialog(BuildContext context, Map<String, dynamic> data) {
-    final title = data['title']?.toString() ?? 'ALERTA DE PÁNICO';
+  /// Muestra un banner de pánico en la parte superior 3 veces con vibración
+  void _showRepeatingPanicBanner(BuildContext context, Map<String, dynamic> data) {
+    final title = data['title']?.toString() ?? 'ALERTA DE PANICO';
     final message = data['message']?.toString() ?? 'Un ciudadano necesita ayuda';
+
+    int repeatCount = 0;
+
+    void showBanner() {
+      if (repeatCount >= 3) {
+        // Después de las 3 repeticiones, mostrar el diálogo de acción
+        _showPanicActionDialog(context, data);
+        return;
+      }
+      repeatCount++;
+
+      // Vibración fuerte
+      HapticFeedback.heavyImpact();
+
+      // Remover overlay previo si existe
+      _activePanicOverlay?.remove();
+      _activePanicOverlay = null;
+
+      final overlay = Overlay.of(context);
+
+      _activePanicOverlay = OverlayEntry(
+        builder: (overlayContext) => _PanicBannerOverlay(
+          title: title,
+          message: message,
+          repeatNumber: repeatCount,
+          onDismiss: () {
+            _activePanicOverlay?.remove();
+            _activePanicOverlay = null;
+          },
+          onTap: () {
+            _activePanicOverlay?.remove();
+            _activePanicOverlay = null;
+            _refreshAndNavigateToMap(context);
+          },
+          onAnimationComplete: () {
+            // Esperar un poco y mostrar la siguiente repetición
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (repeatCount < 3) {
+                showBanner();
+              } else {
+                _activePanicOverlay?.remove();
+                _activePanicOverlay = null;
+                _showPanicActionDialog(context, data);
+              }
+            });
+          },
+        ),
+      );
+
+      overlay.insert(_activePanicOverlay!);
+    }
+
+    showBanner();
+  }
+
+  void _showPanicActionDialog(BuildContext context, Map<String, dynamic> data) {
     final latitude = data['latitude'];
     final longitude = data['longitude'];
     final hasLocation = latitude != null && longitude != null;
+    final message = data['message']?.toString() ?? 'Un ciudadano necesita ayuda';
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.red.shade50,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            const Icon(Icons.warning, color: Colors.red, size: 32),
+            const Icon(Icons.warning_rounded, color: Colors.red, size: 32),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                '🚨 $title',
+                'ALERTA DE PANICO',
                 style: TextStyle(
                   color: Colors.red.shade900,
                   fontWeight: FontWeight.bold,
@@ -96,37 +159,30 @@ class NotificationManager {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.red.shade200),
               ),
-              child: Text(
-                message,
-                style: const TextStyle(fontSize: 16),
-              ),
+              child: Text(message, style: const TextStyle(fontSize: 16)),
             ),
             if (hasLocation) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: Colors.green.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.location_on, color: Colors.red),
+                    Icon(Icons.location_on, color: Colors.green.shade700, size: 20),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Ubicación disponible',
-                        style: TextStyle(
-                          color: Colors.green.shade700,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                    Text(
+                      'Ubicacion disponible',
+                      style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -142,7 +198,6 @@ class NotificationManager {
           ElevatedButton.icon(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              // Forzar recarga del mapa
               _refreshAndNavigateToMap(context);
             },
             icon: const Icon(Icons.map),
@@ -402,6 +457,178 @@ class NotificationManager {
         'longitude': lng,
       },
       highPriority: true,
+    );
+  }
+}
+
+/// Banner superior de alerta de pánico con animación de entrada/salida
+class _PanicBannerOverlay extends StatefulWidget {
+  final String title;
+  final String message;
+  final int repeatNumber;
+  final VoidCallback? onDismiss;
+  final VoidCallback? onTap;
+  final VoidCallback? onAnimationComplete;
+
+  const _PanicBannerOverlay({
+    required this.title,
+    required this.message,
+    required this.repeatNumber,
+    this.onDismiss,
+    this.onTap,
+    this.onAnimationComplete,
+  });
+
+  @override
+  State<_PanicBannerOverlay> createState() => _PanicBannerOverlayState();
+}
+
+class _PanicBannerOverlayState extends State<_PanicBannerOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+  Timer? _autoDismissTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, -1.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+
+    _fadeAnimation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
+    _controller.forward();
+
+    // Vibrar al aparecer
+    HapticFeedback.heavyImpact();
+
+    // Auto-ocultar después de 3 segundos
+    _autoDismissTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        _dismiss();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoDismissTimer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _dismiss() async {
+    _autoDismissTimer?.cancel();
+    if (!mounted) return;
+    await _controller.reverse();
+    widget.onAnimationComplete?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top,
+      left: 0,
+      right: 0,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.red.shade700, Colors.red.shade900],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.withValues(alpha: 0.5),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    // Icono pulsante
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.warning_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Contenido
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'ALERTA SOS [${widget.repeatNumber}/3]',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.message,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 14,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Flecha para ver mapa
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.map_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

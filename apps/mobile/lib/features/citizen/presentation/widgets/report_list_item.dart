@@ -195,6 +195,16 @@ class ReportListItem extends StatelessWidget {
         textColor = Colors.grey;
         icon = Icons.archive;
         break;
+      case ReportStatus.duplicate:
+        backgroundColor = Colors.amber.withValues(alpha: 0.1);
+        textColor = Colors.amber.shade700;
+        icon = Icons.content_copy;
+        break;
+      case ReportStatus.cancelled:
+        backgroundColor = Colors.grey.withValues(alpha: 0.1);
+        textColor = Colors.grey.shade600;
+        icon = Icons.block;
+        break;
     }
 
     return Container(

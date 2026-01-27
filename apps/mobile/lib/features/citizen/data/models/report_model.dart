@@ -125,6 +125,14 @@ class ReportModel extends ReportEntity {
       case 'archived':
       case 'archivado':
         return ReportStatus.archived;
+      case 'duplicate':
+      case 'duplicada':
+      case 'duplicado':
+        return ReportStatus.duplicate;
+      case 'cancelled':
+      case 'cancelada':
+      case 'cancelado':
+        return ReportStatus.cancelled;
       default:
         return ReportStatus.submitted;
     }

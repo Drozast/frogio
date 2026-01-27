@@ -312,8 +312,8 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA santa_juana TO frogio;
 -- =====================================================
 -- TEST USERS: One for each role
 -- =====================================================
--- Password for all test users is their role + "123"
--- citizen: citizen123
+-- Passwords de prueba:
+-- citizen: Admin123
 -- inspector: inspector123
 -- admin: admin123
 
@@ -322,7 +322,7 @@ VALUES
     -- Citizen test user
     (
         'ciudadano@test.cl',
-        '$2a$10$1uqudQUwdxMzdarAXzq6L.W44qfOhkIkbXh34noUR0ZVotrB8s466',
+        '$2a$10$BuZJkFTP1PTRIkM6tIZKVehv0IUeVdRMOf6X32Ga79xe9qTkzM0la',
         '12345678-9',
         'María',
         'González',

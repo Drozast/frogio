@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
@@ -35,9 +37,10 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProviderStateMixin {
+class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   int _currentIndex = 0;
   late AnimationController _animationController;
+  Timer? _notificationRefreshTimer;
 
   // Colores del tema FROGIO
   static const Color _primaryGreen = Color(0xFF1B5E20);
@@ -53,6 +56,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -70,6 +74,36 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
     // Obtener ubicación para el botón de pánico
     _getCurrentLocation();
+
+    // Iniciar auto-refresh de notificaciones cada 3 segundos
+    _startNotificationRefresh();
+  }
+
+  void _startNotificationRefresh() {
+    _notificationRefreshTimer?.cancel();
+    _notificationRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) {
+        try {
+          context.read<NotificationBloc>().add(RefreshNotificationsEvent());
+        } catch (e) {
+          debugPrint('Error refreshing notifications: $e');
+        }
+      }
+    });
+  }
+
+  void _stopNotificationRefresh() {
+    _notificationRefreshTimer?.cancel();
+    _notificationRefreshTimer = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startNotificationRefresh();
+    } else if (state == AppLifecycleState.paused) {
+      _stopNotificationRefresh();
+    }
   }
 
   Future<void> _getCurrentLocation() async {
@@ -238,6 +272,8 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopNotificationRefresh();
     _animationController.dispose();
     super.dispose();
   }
@@ -381,23 +417,6 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         bottom: false,
         child: Stack(
           children: [
-            // Imagen del sapo/rana decorativa
-            Positioned(
-              top: -10,
-              right: -20,
-              child: Opacity(
-                opacity: 0.4,
-                child: Image.asset(
-                  'assets/images/muni-vertical.png',
-                  width: 180,
-                  height: 180,
-                  fit: BoxFit.contain,
-                  color: Colors.white,
-                  colorBlendMode: BlendMode.srcIn,
-                ),
-              ),
-            ),
-
             // Hojas decorativas
             Positioned(
               top: 0,

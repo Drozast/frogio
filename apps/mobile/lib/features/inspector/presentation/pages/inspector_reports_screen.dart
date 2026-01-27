@@ -1,4 +1,6 @@
 // lib/features/inspector/presentation/pages/inspector_reports_screen.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
@@ -21,11 +23,13 @@ class InspectorReportsScreen extends StatefulWidget {
 }
 
 class _InspectorReportsScreenState extends State<InspectorReportsScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const Color _primaryGreen = Color(0xFF1B5E20);
 
   late TabController _tabController;
   String? _selectedCategory;
+  Timer? _autoRefreshTimer;
+  ReportBloc? _reportBloc;
 
   final List<String> _categories = [
     'Todas',
@@ -42,19 +46,53 @@ class _InspectorReportsScreenState extends State<InspectorReportsScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 3, vsync: this);
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_reportBloc != null && mounted) {
+        _reportBloc!.add(GetReportsByStatusEvent(status: _tabStatuses[_tabController.index]));
+      }
+    });
+  }
+
+  void _stopAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startAutoRefresh();
+    } else if (state == AppLifecycleState.paused) {
+      _stopAutoRefresh();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopAutoRefresh();
+    _reportBloc?.close();
     _tabController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => di.sl<ReportBloc>()..add(const GetReportsByStatusEvent(status: 'submitted')),
+    _reportBloc ??= di.sl<ReportBloc>()..add(const GetReportsByStatusEvent(status: 'submitted'));
+
+    // Start auto-refresh if not already running
+    if (_autoRefreshTimer == null) {
+      _startAutoRefresh();
+    }
+
+    return BlocProvider.value(
+      value: _reportBloc!,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Denuncias'),
@@ -322,6 +360,12 @@ class _InspectorReportsScreenState extends State<InspectorReportsScreen>
       case ReportStatus.archived:
         color = Colors.grey;
         text = 'Archivada';
+      case ReportStatus.duplicate:
+        color = Colors.orange.shade700;
+        text = 'Duplicada';
+      case ReportStatus.cancelled:
+        color = Colors.grey.shade600;
+        text = 'Cancelada';
     }
 
     return Container(

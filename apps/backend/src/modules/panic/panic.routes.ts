@@ -14,6 +14,9 @@ router.post('/', (req, res) => panicController.create(req as AuthRequest, res));
 // User can cancel their own alert
 router.patch('/:id/cancel', (req, res) => panicController.cancel(req as AuthRequest, res));
 
+// Any authenticated user can check their own active alert
+router.get('/my-active', (req, res) => panicController.findMyActive(req as AuthRequest, res));
+
 // Inspectors and admins can view and respond to alerts
 router.get('/active', roleGuard('inspector', 'admin'), (req, res) => panicController.findActive(req as AuthRequest, res));
 router.get('/stats', roleGuard('inspector', 'admin'), (req, res) => panicController.getStats(req as AuthRequest, res));

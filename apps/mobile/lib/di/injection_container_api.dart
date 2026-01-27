@@ -70,6 +70,7 @@ import '../features/panic/data/repositories/panic_repository_impl.dart';
 import '../features/panic/domain/repositories/panic_repository.dart';
 import '../features/panic/domain/usecases/send_panic_alert.dart';
 import '../features/panic/domain/usecases/cancel_panic_alert.dart';
+import '../features/panic/domain/usecases/get_active_alert.dart';
 import '../features/panic/presentation/bloc/panic_bloc.dart';
 
 // Notifications Feature
@@ -318,12 +319,14 @@ Future<void> initApi() async {
   // Use cases
   sl.registerLazySingleton(() => SendPanicAlert(sl()));
   sl.registerLazySingleton(() => CancelPanicAlert(sl()));
+  sl.registerLazySingleton(() => GetActiveAlert(sl()));
 
   // BLoC
   sl.registerFactory(
     () => PanicBloc(
       sendPanicAlert: sl(),
       cancelPanicAlert: sl(),
+      getActiveAlert: sl(),
     ),
   );
 

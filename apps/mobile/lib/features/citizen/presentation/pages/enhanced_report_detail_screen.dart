@@ -660,6 +660,10 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
         return Icons.cancel;
       case ReportStatus.archived:
         return Icons.archive;
+      case ReportStatus.duplicate:
+        return Icons.content_copy;
+      case ReportStatus.cancelled:
+        return Icons.block;
     }
   }
 
@@ -679,6 +683,10 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
         return 'Rechazado';
       case ReportStatus.archived:
         return 'Archivado';
+      case ReportStatus.duplicate:
+        return 'Duplicada';
+      case ReportStatus.cancelled:
+        return 'Cancelada';
     }
   }
 
@@ -1059,6 +1067,10 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
         return AppTheme.errorColor;
       case ReportStatus.archived:
         return Colors.grey.shade600;
+      case ReportStatus.duplicate:
+        return Colors.amber;
+      case ReportStatus.cancelled:
+        return Colors.grey.shade500;
     }
   }
 
@@ -1158,31 +1170,8 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
               ),
             SizedBox(
               height: 400,
-              child: FlutterMap(
-                options: MapOptions(
-                  initialCenter: location,
-                  initialZoom: 16,
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.frogio.santajuana',
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: location,
-                        width: 50,
-                        height: 50,
-                        child: const Icon(
-                          Icons.location_on,
-                          color: AppTheme.primaryColor,
-                          size: 50,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              child: _FullscreenMapWidget(
+                location: location,
               ),
             ),
           ],
@@ -1218,6 +1207,90 @@ class _PhotoViewerScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _FullscreenMapWidget extends StatefulWidget {
+  final LatLng location;
+
+  const _FullscreenMapWidget({required this.location});
+
+  @override
+  State<_FullscreenMapWidget> createState() => _FullscreenMapWidgetState();
+}
+
+class _FullscreenMapWidgetState extends State<_FullscreenMapWidget> {
+  late final MapController _mapController;
+
+  @override
+  void initState() {
+    super.initState();
+    _mapController = MapController();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: widget.location,
+            initialZoom: 16,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.frogio.santajuana',
+            ),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: widget.location,
+                  width: 50,
+                  height: 50,
+                  child: const Icon(
+                    Icons.location_on,
+                    color: AppTheme.primaryColor,
+                    size: 50,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        // Botones de zoom
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: Column(
+            children: [
+              FloatingActionButton(
+                mini: true,
+                heroTag: 'fullscreen_zoom_in',
+                backgroundColor: Colors.white,
+                onPressed: () {
+                  final currentZoom = _mapController.camera.zoom;
+                  _mapController.move(_mapController.camera.center, currentZoom + 1);
+                },
+                child: const Icon(Icons.add, color: AppTheme.primaryColor),
+              ),
+              const SizedBox(height: 8),
+              FloatingActionButton(
+                mini: true,
+                heroTag: 'fullscreen_zoom_out',
+                backgroundColor: Colors.white,
+                onPressed: () {
+                  final currentZoom = _mapController.camera.zoom;
+                  _mapController.move(_mapController.camera.center, currentZoom - 1);
+                },
+                child: const Icon(Icons.remove, color: AppTheme.primaryColor),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

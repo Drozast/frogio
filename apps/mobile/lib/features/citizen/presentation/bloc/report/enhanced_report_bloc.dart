@@ -340,6 +340,12 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
       case 'archived':
       case 'archivada':
         return ReportStatus.archived;
+      case 'duplicate':
+      case 'duplicada':
+        return ReportStatus.duplicate;
+      case 'cancelled':
+      case 'cancelada':
+        return ReportStatus.cancelled;
       default:
         return ReportStatus.draft;
     }

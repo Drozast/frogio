@@ -97,7 +97,9 @@ enum ReportStatus {
   inProgress,
   resolved,
   rejected,
-  archived;
+  archived,
+  duplicate,
+  cancelled;
 
   String get displayName {
     switch (this) {
@@ -115,6 +117,10 @@ enum ReportStatus {
         return 'Rechazada';
       case ReportStatus.archived:
         return 'Archivada';
+      case ReportStatus.duplicate:
+        return 'Duplicada';
+      case ReportStatus.cancelled:
+        return 'Cancelada';
     }
   }
 }

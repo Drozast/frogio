@@ -9,10 +9,19 @@ import {
   ScaleIcon,
   UserGroupIcon,
   BellIcon,
+  MapIcon,
 } from '@heroicons/react/24/outline';
 
-const navigation = [
+interface NavItem {
+  name: string;
+  href: string;
+  icon: typeof HomeIcon;
+  highlight?: boolean;
+}
+
+const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+  { name: 'Mapa en Vivo', href: '/live-map', icon: MapIcon, highlight: true },
   { name: 'Reportes', href: '/reports', icon: DocumentTextIcon },
   { name: 'Citaciones', href: '/citations', icon: ScaleIcon },
   { name: 'Gestión de Flota', href: '/fleet', icon: TruckIcon },
@@ -43,6 +52,7 @@ export default function Sidebar() {
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navigation.map((item, index) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            const isHighlight = item.highlight && !isActive;
             return (
               <Link
                 key={item.name}
@@ -51,6 +61,8 @@ export default function Sidebar() {
                   group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
                   ${isActive
                     ? 'bg-primary text-white shadow-sm'
+                    : isHighlight
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
                     : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   }
                 `}
@@ -59,11 +71,17 @@ export default function Sidebar() {
                 <item.icon
                   className={`
                     mr-3 flex-shrink-0 h-5 w-5 transition-colors
-                    ${isActive ? 'text-white' : 'text-muted-foreground group-hover:text-accent-foreground'}
+                    ${isActive ? 'text-white' : isHighlight ? 'text-emerald-600' : 'text-muted-foreground group-hover:text-accent-foreground'}
                   `}
                   aria-hidden="true"
                 />
                 {item.name}
+                {isHighlight && (
+                  <span className="ml-auto flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                )}
               </Link>
             );
           })}

@@ -430,7 +430,7 @@ Ver **PASOS_COOLIFY.md** sección "Paso 10: Configurar Dominios"
 |-------|----------|-----|
 | admin@test.cl | admin123 | admin |
 | inspector@test.cl | inspector123 | inspector |
-| ciudadano@test.cl | citizen123 | citizen |
+| ciudadano@test.cl | Admin123 | citizen |
 
 ---
 

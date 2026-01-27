@@ -73,11 +73,8 @@ class PanicApiDataSource implements PanicRemoteDataSource {
 
   @override
   Future<PanicAlertEntity?> getActiveAlert() async {
-    final userId = prefs.getString('user_id');
-    if (userId == null) return null;
-
     final response = await client.get(
-      Uri.parse('$baseUrl/api/panic?userId=$userId&status=active'),
+      Uri.parse('$baseUrl/api/panic/my-active'),
       headers: _headers,
     );
 

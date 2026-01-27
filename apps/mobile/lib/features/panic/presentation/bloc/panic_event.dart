@@ -35,6 +35,10 @@ class CancelPanicAlertEvent extends PanicEvent {
   List<Object?> get props => [alertId];
 }
 
+class LoadActiveAlertEvent extends PanicEvent {
+  const LoadActiveAlertEvent();
+}
+
 class ResetPanicStateEvent extends PanicEvent {
   const ResetPanicStateEvent();
 }

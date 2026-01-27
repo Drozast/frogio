@@ -61,6 +61,24 @@ export class PanicService {
       JSON.stringify({ alertId: alert.id, latitude: data.latitude, longitude: data.longitude })
     );
 
+    // Create automatic report for the panic alert (so it appears in user's reports)
+    try {
+      await prisma.$queryRawUnsafe(
+        `INSERT INTO "${tenantId}".reports
+         (user_id, type, title, description, address, latitude, longitude, priority, status, created_at, updated_at)
+         VALUES ($1::uuid, 'emergencia', $2, $3, $4, $5, $6, 'alta', 'pendiente', NOW(), NOW())`,
+        userId,
+        '🚨 Alerta de Emergencia',
+        `Alerta SOS enviada. ${data.message || 'Emergencia'}\n\nID Alerta: ${alert.id}`,
+        data.address || `${data.latitude}, ${data.longitude}`,
+        data.latitude,
+        data.longitude
+      );
+      logger.info(`Auto-created report for panic alert ${alert.id}`);
+    } catch (e) {
+      logger.warn(`Could not auto-create report for panic alert: ${e}`);
+    }
+
     return alert;
   }
 
@@ -139,15 +157,40 @@ export class PanicService {
       throw new Error('Alerta no encontrada o ya atendida');
     }
 
-    // Notify the user that help is on the way
+    // Notify the user that help is on the way (database notification)
     await prisma.$queryRawUnsafe(
       `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
        VALUES ($1::uuid, $2, $3, 'general', $4::jsonb, NOW())`,
       alert.user_id,
-      '✅ Ayuda en camino',
-      'Un inspector está respondiendo a tu alerta',
+      '🚨 ¡Vamos en camino!',
+      'Un inspector está respondiendo a tu alerta de emergencia. Mantén la calma.',
       JSON.stringify({ alertId: id })
     );
+
+    // Send push notification via ntfy to the citizen
+    if (env.NTFY_URL) {
+      try {
+        const userTopic = `frogio_${tenantId}_user_${alert.user_id}`;
+        await fetch(`${env.NTFY_URL}/${userTopic}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Priority': 'urgent',
+            'Tags': 'rotating_light'
+          },
+          body: JSON.stringify({
+            topic: userTopic,
+            title: '🚨 ¡Vamos en camino!',
+            message: 'Un inspector está respondiendo a tu alerta de emergencia. Mantén la calma.',
+            priority: 5,
+            tags: ['rotating_light'],
+          }),
+        });
+        logger.info(`Response notification sent to citizen ${alert.user_id} for alert ${id}`);
+      } catch (e) {
+        logger.warn(`Could not send response notification to citizen: ${e}`);
+      }
+    }
 
     return alert;
   }

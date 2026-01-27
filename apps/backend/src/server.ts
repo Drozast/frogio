@@ -197,6 +197,20 @@ async function bootstrap() {
     await prisma.$connect();
     logger.info('✅ PostgreSQL connected');
 
+    // Auto-fix database constraints if needed
+    try {
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE santa_juana.panic_alerts
+          DROP CONSTRAINT IF EXISTS panic_alerts_status_check;
+        ALTER TABLE santa_juana.panic_alerts
+          ADD CONSTRAINT panic_alerts_status_check
+          CHECK (status IN ('active', 'responding', 'resolved', 'cancelled', 'dismissed'));
+      `);
+      logger.info('✅ Database constraints verified');
+    } catch (e) {
+      logger.warn('Could not verify database constraints (table may not exist yet)');
+    }
+
     // Verificar conexión a Redis (optional)
     if (redis) {
       await redis.ping();
