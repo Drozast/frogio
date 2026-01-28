@@ -199,31 +199,19 @@ async function bootstrap() {
 
     // Auto-fix database constraints if needed
     try {
-      await prisma.$executeRawUnsafe(`
-        ALTER TABLE santa_juana.panic_alerts
-          DROP CONSTRAINT IF EXISTS panic_alerts_status_check;
-        ALTER TABLE santa_juana.panic_alerts
-          ADD CONSTRAINT panic_alerts_status_check
-          CHECK (status IN ('active', 'responding', 'resolved', 'cancelled', 'dismissed'));
-
-        ALTER TABLE santa_juana.reports
-          DROP CONSTRAINT IF EXISTS reports_type_check;
-        ALTER TABLE santa_juana.reports
-          ADD CONSTRAINT reports_type_check
-          CHECK (type IN ('denuncia', 'sugerencia', 'emergencia', 'infraestructura', 'otro'));
-
-        ALTER TABLE santa_juana.reports
-          DROP CONSTRAINT IF EXISTS reports_status_check;
-        ALTER TABLE santa_juana.reports
-          ADD CONSTRAINT reports_status_check
-          CHECK (status IN ('pendiente', 'en_proceso', 'resuelto', 'rechazado'));
-
-        ALTER TABLE santa_juana.reports
-          DROP CONSTRAINT IF EXISTS reports_priority_check;
-        ALTER TABLE santa_juana.reports
-          ADD CONSTRAINT reports_priority_check
-          CHECK (priority IN ('baja', 'media', 'alta', 'urgente'));
-      `);
+      const constraintFixes = [
+        `ALTER TABLE santa_juana.panic_alerts DROP CONSTRAINT IF EXISTS panic_alerts_status_check`,
+        `ALTER TABLE santa_juana.panic_alerts ADD CONSTRAINT panic_alerts_status_check CHECK (status IN ('active', 'responding', 'resolved', 'cancelled', 'dismissed'))`,
+        `ALTER TABLE santa_juana.reports DROP CONSTRAINT IF EXISTS reports_type_check`,
+        `ALTER TABLE santa_juana.reports ADD CONSTRAINT reports_type_check CHECK (type IN ('denuncia', 'sugerencia', 'emergencia', 'infraestructura', 'otro'))`,
+        `ALTER TABLE santa_juana.reports DROP CONSTRAINT IF EXISTS reports_status_check`,
+        `ALTER TABLE santa_juana.reports ADD CONSTRAINT reports_status_check CHECK (status IN ('pendiente', 'en_proceso', 'resuelto', 'rechazado'))`,
+        `ALTER TABLE santa_juana.reports DROP CONSTRAINT IF EXISTS reports_priority_check`,
+        `ALTER TABLE santa_juana.reports ADD CONSTRAINT reports_priority_check CHECK (priority IN ('baja', 'media', 'alta', 'urgente'))`,
+      ];
+      for (const sql of constraintFixes) {
+        await prisma.$executeRawUnsafe(sql);
+      }
       logger.info('✅ Database constraints verified');
     } catch (e) {
       logger.warn('Could not verify database constraints (table may not exist yet)');
