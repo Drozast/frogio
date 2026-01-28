@@ -171,20 +171,32 @@ class EnhancedReportListItem extends StatelessWidget {
   }
 
   Widget _buildCategoryChip() {
+    final isEmergency = report.category.toLowerCase() == 'emergencia';
+    final chipColor = isEmergency ? Colors.red : Colors.blue;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: chipColor.shade50,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade200),
+        border: Border.all(color: chipColor.shade200),
       ),
-      child: Text(
-        _capitalize(report.category),
-        style: TextStyle(
-          color: Colors.blue.shade700,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isEmergency) ...[
+            Icon(Icons.emergency, size: 12, color: chipColor.shade700),
+            const SizedBox(width: 3),
+          ],
+          Text(
+            _capitalize(report.category),
+            style: TextStyle(
+              color: chipColor.shade700,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

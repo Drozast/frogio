@@ -57,12 +57,25 @@ class ReportListItem extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          _capitalize(report.category),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
+                        Row(
+                          children: [
+                            if (report.category.toLowerCase() == 'emergencia') ...[
+                              Icon(Icons.emergency, size: 14, color: Colors.red[600]),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              _capitalize(report.category),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: report.category.toLowerCase() == 'emergencia'
+                                    ? Colors.red[600]
+                                    : Colors.grey[600],
+                                fontWeight: report.category.toLowerCase() == 'emergencia'
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
