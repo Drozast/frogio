@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database.js';
 import {
   GpsBatchDto,
   LiveVehiclePosition,
@@ -6,8 +6,6 @@ import {
   GpsStats,
   RouteHistory,
 } from './gps-tracking.types.js';
-
-const prisma = new PrismaClient();
 
 export class GpsTrackingService {
   // Insert batch of GPS points
@@ -258,9 +256,9 @@ export class GpsTrackingService {
     startDate?: string,
     endDate?: string
   ): Promise<GpsStats> {
-    const dateFilter = startDate && endDate
-      ? `AND vl.start_time >= '${startDate}' AND vl.start_time <= '${endDate}'`
-      : '';
+    const hasDateFilter = startDate && endDate;
+    const dateFilterClause = hasDateFilter ? 'AND vl.start_time >= $1 AND vl.start_time <= $2' : '';
+    const dateParams = hasDateFilter ? [startDate, endDate] : [];
 
     // Overall stats
     const overallQuery = `
@@ -272,7 +270,7 @@ export class GpsTrackingService {
         COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(end_time, NOW()) - start_time)) / 60), 0) as "totalDuration"
       FROM "${tenantId}".vehicle_logs vl
       WHERE status IN ('active', 'completed')
-      ${dateFilter}
+      ${dateFilterClause}
     `;
 
     const overall = await prisma.$queryRawUnsafe<Array<{
@@ -281,7 +279,7 @@ export class GpsTrackingService {
       avgSpeed: number;
       maxSpeed: number;
       totalDuration: number;
-    }>>(overallQuery);
+    }>>(overallQuery, ...dateParams);
 
     // By vehicle
     const byVehicleQuery = `
@@ -293,7 +291,7 @@ export class GpsTrackingService {
       FROM "${tenantId}".vehicle_logs vl
       JOIN "${tenantId}".vehicles v ON vl.vehicle_id = v.id
       WHERE vl.status IN ('active', 'completed')
-      ${dateFilter}
+      ${dateFilterClause}
       GROUP BY v.id, v.plate
       ORDER BY "totalKm" DESC
     `;
@@ -303,7 +301,7 @@ export class GpsTrackingService {
       vehiclePlate: string;
       totalKm: number;
       totalTrips: string;
-    }>>(byVehicleQuery);
+    }>>(byVehicleQuery, ...dateParams);
 
     // By inspector
     const byInspectorQuery = `
@@ -315,7 +313,7 @@ export class GpsTrackingService {
       FROM "${tenantId}".vehicle_logs vl
       JOIN "${tenantId}".users u ON vl.driver_id = u.id
       WHERE vl.status IN ('active', 'completed')
-      ${dateFilter}
+      ${dateFilterClause}
       GROUP BY u.id, u.first_name, u.last_name
       ORDER BY "totalKm" DESC
     `;
@@ -325,7 +323,7 @@ export class GpsTrackingService {
       inspectorName: string;
       totalKm: number;
       totalTrips: string;
-    }>>(byInspectorQuery);
+    }>>(byInspectorQuery, ...dateParams);
 
     const o = overall[0];
     return {
@@ -349,13 +347,16 @@ export class GpsTrackingService {
 
   // Delete old GPS points (for cleanup)
   async cleanupOldPoints(tenantId: string, daysToKeep: number = 90): Promise<number> {
+    // Validate daysToKeep is a positive integer to prevent injection
+    const safeDays = Math.max(1, Math.floor(Number(daysToKeep) || 90));
+
     const query = `
       DELETE FROM "${tenantId}".vehicle_gps_points
-      WHERE recorded_at < NOW() - INTERVAL '${daysToKeep} days'
+      WHERE recorded_at < NOW() - INTERVAL '1 day' * $1
       RETURNING id
     `;
 
-    const result = await prisma.$queryRawUnsafe<{ id: string }[]>(query);
+    const result = await prisma.$queryRawUnsafe<{ id: string }[]>(query, safeDays);
     return result.length;
   }
 }

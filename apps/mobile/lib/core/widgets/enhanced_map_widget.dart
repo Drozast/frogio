@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../services/maps_service.dart';
 import '../theme/app_theme.dart';
 
 class EnhancedMapWidget extends StatefulWidget {
@@ -106,7 +107,8 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
         ),
         children: [
           TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            urlTemplate: MapsService.tileServerUrl,
+            fallbackUrl: MapsService.osmFallbackUrl,
             userAgentPackageName: 'com.frogio.santajuana',
           ),
           if (widget.markers != null && widget.markers!.isNotEmpty)

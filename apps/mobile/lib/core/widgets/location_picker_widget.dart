@@ -107,7 +107,8 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate: MapsService.tileServerUrl,
+                      fallbackUrl: MapsService.osmFallbackUrl,
                       userAgentPackageName: 'com.frogio.santajuana',
                     ),
                     if (_selectedLocation != null)

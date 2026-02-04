@@ -1,17 +1,25 @@
 // lib/core/services/maps_service.dart
 import 'dart:async';
-import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import '../config/api_config.dart';
+import 'nominatim_service.dart';
 
 class MapsService {
   static final MapsService _instance = MapsService._internal();
   factory MapsService() => _instance;
   MapsService._internal();
+
+  final NominatimService _nominatim = NominatimService();
+
+  /// Get self-hosted tile server URL
+  static String get tileServerUrl => '${ApiConfig.tileServerUrl}/styles/basic-preview/{z}/{x}/{y}.png';
+
+  /// Alternative: OpenStreetMap fallback URL
+  static const String osmFallbackUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   MapController? _controller;
   Position? _currentPosition;
@@ -85,32 +93,19 @@ class MapsService {
     }
   }
 
-  // Obtener direccion desde coordenadas
+  // Obtener direccion desde coordenadas (usando Nominatim self-hosted)
   Future<String?> getAddressFromCoordinates(double lat, double lng) async {
-    try {
-      final placemarks = await placemarkFromCoordinates(lat, lng);
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        return '${place.street ?? ''}, ${place.locality ?? ''}, ${place.country ?? ''}';
-      }
-    } catch (e) {
-      log('Error getting address: $e');
-    }
-    return null;
+    return _nominatim.getAddressFromCoordinates(lat, lng);
   }
 
-  // Obtener coordenadas desde direccion
+  // Obtener coordenadas desde direccion (usando Nominatim self-hosted)
   Future<LatLng?> getCoordinatesFromAddress(String address) async {
-    try {
-      final locations = await locationFromAddress(address);
-      if (locations.isNotEmpty) {
-        final location = locations.first;
-        return LatLng(location.latitude, location.longitude);
-      }
-    } catch (e) {
-      log('Error getting coordinates: $e');
-    }
-    return null;
+    return _nominatim.getCoordinatesFromAddress(address);
+  }
+
+  // Buscar lugares con autocompletado
+  Future<List<NominatimPlace>> searchPlaces(String query, {int limit = 5}) async {
+    return _nominatim.searchPlaces(query, limit: limit);
   }
 
   // Calcular distancia entre dos puntos

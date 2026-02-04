@@ -197,25 +197,32 @@ async function bootstrap() {
     await prisma.$connect();
     logger.info('✅ PostgreSQL connected');
 
-    // Auto-fix database constraints if needed
-    const constraintFixes = [
-      `ALTER TABLE santa_juana.panic_alerts DROP CONSTRAINT IF EXISTS panic_alerts_status_check`,
-      `ALTER TABLE santa_juana.panic_alerts ADD CONSTRAINT panic_alerts_status_check CHECK (status IN ('active', 'responding', 'resolved', 'cancelled', 'dismissed'))`,
-      `ALTER TABLE santa_juana.reports DROP CONSTRAINT IF EXISTS reports_type_check`,
-      `ALTER TABLE santa_juana.reports ADD CONSTRAINT reports_type_check CHECK (type IN ('denuncia', 'sugerencia', 'emergencia', 'infraestructura', 'otro'))`,
-      `ALTER TABLE santa_juana.reports DROP CONSTRAINT IF EXISTS reports_status_check`,
-      `ALTER TABLE santa_juana.reports ADD CONSTRAINT reports_status_check CHECK (status IN ('pendiente', 'en_proceso', 'resuelto', 'rechazado', 'pending', 'in_progress', 'resolved', 'rejected'))`,
-      `ALTER TABLE santa_juana.reports DROP CONSTRAINT IF EXISTS reports_priority_check`,
-      `ALTER TABLE santa_juana.reports ADD CONSTRAINT reports_priority_check CHECK (priority IN ('baja', 'media', 'alta', 'urgente', 'low', 'medium', 'high', 'urgent'))`,
-    ];
-    for (const sql of constraintFixes) {
-      try {
-        await prisma.$executeRawUnsafe(sql);
-      } catch (e) {
-        logger.warn(`Constraint fix skipped: ${e instanceof Error ? e.message : e}`);
+    // Auto-fix database constraints for all tenants
+    const tenants = await prisma.$queryRaw<{ schema_name: string }[]>`
+      SELECT schema_name FROM public.tenants WHERE is_active = true
+    `;
+
+    for (const tenant of tenants) {
+      const schema = tenant.schema_name;
+      const constraintFixes = [
+        `ALTER TABLE "${schema}".panic_alerts DROP CONSTRAINT IF EXISTS panic_alerts_status_check`,
+        `ALTER TABLE "${schema}".panic_alerts ADD CONSTRAINT panic_alerts_status_check CHECK (status IN ('active', 'responding', 'resolved', 'cancelled', 'dismissed'))`,
+        `ALTER TABLE "${schema}".reports DROP CONSTRAINT IF EXISTS reports_type_check`,
+        `ALTER TABLE "${schema}".reports ADD CONSTRAINT reports_type_check CHECK (type IN ('denuncia', 'sugerencia', 'emergencia', 'infraestructura', 'otro'))`,
+        `ALTER TABLE "${schema}".reports DROP CONSTRAINT IF EXISTS reports_status_check`,
+        `ALTER TABLE "${schema}".reports ADD CONSTRAINT reports_status_check CHECK (status IN ('pendiente', 'en_proceso', 'resuelto', 'rechazado', 'pending', 'in_progress', 'resolved', 'rejected'))`,
+        `ALTER TABLE "${schema}".reports DROP CONSTRAINT IF EXISTS reports_priority_check`,
+        `ALTER TABLE "${schema}".reports ADD CONSTRAINT reports_priority_check CHECK (priority IN ('baja', 'media', 'alta', 'urgente', 'low', 'medium', 'high', 'urgent'))`,
+      ];
+      for (const sql of constraintFixes) {
+        try {
+          await prisma.$executeRawUnsafe(sql);
+        } catch (e) {
+          // Silently skip - table might not exist in this tenant
+        }
       }
+      logger.info(`✅ Database constraints verified for tenant: ${schema}`);
     }
-    logger.info('✅ Database constraints verified');
 
     // Verificar conexión a Redis (optional)
     if (redis) {

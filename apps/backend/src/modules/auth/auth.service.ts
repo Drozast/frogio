@@ -66,8 +66,6 @@ export class AuthService {
   }
 
   async login(data: LoginDto, tenantId: string): Promise<AuthResponse> {
-    console.log('🔐 Login attempt:', { email: data.email, tenantId });
-
     // Find user by email
     const [user] = await prisma.$queryRawUnsafe<any[]>(
       `SELECT id, email, password_hash, rut, first_name, last_name, phone, role, is_active
@@ -75,8 +73,6 @@ export class AuthService {
        WHERE email = $1 LIMIT 1`,
       data.email
     );
-
-    console.log('👤 User found:', user ? { email: user.email, hash: user.password_hash?.substring(0, 20) } : 'NO USER');
 
     if (!user) {
       throw new Error('Credenciales inválidas');
@@ -87,9 +83,7 @@ export class AuthService {
     }
 
     // Verify password
-    console.log('🔑 Comparing password...');
     const isPasswordValid = await bcrypt.compare(data.password, user.password_hash);
-    console.log('✅ Password valid:', isPasswordValid);
 
     if (!isPasswordValid) {
       throw new Error('Credenciales inválidas');

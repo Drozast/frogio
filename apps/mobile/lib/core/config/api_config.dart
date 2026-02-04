@@ -19,6 +19,20 @@ class ApiConfig {
     defaultValue: 'https://ntfy.drozast.xyz',
   );
 
+  // Self-hosted Maps Services
+  static const String tileServerUrl = String.fromEnvironment(
+    'TILE_SERVER_URL',
+    defaultValue: 'https://maps.drozast.xyz',
+  );
+  static const String nominatimUrl = String.fromEnvironment(
+    'NOMINATIM_URL',
+    defaultValue: 'https://geo.drozast.xyz',
+  );
+  static const String osrmUrl = String.fromEnvironment(
+    'OSRM_URL',
+    defaultValue: 'https://routing.drozast.xyz',
+  );
+
   // Timeouts
   static const int connectTimeout = 30000; // 30 segundos
   static const int receiveTimeout = 30000; // 30 segundos

@@ -1,4 +1,5 @@
 import { env } from '../config/env.js';
+import { logger } from '../config/logger.js';
 import prisma from '../config/database.js';
 
 export class NotificationsService {
@@ -12,9 +13,11 @@ export class NotificationsService {
     tenantId: string,
     metadata?: Record<string, any>
   ) {
+    let notification = null;
+
+    // Save notification to database (primary operation)
     try {
-      // Save notification to database
-      const [notification] = await prisma.$queryRawUnsafe<any[]>(
+      const [result] = await prisma.$queryRawUnsafe<any[]>(
         `INSERT INTO "${tenantId}".notifications
          (user_id, title, message, type, is_read, metadata, created_at)
          VALUES ($1::uuid, $2, $3, $4, $5, $6, NOW())
@@ -26,30 +29,38 @@ export class NotificationsService {
         false,
         metadata ? JSON.stringify(metadata) : null
       );
-
-      // Send push notification via ntfy
-      const topic = `${tenantId}_${userId}`;
-      const priority = type === 'urgent' ? 5 : type === 'citation' || type === 'infraction' ? 4 : 3;
-
-      await fetch(`${this.NTFY_URL}/${topic}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          topic,
-          title,
-          message,
-          priority,
-          tags: [type],
-        }),
-      });
-
-      return notification;
+      notification = result;
     } catch (error) {
-      console.error('Error sending push notification:', error);
+      logger.error(`Failed to save notification to database: ${error instanceof Error ? error.message : error}`);
       throw error;
     }
+
+    // Send push notification via ntfy (secondary, non-blocking)
+    if (this.NTFY_URL) {
+      try {
+        const topic = `${tenantId}_${userId}`;
+        const priority = type === 'urgent' ? 5 : type === 'citation' || type === 'infraction' ? 4 : 3;
+
+        await fetch(`${this.NTFY_URL}/${topic}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            topic,
+            title,
+            message,
+            priority,
+            tags: [type],
+          }),
+        });
+      } catch (error) {
+        // Log but don't fail - ntfy is optional
+        logger.warn(`Failed to send ntfy push notification: ${error instanceof Error ? error.message : error}`);
+      }
+    }
+
+    return notification;
   }
 
   async getUserNotifications(userId: string, tenantId: string, limit: number = 50) {

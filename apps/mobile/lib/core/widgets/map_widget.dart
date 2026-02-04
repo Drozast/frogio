@@ -127,7 +127,8 @@ class _MapWidgetState extends State<MapWidget> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: MapsService.tileServerUrl,
+                fallbackUrl: MapsService.osmFallbackUrl,
                 userAgentPackageName: 'com.frogio.santajuana',
               ),
               if (_markers.isNotEmpty) MarkerLayer(markers: _markers),

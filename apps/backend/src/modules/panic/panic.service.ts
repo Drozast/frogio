@@ -51,15 +51,19 @@ export class PanicService {
       }
     }
 
-    // Also create internal notification for all inspectors
-    await prisma.$queryRawUnsafe(
-      `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
-       SELECT id, $1, $2, 'urgent', $3::jsonb, NOW()
-       FROM "${tenantId}".users WHERE role IN ('inspector', 'admin')`,
-      '🚨 ALERTA DE PÁNICO',
-      `Un ciudadano necesita ayuda urgente`,
-      JSON.stringify({ alertId: alert.id, latitude: data.latitude, longitude: data.longitude })
-    );
+    // Also create internal notification for all inspectors (non-blocking)
+    try {
+      await prisma.$queryRawUnsafe(
+        `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
+         SELECT id, $1, $2, 'urgent', $3::jsonb, NOW()
+         FROM "${tenantId}".users WHERE role IN ('inspector', 'admin')`,
+        '🚨 ALERTA DE PÁNICO',
+        `Un ciudadano necesita ayuda urgente`,
+        JSON.stringify({ alertId: alert.id, latitude: data.latitude, longitude: data.longitude })
+      );
+    } catch (e) {
+      logger.warn(`Could not create notifications for inspectors: ${e}`);
+    }
 
     // Create automatic report for the panic alert (so it appears in user's reports)
     try {
@@ -157,15 +161,19 @@ export class PanicService {
       throw new Error('Alerta no encontrada o ya atendida');
     }
 
-    // Notify the user that help is on the way (database notification)
-    await prisma.$queryRawUnsafe(
-      `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
-       VALUES ($1::uuid, $2, $3, 'general', $4::jsonb, NOW())`,
-      alert.user_id,
-      '🚨 ¡Vamos en camino!',
-      'Un inspector está respondiendo a tu alerta de emergencia. Mantén la calma.',
-      JSON.stringify({ alertId: id })
-    );
+    // Notify the user that help is on the way (database notification - non-blocking)
+    try {
+      await prisma.$queryRawUnsafe(
+        `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
+         VALUES ($1::uuid, $2, $3, 'general', $4::jsonb, NOW())`,
+        alert.user_id,
+        '🚨 ¡Vamos en camino!',
+        'Un inspector está respondiendo a tu alerta de emergencia. Mantén la calma.',
+        JSON.stringify({ alertId: id })
+      );
+    } catch (e) {
+      logger.warn(`Could not notify user about response: ${e}`);
+    }
 
     // Send push notification via ntfy to the citizen
     if (env.NTFY_URL) {
@@ -226,15 +234,19 @@ export class PanicService {
       throw new Error('No puedes cancelar esta alerta');
     }
 
-    // Notificar a los inspectores que la alerta fue cancelada por el usuario
-    await prisma.$queryRawUnsafe(
-      `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
-       SELECT id, $1, $2, 'general', $3::jsonb, NOW()
-       FROM "${tenantId}".users WHERE role IN ('inspector', 'admin')`,
-      'Alerta de pánico cancelada',
-      'El ciudadano ha cancelado su alerta de emergencia',
-      JSON.stringify({ alertId: id, cancelledByUser: true })
-    );
+    // Notificar a los inspectores que la alerta fue cancelada por el usuario (non-blocking)
+    try {
+      await prisma.$queryRawUnsafe(
+        `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
+         SELECT id, $1, $2, 'general', $3::jsonb, NOW()
+         FROM "${tenantId}".users WHERE role IN ('inspector', 'admin')`,
+        'Alerta de pánico cancelada',
+        'El ciudadano ha cancelado su alerta de emergencia',
+        JSON.stringify({ alertId: id, cancelledByUser: true })
+      );
+    } catch (e) {
+      logger.warn(`Could not notify inspectors about cancellation: ${e}`);
+    }
 
     return alert;
   }
@@ -253,15 +265,19 @@ export class PanicService {
       throw new Error('Alerta no encontrada o ya resuelta');
     }
 
-    // Notificar al usuario que su alerta fue descartada
-    await prisma.$queryRawUnsafe(
-      `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
-       VALUES ($1::uuid, $2, $3, 'general', $4::jsonb, NOW())`,
-      alert.user_id,
-      'Alerta descartada',
-      `Tu alerta de emergencia fue descartada. Motivo: ${reason}`,
-      JSON.stringify({ alertId: id, reason, dismissedBy })
-    );
+    // Notificar al usuario que su alerta fue descartada (non-blocking)
+    try {
+      await prisma.$queryRawUnsafe(
+        `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
+         VALUES ($1::uuid, $2, $3, 'general', $4::jsonb, NOW())`,
+        alert.user_id,
+        'Alerta descartada',
+        `Tu alerta de emergencia fue descartada. Motivo: ${reason}`,
+        JSON.stringify({ alertId: id, reason, dismissedBy })
+      );
+    } catch (e) {
+      logger.warn(`Could not notify user about dismissal: ${e}`);
+    }
 
     return alert;
   }
