@@ -15,8 +15,8 @@ class MapsService {
 
   final NominatimService _nominatim = NominatimService();
 
-  /// Get self-hosted tile server URL
-  static String get tileServerUrl => '${ApiConfig.tileServerUrl}/styles/basic-preview/{z}/{x}/{y}.png';
+  /// Get self-hosted tile server URL (osm-bright style)
+  static String get tileServerUrl => '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png';
 
   /// Alternative: OpenStreetMap fallback URL
   static const String osmFallbackUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
