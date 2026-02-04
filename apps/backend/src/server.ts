@@ -197,13 +197,20 @@ async function bootstrap() {
     await prisma.$connect();
     logger.info('✅ PostgreSQL connected');
 
-    // Auto-fix database constraints for all tenants
-    const tenants = await prisma.$queryRaw<{ schema_name: string }[]>`
-      SELECT schema_name FROM public.tenants WHERE is_active = true
+    // Auto-fix database constraints for all tenant schemas
+    // Query all non-system schemas (potential tenant schemas)
+    const schemas = await prisma.$queryRaw<{ nspname: string }[]>`
+      SELECT nspname FROM pg_namespace
+      WHERE nspname NOT IN ('public', 'pg_catalog', 'information_schema', 'pg_toast')
+      AND nspname NOT LIKE 'pg_%'
     `;
 
-    for (const tenant of tenants) {
-      const schema = tenant.schema_name;
+    // Fallback to default if no schemas found
+    const tenantSchemas = schemas.length > 0
+      ? schemas.map(s => s.nspname)
+      : ['santa_juana'];
+
+    for (const schema of tenantSchemas) {
       const constraintFixes = [
         `ALTER TABLE "${schema}".panic_alerts DROP CONSTRAINT IF EXISTS panic_alerts_status_check`,
         `ALTER TABLE "${schema}".panic_alerts ADD CONSTRAINT panic_alerts_status_check CHECK (status IN ('active', 'responding', 'resolved', 'cancelled', 'dismissed'))`,
