@@ -6,10 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../../../core/config/api_config.dart';
+import '../../../../core/network/auth_http_client.dart';
+import '../../../../di/injection_container_api.dart' as di;
 import 'report_detail_screen.dart';
 
 class InspectorMapScreen extends StatefulWidget {
@@ -102,23 +101,15 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
 
   Future<void> _loadData() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
+      final authClient = di.sl<AuthHttpClient>();
       final baseUrl = ApiConfig.activeBaseUrl;
 
       debugPrint('🗺️ Map loading data from: $baseUrl');
-      debugPrint('🔑 Token available: ${token != null}');
-
-      final headers = {
-        'Content-Type': 'application/json',
-        'x-tenant-id': ApiConfig.tenantId,
-        if (token != null) 'Authorization': 'Bearer $token',
-      };
 
       // Load reports and panic alerts in parallel
       final results = await Future.wait([
-        http.get(Uri.parse('$baseUrl/api/reports'), headers: headers),
-        http.get(Uri.parse('$baseUrl/api/panic/active'), headers: headers),
+        authClient.get(Uri.parse('$baseUrl/api/reports')),
+        authClient.get(Uri.parse('$baseUrl/api/panic/active')),
       ]);
 
       final reportsResponse = results[0];
@@ -1386,16 +1377,11 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
     if (alertId == null) return;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
+      final authClient = di.sl<AuthHttpClient>();
       final baseUrl = ApiConfig.activeBaseUrl;
 
-      final response = await http.patch(
+      final response = await authClient.patch(
         Uri.parse('$baseUrl/api/panic/$alertId/respond'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
       );
 
       if (!mounted) return;
@@ -1587,16 +1573,11 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
     if (notes == null) return;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
+      final authClient = di.sl<AuthHttpClient>();
       final baseUrl = ApiConfig.activeBaseUrl;
 
-      final response = await http.patch(
+      final response = await authClient.patch(
         Uri.parse('$baseUrl/api/panic/$alertId/resolve'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
         body: json.encode({'notes': notes}),
       );
 
@@ -1700,16 +1681,11 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
     if (reason == null) return;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
+      final authClient = di.sl<AuthHttpClient>();
       final baseUrl = ApiConfig.activeBaseUrl;
 
-      final response = await http.patch(
+      final response = await authClient.patch(
         Uri.parse('$baseUrl/api/panic/$alertId/dismiss'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
         body: json.encode({'reason': reason}),
       );
 

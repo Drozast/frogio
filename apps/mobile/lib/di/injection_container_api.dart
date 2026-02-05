@@ -303,7 +303,7 @@ Future<void> initApi() async {
   // Data sources
   sl.registerLazySingleton<PanicRemoteDataSource>(
     () => PanicApiDataSource(
-      client: sl(),
+      client: sl<AuthHttpClient>(),
       prefs: sl(),
       baseUrl: ApiConfig.activeBaseUrl,
     ),
