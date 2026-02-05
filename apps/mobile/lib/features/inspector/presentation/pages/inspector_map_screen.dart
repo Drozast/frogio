@@ -154,14 +154,16 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
     }
   }
 
-  // Filter out resolved/rejected reports by default (they shouldn't appear on map)
+  // Filter out resolved/rejected reports and emergencia type (shown as SOS markers instead)
   List<Map<String, dynamic>> get _activeReports {
     return _reports.where((r) {
       final status = r['status']?.toString().toLowerCase() ?? '';
+      final type = r['type']?.toString().toLowerCase() ?? '';
       return status != 'resuelto' &&
           status != 'resolved' &&
           status != 'rechazado' &&
-          status != 'rejected';
+          status != 'rejected' &&
+          type != 'emergencia';
     }).toList();
   }
 
@@ -338,10 +340,10 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
                         ),
                       ),
                     ),
-                  // Panic alert markers (animated, on top)
-                  ..._panicAlerts.map((alert) => _buildPanicMarker(alert)),
                   // Report markers
                   ..._filteredReports.map((report) => _buildReportMarker(report)),
+                  // Panic alert markers (animated, rendered last = on top)
+                  ..._panicAlerts.map((alert) => _buildPanicMarker(alert)),
                 ],
               ),
             ],
@@ -1429,39 +1431,160 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
   Future<void> _resolveAlert(String? alertId) async {
     if (alertId == null) return;
 
-    // Mostrar diálogo de confirmación
-    final confirmed = await showDialog<bool>(
+    final notesController = TextEditingController();
+    String? selectedQuickNote;
+
+    final notes = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 8),
-            Text('Resolver Alerta'),
-          ],
-        ),
-        content: const Text(
-          '¿Confirmas que la situación de emergencia ha sido atendida y resuelta?\n\n'
-          'Esto cerrará la alerta de pánico y notificará al ciudadano.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final quickNotes = [
+            'Situacion controlada',
+            'Falsa alarma',
+            'Persona asistida y fuera de peligro',
+            'Derivado a servicios de emergencia',
+            'Problema resuelto en el lugar',
+          ];
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle, color: Colors.green, size: 28),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text('Cerrar Alerta SOS', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+              ],
             ),
-            child: const Text('Confirmar'),
-          ),
-        ],
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Describe brevemente lo sucedido:',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                    const SizedBox(height: 12),
+                    // Quick note chips
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: quickNotes.map((note) {
+                        final isSelected = selectedQuickNote == note;
+                        return GestureDetector(
+                          onTap: () {
+                            setDialogState(() {
+                              if (isSelected) {
+                                selectedQuickNote = null;
+                                notesController.clear();
+                              } else {
+                                selectedQuickNote = note;
+                                notesController.text = note;
+                              }
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.green.withOpacity(0.15) : Colors.grey.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected ? Colors.green : Colors.grey.withOpacity(0.3),
+                                width: isSelected ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Text(
+                              note,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isSelected ? Colors.green.shade800 : Colors.grey.shade700,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    // Text field for custom notes
+                    TextField(
+                      controller: notesController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: 'Escribe el contexto de lo sucedido...',
+                        hintStyle: TextStyle(color: Colors.grey.shade400),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Colors.green, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.all(12),
+                      ),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          if (value != selectedQuickNote) {
+                            selectedQuickNote = null;
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Este registro quedara asociado a la alerta.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, null),
+                child: Text('Cancelar', style: TextStyle(color: Colors.grey.shade600)),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  final text = notesController.text.trim();
+                  if (text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Debes escribir un contexto antes de cerrar la alerta'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.pop(context, text);
+                },
+                icon: const Icon(Icons.check, size: 18),
+                label: const Text('Cerrar Alerta'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
 
-    if (confirmed != true) return;
+    if (notes == null) return;
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -1474,6 +1597,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
           'Content-Type': 'application/json',
           if (token != null) 'Authorization': 'Bearer $token',
         },
+        body: json.encode({'notes': notes}),
       );
 
       if (!mounted) return;

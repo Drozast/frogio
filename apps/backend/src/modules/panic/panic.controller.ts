@@ -40,10 +40,11 @@ export class PanicController {
         return;
       }
 
-      const alerts = await panicService.findAll(tenantId, {
-        status: 'active',
+      // Get all alerts for this user and filter to active/responding
+      const allAlerts = await panicService.findAll(tenantId, {
         userId: userId,
       });
+      const alerts = allAlerts.filter((a: any) => ['active', 'responding'].includes(a.status));
 
       res.json(alerts);
     } catch (error) {

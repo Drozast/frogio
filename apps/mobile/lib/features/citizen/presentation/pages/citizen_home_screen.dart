@@ -88,14 +88,16 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
   }
 
   Future<void> _refreshData() async {
-    // Recargar denuncias si el ReportBloc está disponible
     if (mounted) {
+      // Recargar denuncias
       try {
         final reportBloc = context.read<ReportBloc>();
         reportBloc.add(LoadReportsEvent(userId: widget.user.id));
       } catch (e) {
         debugPrint('⚠️ Error accessing ReportBloc: $e');
       }
+      // Recargar estado de alerta activa (detecta resolve externo)
+      _loadActiveAlert();
     }
   }
 
@@ -411,6 +413,27 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
               _sosProgress = 0.0;
             });
             context.read<PanicBloc>().add(const ResetPanicStateEvent());
+          } else if (panicState is PanicInitial && _activeAlertId != null) {
+            // Alert was resolved/cancelled externally by inspector
+            setState(() {
+              _activeAlertId = null;
+              _sosProgress = 0.0;
+              _isSOSPressed = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white, size: 20),
+                    SizedBox(width: 12),
+                    Expanded(child: Text('Tu alerta ha sido atendida y resuelta.')),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                duration: Duration(seconds: 5),
+              ),
+            );
           } else if (panicState is PanicError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

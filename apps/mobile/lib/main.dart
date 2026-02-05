@@ -18,6 +18,8 @@ import 'features/citizen/presentation/pages/enhanced_my_reports_screen.dart';
 import 'features/citizen/presentation/pages/enhanced_report_detail_screen.dart';
 import 'features/inspector/presentation/pages/inspector_map_screen.dart';
 import 'features/panic/presentation/pages/panic_screen.dart';
+import 'features/panic/presentation/pages/sos_tracking_screen.dart';
+import 'package:latlong2/latlong.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -109,9 +111,21 @@ class MyApp extends StatelessWidget {
                 ),
               );
 
-            case '/inspector-map':
+            case '/sos-tracking':
+              final args = settings.arguments as Map<String, dynamic>?;
+              final alertId = args?['alertId'] as String?;
               return MaterialPageRoute(
-                builder: (_) => const InspectorMapScreen(),
+                builder: (_) => SosTrackingScreen(alertId: alertId),
+              );
+
+            case '/inspector-map':
+              final args = settings.arguments as Map<String, dynamic>?;
+              final lat = args?['latitude'] as double?;
+              final lng = args?['longitude'] as double?;
+              return MaterialPageRoute(
+                builder: (_) => InspectorMapScreen(
+                  initialLocation: (lat != null && lng != null) ? LatLng(lat, lng) : null,
+                ),
               );
 
             default:

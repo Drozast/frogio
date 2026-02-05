@@ -69,6 +69,9 @@ class PanicBloc extends Bloc<PanicEvent, PanicState> {
       (alert) {
         if (alert != null) {
           emit(PanicAlertActive(alert: alert));
+        } else if (state is PanicAlertActive || state is PanicAlertSent) {
+          // Alert was resolved/cancelled externally - reset state
+          emit(const PanicInitial());
         }
       },
     );

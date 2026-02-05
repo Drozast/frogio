@@ -57,28 +57,39 @@ class NotificationService {
       return;
     }
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings(
-      requestSoundPermission: true,
-      requestBadgePermission: true,
-      requestAlertPermission: true,
-    );
+    try {
+      const androidSettings = AndroidInitializationSettings('@drawable/ic_notification');
+      const iosSettings = DarwinInitializationSettings(
+        requestSoundPermission: true,
+        requestBadgePermission: true,
+        requestAlertPermission: true,
+      );
+      const macOSSettings = DarwinInitializationSettings(
+        requestSoundPermission: true,
+        requestBadgePermission: true,
+        requestAlertPermission: true,
+      );
 
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
+      const initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+        macOS: macOSSettings,
+      );
 
-    await _localNotifications.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: _onNotificationTapped,
-    );
+      await _localNotifications.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: _onNotificationTapped,
+      );
 
-    // Crear canal de notificaciones para alertas de pánico (alta prioridad)
-    await _createNotificationChannels();
+      // Crear canal de notificaciones para alertas de pánico (alta prioridad)
+      await _createNotificationChannels();
 
-    // Solicitar permiso de notificaciones (Android 13+)
-    await _requestNotificationPermission();
+      // Solicitar permiso de notificaciones (Android 13+)
+      await _requestNotificationPermission();
+    } catch (e) {
+      // En macOS desktop las notificaciones pueden no estar disponibles
+      log('Error initializing local notifications (may be unsupported platform): $e');
+    }
   }
 
   Future<void> _requestNotificationPermission() async {
@@ -284,10 +295,23 @@ class NotificationService {
   void _handleNotification(Map<String, dynamic> data, String topic) {
     log('Notification received from $topic: $data');
 
-    final title = data['title']?.toString() ?? '';
-    final message = data['message']?.toString() ?? '';
+    var title = data['title']?.toString() ?? '';
+    var message = data['message']?.toString() ?? '';
     final priority = data['priority'] ?? 3;
     final clickUrl = data['click'] ?? '';
+
+    // Fallback: if message is raw JSON (ntfy didn't parse the body), extract title/message
+    if (message.startsWith('{') && message.endsWith('}')) {
+      try {
+        final parsed = jsonDecode(message) as Map<String, dynamic>;
+        if (parsed.containsKey('message') || parsed.containsKey('title')) {
+          title = parsed['title']?.toString() ?? title;
+          message = parsed['message']?.toString() ?? message;
+        }
+      } catch (_) {
+        // Not valid JSON, use as-is
+      }
+    }
 
     // Ignorar notificaciones vacías o eventos keepalive de ntfy
     // ntfy envía eventos con event: "open" o sin mensaje real
@@ -335,6 +359,7 @@ class NotificationService {
       }
 
       final panicData = {
+        'type': 'panic',
         'title': title,
         'message': message,
         'topic': topic,
@@ -348,11 +373,26 @@ class NotificationService {
       _showPanicNotification(title, message, panicData);
       onPanicAlertReceived?.call(panicData);
     } else {
+      // Check if it's a panic response notification (citizen gets notified inspector is on the way)
+      Map<String, dynamic>? notifData = extraData;
+      if (clickUrl.startsWith('frogio://panic_response')) {
+        try {
+          final uri = Uri.parse(clickUrl);
+          notifData = {
+            'type': 'panic_response',
+            'alertId': uri.queryParameters['alertId'],
+            if (latitude != null) 'latitude': latitude,
+            if (longitude != null) 'longitude': longitude,
+            ...?extraData,
+          };
+        } catch (_) {}
+      }
+
       // Notificación normal
       showLocalNotification(
         title: title,
         body: message,
-        data: extraData,
+        data: notifData,
         highPriority: priority >= 4,
       );
     }
@@ -373,13 +413,15 @@ class NotificationService {
   Future<void> _showPanicNotification(String title, String message, Map<String, dynamic>? data) async {
     if (kIsWeb) return;
 
-    final androidDetails = AndroidNotificationDetails(
+    try {
+      final androidDetails = AndroidNotificationDetails(
       'frogio_panic_channel',
       'Alertas de Pánico',
       channelDescription: 'Alertas de emergencia',
       importance: Importance.max,
       priority: Priority.max,
-      icon: '@mipmap/ic_launcher',
+      icon: '@drawable/ic_notification',
+      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
       fullScreenIntent: true,
       category: AndroidNotificationCategory.alarm,
       visibility: NotificationVisibility.public,
@@ -398,6 +440,7 @@ class NotificationService {
     final notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
+      macOS: iosDetails, // Same as iOS for Darwin platforms
     );
 
     final payload = data != null ? jsonEncode(data) : null;
@@ -415,6 +458,9 @@ class NotificationService {
         notificationDetails,
         payload: payload,
       );
+    }
+    } catch (e) {
+      log('Error showing panic notification: $e');
     }
   }
 
@@ -481,29 +527,35 @@ class NotificationService {
       return;
     }
 
-    final androidDetails = AndroidNotificationDetails(
-      'frogio_channel',
-      'FROGIO Notifications',
-      channelDescription: 'Notificaciones de la app FROGIO',
-      importance: highPriority ? Importance.max : Importance.high,
-      priority: highPriority ? Priority.max : Priority.high,
-      icon: '@mipmap/ic_launcher',
-    );
+    try {
+      final androidDetails = AndroidNotificationDetails(
+        'frogio_channel',
+        'FROGIO Notifications',
+        channelDescription: 'Notificaciones de la app FROGIO',
+        importance: highPriority ? Importance.max : Importance.high,
+        priority: highPriority ? Priority.max : Priority.high,
+        icon: '@drawable/ic_notification',
+        largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      );
 
-    const iosDetails = DarwinNotificationDetails();
+      const iosDetails = DarwinNotificationDetails();
 
-    final notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
+      final notificationDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+        macOS: iosDetails,
+      );
 
-    await _localNotifications.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title,
-      body,
-      notificationDetails,
-      payload: data != null ? jsonEncode(data) : null,
-    );
+      await _localNotifications.show(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title,
+        body,
+        notificationDetails,
+        payload: data != null ? jsonEncode(data) : null,
+      );
+    } catch (e) {
+      log('Error showing local notification: $e');
+    }
   }
 
   /// Limpiar cuando el usuario cierre sesión

@@ -71,6 +71,8 @@ class NotificationManager {
   void _showRepeatingPanicBanner(BuildContext context, Map<String, dynamic> data) {
     final title = data['title']?.toString() ?? 'ALERTA DE PANICO';
     final message = data['message']?.toString() ?? 'Un ciudadano necesita ayuda';
+    final lat = data['latitude'] as double?;
+    final lng = data['longitude'] as double?;
 
     int repeatCount = 0;
 
@@ -103,7 +105,7 @@ class NotificationManager {
           onTap: () {
             _activePanicOverlay?.remove();
             _activePanicOverlay = null;
-            _refreshAndNavigateToMap(context);
+            _refreshAndNavigateToMap(context, latitude: lat, longitude: lng);
           },
           onAnimationComplete: () {
             // Esperar un poco y mostrar la siguiente repetición
@@ -198,7 +200,11 @@ class NotificationManager {
           ElevatedButton.icon(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              _refreshAndNavigateToMap(context);
+              _refreshAndNavigateToMap(
+                context,
+                latitude: latitude is double ? latitude : double.tryParse(latitude?.toString() ?? ''),
+                longitude: longitude is double ? longitude : double.tryParse(longitude?.toString() ?? ''),
+              );
             },
             icon: const Icon(Icons.map),
             label: const Text('Ver en Mapa'),
@@ -212,11 +218,15 @@ class NotificationManager {
     );
   }
 
-  void _refreshAndNavigateToMap(BuildContext context) {
-    // Navegar al mapa - el mapa se recargará automáticamente
+  void _refreshAndNavigateToMap(BuildContext context, {double? latitude, double? longitude}) {
+    // Navegar al mapa con ubicación del SOS si está disponible
     Navigator.of(context).pushNamedAndRemoveUntil(
       '/inspector-map',
       (route) => route.isFirst,
+      arguments: {
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
+      },
     );
   }
 
@@ -280,7 +290,21 @@ class NotificationManager {
 
     switch (type) {
       case 'panic':
-        Navigator.of(context).pushNamed('/inspector-map');
+        final lat = data['latitude'] is double
+            ? data['latitude'] as double
+            : double.tryParse(data['latitude']?.toString() ?? '');
+        final lng = data['longitude'] is double
+            ? data['longitude'] as double
+            : double.tryParse(data['longitude']?.toString() ?? '');
+        Navigator.of(context).pushNamed('/inspector-map', arguments: {
+          if (lat != null) 'latitude': lat,
+          if (lng != null) 'longitude': lng,
+        });
+        break;
+      case 'panic_response':
+        Navigator.of(context).pushNamed('/sos-tracking', arguments: {
+          if (alertId != null) 'alertId': alertId,
+        });
         break;
       case 'report_status_changed':
         _navigateToReportDetail(context, reportId);
