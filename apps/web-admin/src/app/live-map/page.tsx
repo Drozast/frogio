@@ -115,17 +115,38 @@ export default function LiveMapPage() {
         'X-Tenant-ID': 'santa_juana',
       };
 
-      const [reportsRes, usersRes, vehiclesRes, panicRes] = await Promise.all([
+      const [reportsRes, usersRes, vehicleLogsRes, panicRes] = await Promise.all([
         fetch(`${API_URL}/api/reports`, { headers }),
         fetch(`${API_URL}/api/users?role=inspector`, { headers }),
-        fetch(`${API_URL}/api/vehicles`, { headers }),
+        fetch(`${API_URL}/api/vehicles/logs/active`, { headers }),
         fetch(`${API_URL}/api/panic/active`, { headers }).catch(() => ({ ok: false })),
       ]);
 
       const reports = reportsRes.ok ? await reportsRes.json() : data.reports;
       const inspectors = usersRes.ok ? await usersRes.json() : data.inspectors;
-      const vehicles = vehiclesRes.ok ? await vehiclesRes.json() : data.vehicles;
       const panicAlerts = panicRes.ok ? await (panicRes as Response).json() : data.panicAlerts;
+
+      // Process active vehicle logs to extract current location from route
+      let vehicles: Vehicle[] = [];
+      if (vehicleLogsRes.ok) {
+        const logs = await vehicleLogsRes.json();
+        vehicles = logs.map((log: any) => {
+          // Extract last position from route array
+          const route = log.route || [];
+          const lastPosition = route.length > 0 ? route[route.length - 1] : null;
+
+          return {
+            id: log.vehicle_id,
+            plate: log.plate || '',
+            model: `${log.brand || ''} ${log.model || ''}`.trim(),
+            latitude: lastPosition?.lat || null,
+            longitude: lastPosition?.lng || null,
+            last_location_update: lastPosition?.timestamp || log.updated_at,
+            current_user_name: log.driver_name || `${log.driver_first_name || ''} ${log.driver_last_name || ''}`.trim(),
+            status: log.status,
+          };
+        }).filter((v: Vehicle) => v.latitude && v.longitude);
+      }
 
       setData({ reports, inspectors, vehicles, panicAlerts });
       setLastUpdate(new Date());
