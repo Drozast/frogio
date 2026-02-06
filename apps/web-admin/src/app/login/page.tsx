@@ -58,11 +58,13 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
-        {/* Logo */}
+        {/* Logo Municipal */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary shadow-lg mb-4">
-            <span className="text-3xl font-bold text-white">F</span>
-          </div>
+          <img
+            src="/muni-vertical.png"
+            alt="Municipalidad de Santa Juana"
+            className="h-24 mx-auto mb-4"
+          />
           <h1 className="text-2xl font-bold text-primary tracking-tight">
             FROGIO
           </h1>
@@ -115,9 +117,18 @@ export default function LoginPage() {
 
             {/* Password Input */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">
-                Contraseña
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="password" className="block text-sm font-medium text-foreground">
+                  Contraseña
+                </label>
+                <button
+                  type="button"
+                  onClick={() => alert('Por favor, contacta al administrador del sistema para restablecer tu contraseña.')}
+                  className="text-xs text-primary hover:text-primary/80 hover:underline transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <LockClosedIcon className="h-5 w-5 text-muted-foreground" />
