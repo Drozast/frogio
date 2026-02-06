@@ -51,9 +51,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _authRepository = di.sl<AuthRepository>();
     _nameController = TextEditingController(text: widget.user.name ?? '');
     _rutController = TextEditingController(text: widget.user.rut ?? '');
-    _phoneController = TextEditingController(text: widget.user.phoneNumber ?? '');
+    // Limpiar prefijo del teléfono si existe (ya que se muestra visualmente)
+    _phoneController = TextEditingController(
+      text: _cleanPhoneNumber(widget.user.phoneNumber ?? ''),
+    );
     _addressController = TextEditingController(text: widget.user.address ?? '');
     _updatedUser = widget.user;
+  }
+
+  /// Limpia el número de teléfono eliminando prefijos
+  String _cleanPhoneNumber(String phone) {
+    if (phone.isEmpty) return '';
+    // Eliminar todo lo que no sea dígito
+    String cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
+    // Eliminar prefijo 56 si existe
+    if (cleaned.startsWith('569') && cleaned.length > 9) {
+      cleaned = cleaned.substring(3);
+    } else if (cleaned.startsWith('56') && cleaned.length > 9) {
+      cleaned = cleaned.substring(2);
+    }
+    // Formatear el número
+    if (cleaned.length <= 1) {
+      return cleaned;
+    } else if (cleaned.length <= 5) {
+      return '${cleaned.substring(0, 1)} ${cleaned.substring(1)}';
+    } else if (cleaned.length <= 9) {
+      return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 5)} ${cleaned.substring(5)}';
+    }
+    return cleaned.substring(0, 9);
   }
 
   @override
@@ -416,43 +441,124 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+    // Recopilar errores de validación
+    final errors = <String>[];
 
-      try {
-        final name = _nameController.text.trim();
-        final rut = _rutController.text.trim();
-        final phone = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
-        final address = _addressController.text.trim();
+    final nameError = Validators.validateName(_nameController.text);
+    if (nameError != null) errors.add('Nombre: $nameError');
 
-        final result = await _authRepository.updateUserProfile(
-          userId: widget.user.id,
-          name: name.isNotEmpty ? name : null,
-          rut: rut.isNotEmpty ? rut : null,
-          phoneNumber: phone.isNotEmpty ? phone : null,
-          address: address.isNotEmpty ? address : null,
-        );
-
-        result.fold(
-          (failure) {
-            _showError('Error al actualizar perfil: ${failure.message}');
-          },
-          (user) {
-            _showSuccess('Perfil actualizado correctamente');
-            context.read<AuthBloc>().add(CheckAuthStatusEvent());
-            Navigator.pop(context, true);
-          },
-        );
-      } catch (e) {
-        _showError('Error inesperado: ${e.toString()}');
-      } finally {
-        setState(() {
-          _isLoading = false;
-        });
+    if (_isInspectorOrAdmin) {
+      final rutValue = _rutController.text.trim();
+      if (rutValue.isEmpty) {
+        errors.add('RUT: Por favor ingrese su RUT');
       }
     }
+
+    final phoneError = Validators.validatePhone(_phoneController.text);
+    if (phoneError != null) errors.add('Teléfono: $phoneError');
+
+    final addressError = Validators.validateAddress(_addressController.text);
+    if (addressError != null) errors.add('Dirección: $addressError');
+
+    // Mostrar errores en popup si hay alguno
+    if (errors.isNotEmpty) {
+      _showValidationErrorsDialog(errors);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final name = _nameController.text.trim();
+      final rut = _rutController.text.trim();
+      final phone = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
+      final address = _addressController.text.trim();
+
+      final result = await _authRepository.updateUserProfile(
+        userId: widget.user.id,
+        name: name.isNotEmpty ? name : null,
+        rut: rut.isNotEmpty ? rut : null,
+        phoneNumber: phone.isNotEmpty ? phone : null,
+        address: address.isNotEmpty ? address : null,
+      );
+
+      result.fold(
+        (failure) {
+          _showError('Error al actualizar perfil: ${failure.message}');
+        },
+        (user) {
+          _showSuccess('Perfil actualizado correctamente');
+          context.read<AuthBloc>().add(CheckAuthStatusEvent());
+          Navigator.pop(context, true);
+        },
+      );
+    } catch (e) {
+      _showError('Error inesperado: ${e.toString()}');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showValidationErrorsDialog(List<String> errors) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.warningColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.warning_amber_rounded, color: AppTheme.warningColor),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('Datos incorrectos'),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Por favor corrige los siguientes campos:',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 12),
+            ...errors.map((error) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline, size: 16, color: AppTheme.errorColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      error,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            )),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSuccess(String message) {

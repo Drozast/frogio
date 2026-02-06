@@ -315,7 +315,7 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
       'model': apiData['model'] ?? '',
       'year': apiData['year'] ?? 0,
       'type': _mapVehicleType(apiData['vehicleType'] ?? apiData['vehicle_type']),
-      'status': apiData['isActive'] == true ? 'available' : 'out_of_service',
+      'status': (apiData['isActive'] == true || apiData['is_active'] == true) ? 'available' : 'out_of_service',
       'currentKm': 0.0, // No disponible en API actual
       'muniId': apiData['tenantId'] ?? '',
       'lastMaintenance': null,

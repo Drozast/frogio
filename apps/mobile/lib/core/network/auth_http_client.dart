@@ -1,5 +1,7 @@
 // lib/core/network/auth_http_client.dart
+import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,7 +15,7 @@ class AuthHttpClient extends http.BaseClient {
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
 
-  bool _isRefreshing = false;
+  Completer<bool>? _refreshCompleter;
 
   AuthHttpClient({
     required http.Client inner,
@@ -33,9 +35,9 @@ class AuthHttpClient extends http.BaseClient {
     // Send the request
     var response = await _inner.send(request);
 
-    // If 401 and not already refreshing, try to refresh token
-    if (response.statusCode == 401 && !_isRefreshing) {
-      final refreshed = await _refreshToken();
+    // If 401, try to refresh token (handles parallel requests)
+    if (response.statusCode == 401) {
+      final refreshed = await _ensureTokenRefreshed();
       if (refreshed) {
         // Retry the original request with new token
         final newRequest = _copyRequest(request);
@@ -45,6 +47,27 @@ class AuthHttpClient extends http.BaseClient {
     }
 
     return response;
+  }
+
+  /// Ensures token is refreshed, handling concurrent calls.
+  /// If a refresh is already in progress, waits for it to complete.
+  Future<bool> _ensureTokenRefreshed() async {
+    if (_refreshCompleter != null) {
+      // Another request is already refreshing - wait for it
+      return _refreshCompleter!.future;
+    }
+
+    _refreshCompleter = Completer<bool>();
+    try {
+      final result = await _refreshToken();
+      _refreshCompleter!.complete(result);
+      return result;
+    } catch (e) {
+      _refreshCompleter!.complete(false);
+      return false;
+    } finally {
+      _refreshCompleter = null;
+    }
   }
 
   void _addAuthHeaders(http.BaseRequest request) {
@@ -68,13 +91,14 @@ class AuthHttpClient extends http.BaseClient {
   }
 
   Future<bool> _refreshToken() async {
-    _isRefreshing = true;
     try {
       final refreshToken = _prefs.getString(_refreshTokenKey);
       if (refreshToken == null) {
+        debugPrint('🔑 No refresh token available');
         return false;
       }
 
+      debugPrint('🔄 Refreshing access token...');
       final response = await _inner.post(
         Uri.parse('$_baseUrl/api/auth/refresh'),
         headers: {
@@ -90,16 +114,15 @@ class AuthHttpClient extends http.BaseClient {
         final data = json.decode(response.body);
         await _prefs.setString(_accessTokenKey, data['accessToken']);
         await _prefs.setString(_refreshTokenKey, data['refreshToken']);
+        debugPrint('✅ Token refreshed successfully');
         return true;
       } else {
-        // Refresh token is invalid - clear tokens but don't logout automatically
-        // This allows the app to prompt for re-authentication
+        debugPrint('❌ Token refresh failed: ${response.statusCode} ${response.body}');
         return false;
       }
     } catch (e) {
+      debugPrint('❌ Token refresh error: $e');
       return false;
-    } finally {
-      _isRefreshing = false;
     }
   }
 

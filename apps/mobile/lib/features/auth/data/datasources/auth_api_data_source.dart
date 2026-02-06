@@ -147,7 +147,9 @@ class AuthApiDataSource implements AuthRemoteDataSource {
 
       final accessToken = prefs.getString(_accessTokenKey);
       if (accessToken == null) {
-        return null;
+        // Si hay datos de usuario pero no token, devolver datos locales
+        // La sesión solo se cierra con logout explícito
+        return UserModel.fromApi(json.decode(userData));
       }
 
       // Obtener datos actualizados del usuario (incluyendo profileImageUrl)
@@ -167,7 +169,9 @@ class AuthApiDataSource implements AuthRemoteDataSource {
         if (refreshed) {
           return getCurrentUser();
         }
-        return null;
+        // Refresh falló, pero devolver datos locales en vez de null
+        // La sesión persiste hasta logout explícito
+        return UserModel.fromApi(json.decode(userData));
       } else {
         // Usar datos almacenados localmente
         return UserModel.fromApi(json.decode(userData));
@@ -376,8 +380,8 @@ class AuthApiDataSource implements AuthRemoteDataSource {
         await prefs.setString(_refreshTokenKey, data['refreshToken']);
         return true;
       } else {
-        // Refresh token inválido, limpiar sesión
-        await signOut();
+        // Refresh token inválido - NO limpiar sesión
+        // La sesión solo se cierra con logout explícito del usuario
         return false;
       }
     } catch (e) {

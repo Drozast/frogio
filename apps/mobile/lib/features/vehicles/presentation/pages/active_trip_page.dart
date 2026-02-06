@@ -460,7 +460,7 @@ class _ActiveTripPageState extends State<ActiveTripPage> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.frogio.santa_juana',
               ),
               // Route polyline

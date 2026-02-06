@@ -138,6 +138,8 @@ export class AlertsService {
       type: report.type,
       priority: report.priority,
       address: report.address,
+      latitude: report.latitude,
+      longitude: report.longitude,
     });
   }
 

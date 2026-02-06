@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
 import '../../domain/entities/enhanced_report_entity.dart';
@@ -237,7 +238,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         ),
                         children: [
                           TileLayer(
-                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
                             userAgentPackageName: 'com.frogio.santajuana',
                           ),
                           MarkerLayer(
@@ -344,7 +345,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.frogio.santajuana',
                   ),
                   MarkerLayer(

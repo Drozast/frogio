@@ -238,8 +238,8 @@ export default function LiveMapComponent({
         zoomControl={true}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Tiles: FROGIO'
+          url="https://maps.drozast.xyz/styles/osm-bright/{z}/{x}/{y}.png"
         />
 
         {allPositions.length > 0 && <FitBounds positions={allPositions} />}

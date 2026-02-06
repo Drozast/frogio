@@ -10,6 +10,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
+import '../../../../core/config/api_config.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -25,10 +26,12 @@ import '../bloc/auth_event.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
   final UserEntity user;
+  final bool isEmbedded;
 
   const CompleteProfileScreen({
     super.key,
     required this.user,
+    this.isEmbedded = false,
   });
 
   @override
@@ -146,10 +149,13 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
         children: [
           Row(
             children: [
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-              ),
+              if (!widget.isEmbedded)
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                )
+              else
+                const SizedBox(width: 48),
               const Expanded(
                 child: Text(
                   'Mi Perfil',
@@ -720,7 +726,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.frogio.santa_juana',
                     ),
                     if (_latitude != null && _longitude != null)
@@ -1430,19 +1436,63 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
   }
 
   Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) {
-      _tabController.animateTo(0);
+    // Validar formulario solo si estamos en la pestaña de datos o si el form está montado
+    final formState = _formKey.currentState;
+    if (formState != null && !formState.validate()) {
+      // Ir a la pestaña de datos para mostrar los errores
+      if (!_isInspectorOrAdmin) {
+        _tabController.animateTo(0);
+      }
+      _showError('Por favor corrige los errores en el formulario');
       return;
+    }
+
+    // Validación manual de campos requeridos
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
+    final address = _addressController.text.trim();
+
+    // Validar nombre (siempre requerido)
+    final nameError = Validators.validateName(name);
+    if (nameError != null) {
+      if (!_isInspectorOrAdmin) {
+        _tabController.animateTo(0);
+      }
+      _showError('Nombre: $nameError');
+      return;
+    }
+
+    // Validar teléfono si tiene valor
+    if (phone.isNotEmpty) {
+      final phoneError = Validators.validatePhone(_phoneController.text);
+      if (phoneError != null) {
+        if (!_isInspectorOrAdmin) {
+          _tabController.animateTo(0);
+        }
+        _showError('Teléfono: $phoneError');
+        return;
+      }
+    }
+
+    // Validar dirección si tiene valor
+    if (address.isNotEmpty) {
+      final addressError = Validators.validateAddress(address);
+      if (addressError != null) {
+        if (!_isInspectorOrAdmin) {
+          _tabController.animateTo(0);
+        }
+        _showError('Dirección: $addressError');
+        return;
+      }
     }
 
     setState(() => _isLoading = true);
 
     try {
-      final name = _nameController.text.trim();
       final rut = _rutController.text.trim();
-      final phone = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
-      final address = _addressController.text.trim();
       final reference = _referenceController.text.trim();
+
+      debugPrint('📍 Guardando perfil con ubicación: $_latitude, $_longitude');
 
       final result = await _authRepository.updateUserProfile(
         userId: widget.user.id,
@@ -1461,7 +1511,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
         (user) {
           _showSuccess('Perfil actualizado correctamente');
           context.read<AuthBloc>().add(CheckAuthStatusEvent());
-          Navigator.pop(context, true);
+          // Solo hacer pop si no está embebido en el dashboard
+          if (!widget.isEmbedded) {
+            Navigator.pop(context, true);
+          }
         },
       );
     } catch (e) {
@@ -1770,7 +1823,7 @@ class _FullscreenMapDialogState extends State<_FullscreenMapDialog> {
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
                         userAgentPackageName: 'com.frogio.santa_juana',
                       ),
                       if (_selectedLat != null && _selectedLon != null)

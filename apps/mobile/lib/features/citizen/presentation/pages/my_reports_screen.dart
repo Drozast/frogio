@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
+import '../../../auth/domain/entities/user_entity.dart';
 import '../../domain/entities/enhanced_report_entity.dart';
 import '../bloc/report/enhanced_report_bloc.dart';
 import '../bloc/report/enhanced_report_event.dart';
@@ -14,10 +15,12 @@ import 'enhanced_report_detail_screen.dart';
 
 class MyReportsScreen extends StatefulWidget {
   final String userId;
+  final UserEntity? user;
 
   const MyReportsScreen({
     super.key,
     required this.userId,
+    this.user,
   });
 
   @override
@@ -164,6 +167,12 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
   }
 
   void _navigateToCreateReport() async {
+    // Verificar si el perfil está completo
+    if (widget.user != null && !widget.user!.isProfileComplete) {
+      _showIncompleteProfileDialog();
+      return;
+    }
+
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -175,6 +184,47 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
       // ✅ CORREGIDO: Usar LoadReportsEvent para recargar después de crear
       _reportBloc.add(LoadReportsEvent(userId: widget.userId));
     }
+  }
+
+  void _showIncompleteProfileDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.warningColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.person_outline, color: AppTheme.warningColor),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('Perfil incompleto'),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Para crear denuncias necesitas completar tu perfil con nombre, teléfono y dirección.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // El usuario debe ir a la pestaña de perfil desde el dashboard
+            },
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _navigateToReportDetail(String reportId) {

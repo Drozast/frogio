@@ -153,10 +153,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           prefixIcon: Icon(Icons.email),
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          final trimmed = value?.trim() ?? '';
+                          if (trimmed.isEmpty) {
                             return 'Por favor ingresa tu correo';
                           }
-                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(trimmed)) {
                             return 'Ingresa un correo válido';
                           }
                           return null;
@@ -284,10 +285,11 @@ class _LoginScreenState extends State<LoginScreen> {
               hintText: 'Ingresa tu correo para recuperar',
             ),
             validator: (value) {
-              if (value == null || value.isEmpty) {
+              final trimmed = value?.trim() ?? '';
+              if (trimmed.isEmpty) {
                 return 'Por favor ingresa tu correo';
               }
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(trimmed)) {
                 return 'Ingresa un correo válido';
               }
               return null;

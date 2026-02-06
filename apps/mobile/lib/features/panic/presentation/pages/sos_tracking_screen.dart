@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
 import '../../domain/entities/panic_alert_entity.dart';
@@ -205,7 +206,7 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
   Widget _buildStatusHeader(String status, Color statusColor, bool isTerminal) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
       decoration: BoxDecoration(
         color: statusColor,
         borderRadius: const BorderRadius.only(
@@ -224,7 +225,7 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
               return Transform.scale(
                 scale: scale,
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: opacity * 0.25),
                     shape: BoxShape.circle,
@@ -232,22 +233,22 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
                   child: Icon(
                     _getStatusIcon(status),
                     color: Colors.white,
-                    size: 40,
+                    size: 36,
                   ),
                 ),
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
             _getStatusText(status),
             style: const TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             status == 'responding'
                 ? 'Manten la calma, la ayuda esta en camino'
@@ -257,23 +258,23 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
                         ? 'Tu emergencia ha sido atendida'
                         : '',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               color: Colors.white.withValues(alpha: 0.9),
             ),
             textAlign: TextAlign.center,
           ),
           if (_alert?.address != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.location_on_rounded, color: Colors.white.withValues(alpha: 0.8), size: 16),
-                const SizedBox(width: 6),
+                Icon(Icons.location_on_rounded, color: Colors.white.withValues(alpha: 0.8), size: 14),
+                const SizedBox(width: 4),
                 Flexible(
                   child: Text(
                     _alert!.address!,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: Colors.white.withValues(alpha: 0.8),
                     ),
                     maxLines: 1,
@@ -283,7 +284,106 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
               ],
             ),
           ],
+          const SizedBox(height: 16),
+          // Progress steps: Enviado → En camino → Finalizado
+          _buildProgressSteps(status),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProgressSteps(String status) {
+    final steps = [
+      {'label': 'Enviado', 'icon': Icons.send_rounded},
+      {'label': 'En camino', 'icon': Icons.directions_run_rounded},
+      {'label': 'Finalizado', 'icon': Icons.check_circle_rounded},
+    ];
+
+    int currentStep;
+    switch (status) {
+      case 'active':
+        currentStep = 0;
+        break;
+      case 'responding':
+        currentStep = 1;
+        break;
+      case 'resolved':
+      case 'cancelled':
+      case 'dismissed':
+        currentStep = 2;
+        break;
+      default:
+        currentStep = 0;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: List.generate(steps.length, (index) {
+          final step = steps[index];
+          final isCompleted = index <= currentStep;
+          final isCurrent = index == currentStep;
+          final isLast = index == steps.length - 1;
+
+          return Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isCompleted
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.3),
+                          border: isCurrent
+                              ? Border.all(color: Colors.white, width: 2)
+                              : null,
+                        ),
+                        child: Icon(
+                          step['icon'] as IconData,
+                          size: 18,
+                          color: isCompleted
+                              ? _getStatusColor(status)
+                              : Colors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        step['label'] as String,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                          color: isCompleted
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.5),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                if (!isLast)
+                  Container(
+                    width: 20,
+                    height: 2,
+                    color: index < currentStep
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.3),
+                  ),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }
@@ -298,7 +398,7 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
       ),
       children: [
         TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.frogio.santa_juana',
         ),
         MarkerLayer(

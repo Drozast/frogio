@@ -263,7 +263,7 @@ export class AuthService {
 
       // Update password
       await prisma.$queryRawUnsafe(
-        `UPDATE "${decoded.tenantId}".users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+        `UPDATE "${decoded.tenantId}".users SET password_hash = $1, updated_at = NOW() WHERE id = $2::uuid`,
         hashedPassword,
         decoded.userId
       );
@@ -304,6 +304,17 @@ export class AuthService {
       // Validate RUT if provided
       if (data.rut && !this.validateRUT(data.rut)) {
         throw new Error('RUT inválido');
+      }
+      // Check if RUT is already used by another user
+      if (data.rut) {
+        const existingWithRut = await prisma.$queryRawUnsafe<any[]>(
+          `SELECT id FROM "${tenantId}".users WHERE rut = $1 AND id != $2::uuid LIMIT 1`,
+          data.rut,
+          userId
+        );
+        if (existingWithRut && existingWithRut.length > 0) {
+          throw new Error('Este RUT ya está registrado por otro usuario');
+        }
       }
       updates.push(`rut = $${paramIndex++}`);
       values.push(data.rut);

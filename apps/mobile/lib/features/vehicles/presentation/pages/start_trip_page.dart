@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../di/injection_container_api.dart' as di;
 import '../../domain/entities/vehicle_entity.dart';
 import '../../domain/entities/vehicle_log_entity.dart';
 import '../bloc/vehicle_bloc.dart';
@@ -51,11 +52,14 @@ class _StartTripPageState extends State<StartTripPage> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => ActiveTripPage(
-                vehicleLogId: state.logId,
-                vehicle: widget.vehicle,
-                userId: widget.userId,
-                userName: widget.userName,
+              builder: (context) => BlocProvider(
+                create: (_) => di.sl<VehicleBloc>(),
+                child: ActiveTripPage(
+                  vehicleLogId: state.logId,
+                  vehicle: widget.vehicle,
+                  userId: widget.userId,
+                  userName: widget.userName,
+                ),
               ),
             ),
           );

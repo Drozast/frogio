@@ -25,6 +25,7 @@ class _CitationsListScreenState extends State<CitationsListScreen>
     with WidgetsBindingObserver {
   Timer? _autoRefreshTimer;
   CitationBloc? _citationBloc;
+  CitationStatus? _selectedStatFilter;
 
   @override
   void initState() {
@@ -158,6 +159,8 @@ class _CitationsListScreenState extends State<CitationsListScreen>
                 child: Column(
                   children: [
                     _buildStatsHeader(context, state),
+                    if (_selectedStatFilter != null)
+                      _buildActiveFilterBar(context),
                     Expanded(
                       child: ListView.builder(
                         padding: const EdgeInsets.symmetric(
@@ -167,9 +170,24 @@ class _CitationsListScreenState extends State<CitationsListScreen>
                         itemCount: state.filteredCitations.length,
                         itemBuilder: (context, index) {
                           final citation = state.filteredCitations[index];
-                          return _CitationListItem(
-                            citation: citation,
-                            onTap: () => _showCitationDetail(context, citation),
+                          return TweenAnimationBuilder<double>(
+                            key: ValueKey(citation.id),
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeOutCubic,
+                            builder: (context, value, child) {
+                              return Transform.translate(
+                                offset: Offset(30 * (1 - value), 0),
+                                child: Opacity(
+                                  opacity: value,
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: _CitationListItem(
+                              citation: citation,
+                              onTap: () => _showCitationDetail(context, citation),
+                            ),
                           );
                         },
                       ),
@@ -225,13 +243,24 @@ class _CitationsListScreenState extends State<CitationsListScreen>
     );
   }
 
+  void _onStatCardTap(BuildContext context, CitationStatus? status) {
+    setState(() {
+      if (_selectedStatFilter == status) {
+        _selectedStatFilter = null;
+      } else {
+        _selectedStatFilter = status;
+      }
+    });
+    context.read<CitationBloc>().add(FilterCitationsEvent(status: _selectedStatFilter));
+  }
+
   Widget _buildStatsHeader(BuildContext context, CitationsLoaded state) {
     final asistio = state.statusCounts[CitationStatus.asistio] ?? 0;
     final noAsistio = state.statusCounts[CitationStatus.noAsistio] ?? 0;
     final notificado = state.statusCounts[CitationStatus.notificado] ?? 0;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(
         children: [
           _buildStatCard(
@@ -243,10 +272,17 @@ class _CitationsListScreenState extends State<CitationsListScreen>
               end: Alignment.bottomRight,
             ),
             icon: Icons.assignment_outlined,
+            isSelected: _selectedStatFilter == null,
+            onTap: () {
+              if (_selectedStatFilter != null) {
+                setState(() => _selectedStatFilter = null);
+                context.read<CitationBloc>().add(const FilterCitationsEvent());
+              }
+            },
           ),
           const SizedBox(width: 8),
           _buildStatCard(
-            count: (notificado).toString(),
+            count: notificado.toString(),
             label: 'Notificados',
             gradient: const LinearGradient(
               colors: [Color(0xFF66BB6A), Color(0xFF43A047)],
@@ -254,28 +290,34 @@ class _CitationsListScreenState extends State<CitationsListScreen>
               end: Alignment.bottomRight,
             ),
             icon: Icons.notifications_active_outlined,
+            isSelected: _selectedStatFilter == CitationStatus.notificado,
+            onTap: () => _onStatCardTap(context, CitationStatus.notificado),
           ),
           const SizedBox(width: 8),
           _buildStatCard(
             count: asistio.toString(),
-            label: 'Asistió',
+            label: 'Asistio',
             gradient: const LinearGradient(
               colors: [Color(0xFFAB47BC), Color(0xFF8E24AA)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             icon: Icons.check_circle_outline,
+            isSelected: _selectedStatFilter == CitationStatus.asistio,
+            onTap: () => _onStatCardTap(context, CitationStatus.asistio),
           ),
           const SizedBox(width: 8),
           _buildStatCard(
             count: noAsistio.toString(),
-            label: 'No Asistió',
+            label: 'No Asistio',
             gradient: const LinearGradient(
               colors: [Color(0xFFEF5350), Color(0xFFE53935)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             icon: Icons.cancel_outlined,
+            isSelected: _selectedStatFilter == CitationStatus.noAsistio,
+            onTap: () => _onStatCardTap(context, CitationStatus.noAsistio),
           ),
         ],
       ),
@@ -287,72 +329,132 @@ class _CitationsListScreenState extends State<CitationsListScreen>
     required String label,
     required Gradient gradient,
     required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
   }) {
     return Expanded(
-      child: Container(
-        height: 105,
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
+      child: AnimatedScale(
+        scale: isSelected ? 1.05 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          height: 105,
+          decoration: BoxDecoration(
+            gradient: gradient,
             borderRadius: BorderRadius.circular(14),
-            onTap: () {},
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      icon,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    count,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.95),
-                        height: 1.1,
+            border: Border.all(
+              color: isSelected ? Colors.white : Colors.transparent,
+              width: 2.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isSelected
+                    ? Colors.black.withValues(alpha: 0.25)
+                    : Colors.black.withValues(alpha: 0.1),
+                blurRadius: isSelected ? 16 : 6,
+                offset: Offset(0, isSelected ? 6 : 3),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: EdgeInsets.all(isSelected ? 8 : 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: isSelected ? 0.35 : 0.25),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
+                      child: Icon(
+                        icon,
+                        color: Colors.white,
+                        size: isSelected ? 22 : 20,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Text(
+                      count,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.95),
+                          height: 1.1,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveFilterBar(BuildContext context) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppTheme.primarySurface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.filter_list_rounded, size: 16, color: AppTheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              'Mostrando: ${_selectedStatFilter!.displayName}',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primary,
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () {
+                setState(() => _selectedStatFilter = null);
+                context.read<CitationBloc>().add(const FilterCitationsEvent());
+              },
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.primary),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -854,6 +956,7 @@ class _FilterSheetState extends State<_FilterSheet> {
   CitationType? _selectedType;
   DateTime? _startDate;
   DateTime? _endDate;
+  String? _datePreset;
 
   @override
   void initState() {
@@ -865,6 +968,20 @@ class _FilterSheetState extends State<_FilterSheet> {
       _startDate = currentState.startDateFilter;
       _endDate = currentState.endDateFilter;
     }
+  }
+
+  void _applyDatePreset(String label, DateTime start, DateTime end) {
+    setState(() {
+      if (_datePreset == label) {
+        _datePreset = null;
+        _startDate = null;
+        _endDate = null;
+      } else {
+        _datePreset = label;
+        _startDate = start;
+        _endDate = end;
+      }
+    });
   }
 
   Future<void> _selectDateRange(BuildContext context) async {
@@ -900,6 +1017,7 @@ class _FilterSheetState extends State<_FilterSheet> {
 
     if (picked != null) {
       setState(() {
+        _datePreset = null;
         _startDate = picked.start;
         _endDate = picked.end;
       });
@@ -908,6 +1026,8 @@ class _FilterSheetState extends State<_FilterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppTheme.spacing24,
@@ -920,12 +1040,58 @@ class _FilterSheetState extends State<_FilterSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Filtrar Citaciones', style: AppTheme.headlineSmall),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Filtrar Citaciones', style: AppTheme.headlineSmall),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primarySurface,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.tune_rounded, color: AppTheme.primary, size: 20),
+                ),
+              ],
+            ),
             const SizedBox(height: AppTheme.spacing24),
 
             // Filtro por rango de fechas
-            Text('Por Fecha', style: AppTheme.titleSmall),
+            const Text('Por Fecha', style: AppTheme.titleSmall),
             const SizedBox(height: AppTheme.spacing12),
+
+            // Quick date presets
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildDatePresetChip(
+                  'Hoy',
+                  DateTime(now.year, now.month, now.day),
+                  now,
+                ),
+                _buildDatePresetChip(
+                  '7 dias',
+                  now.subtract(const Duration(days: 7)),
+                  now,
+                ),
+                _buildDatePresetChip(
+                  '30 dias',
+                  now.subtract(const Duration(days: 30)),
+                  now,
+                ),
+                _buildDatePresetChip(
+                  'Este mes',
+                  DateTime(now.year, now.month, 1),
+                  now,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: AppTheme.spacing12),
+
+            // Custom date range button
             InkWell(
               onTap: () => _selectDateRange(context),
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -936,10 +1102,10 @@ class _FilterSheetState extends State<_FilterSheet> {
                 ),
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: _startDate != null ? AppTheme.primary : AppTheme.border,
+                    color: (_startDate != null && _datePreset == null) ? AppTheme.primary : AppTheme.border,
                   ),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  color: _startDate != null ? AppTheme.primarySurface : Colors.transparent,
+                  color: (_startDate != null && _datePreset == null) ? AppTheme.primarySurface : Colors.transparent,
                 ),
                 child: Row(
                   children: [
@@ -953,7 +1119,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                       child: Text(
                         _startDate != null && _endDate != null
                             ? '${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}'
-                            : 'Seleccionar rango de fechas',
+                            : 'Rango personalizado...',
                         style: TextStyle(
                           color: _startDate != null ? AppTheme.primary : AppTheme.textSecondary,
                           fontWeight: _startDate != null ? FontWeight.w600 : FontWeight.normal,
@@ -966,6 +1132,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                           setState(() {
                             _startDate = null;
                             _endDate = null;
+                            _datePreset = null;
                           });
                         },
                         child: const Icon(
@@ -1008,6 +1175,23 @@ class _FilterSheetState extends State<_FilterSheet> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDatePresetChip(String label, DateTime start, DateTime end) {
+    final isSelected = _datePreset == label;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => _applyDatePreset(label, start, end),
+      selectedColor: AppTheme.primarySurface,
+      labelStyle: TextStyle(
+        color: isSelected ? AppTheme.primary : AppTheme.textSecondary,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        fontSize: 13,
+      ),
+      side: BorderSide(color: isSelected ? AppTheme.primary : AppTheme.border),
+      visualDensity: VisualDensity.compact,
     );
   }
 
@@ -1055,6 +1239,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                 _selectedType = null;
                 _startDate = null;
                 _endDate = null;
+                _datePreset = null;
               });
               context.read<CitationBloc>().add(const FilterCitationsEvent());
               Navigator.pop(context);

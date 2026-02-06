@@ -155,6 +155,23 @@ export class PanicService {
       throw new Error('Alerta no encontrada o ya atendida');
     }
 
+    // Actualizar el reporte de emergencia asociado a 'en_proceso'
+    try {
+      await prisma.$queryRawUnsafe(
+        `UPDATE "${tenantId}".reports
+         SET status = 'en_proceso', updated_at = NOW()
+         WHERE type = 'emergencia'
+         AND user_id = $1::uuid
+         AND description LIKE $2
+         AND status IN ('pendiente', 'recibido')`,
+        alert.user_id,
+        `%ID Alerta: ${id}%`
+      );
+      logger.info(`Updated emergency report status to 'en_proceso' for panic alert ${id}`);
+    } catch (e) {
+      logger.warn(`Could not update emergency report status: ${e}`);
+    }
+
     // Notify the user that help is on the way (database notification - non-blocking)
     try {
       await prisma.$queryRawUnsafe(
@@ -204,6 +221,27 @@ export class PanicService {
 
     if (!alert) {
       throw new Error('Alerta no encontrada o ya resuelta');
+    }
+
+    // Actualizar el reporte de emergencia asociado a 'resuelto' y agregar las notas
+    try {
+      const notesAppend = notes ? `\n\n--- Resolución del Inspector ---\n${notes}` : '\n\n--- Emergencia atendida ---';
+      await prisma.$queryRawUnsafe(
+        `UPDATE "${tenantId}".reports
+         SET status = 'resuelto',
+             description = description || $1,
+             updated_at = NOW()
+         WHERE type = 'emergencia'
+         AND user_id = $2::uuid
+         AND description LIKE $3
+         AND status IN ('pendiente', 'recibido', 'en_proceso')`,
+        notesAppend,
+        alert.user_id,
+        `%ID Alerta: ${id}%`
+      );
+      logger.info(`Updated emergency report status to 'resuelto' for panic alert ${id}`);
+    } catch (e) {
+      logger.warn(`Could not update emergency report status: ${e}`);
     }
 
     // Notify the citizen that their alert has been resolved (database notification)
@@ -256,6 +294,26 @@ export class PanicService {
       throw new Error('No puedes cancelar esta alerta');
     }
 
+    // Actualizar el reporte de emergencia asociado a 'rechazado' (cancelado por usuario)
+    try {
+      await prisma.$queryRawUnsafe(
+        `UPDATE "${tenantId}".reports
+         SET status = 'rechazado',
+             description = description || $1,
+             updated_at = NOW()
+         WHERE type = 'emergencia'
+         AND user_id = $2::uuid
+         AND description LIKE $3
+         AND status IN ('pendiente', 'recibido', 'en_proceso')`,
+        '\n\n--- Cancelado por el usuario ---',
+        alert.user_id,
+        `%ID Alerta: ${id}%`
+      );
+      logger.info(`Updated emergency report status to 'rechazado' for cancelled panic alert ${id}`);
+    } catch (e) {
+      logger.warn(`Could not update emergency report status: ${e}`);
+    }
+
     // Notificar a los inspectores que la alerta fue cancelada por el usuario (non-blocking)
     try {
       await prisma.$queryRawUnsafe(
@@ -285,6 +343,26 @@ export class PanicService {
 
     if (!alert) {
       throw new Error('Alerta no encontrada o ya resuelta');
+    }
+
+    // Actualizar el reporte de emergencia asociado a 'rechazado' con el motivo
+    try {
+      await prisma.$queryRawUnsafe(
+        `UPDATE "${tenantId}".reports
+         SET status = 'rechazado',
+             description = description || $1,
+             updated_at = NOW()
+         WHERE type = 'emergencia'
+         AND user_id = $2::uuid
+         AND description LIKE $3
+         AND status IN ('pendiente', 'recibido', 'en_proceso')`,
+        `\n\n--- Descartado por Inspector ---\nMotivo: ${reason}`,
+        alert.user_id,
+        `%ID Alerta: ${id}%`
+      );
+      logger.info(`Updated emergency report status to 'rechazado' for dismissed panic alert ${id}`);
+    } catch (e) {
+      logger.warn(`Could not update emergency report status: ${e}`);
     }
 
     // Notificar al usuario que su alerta fue descartada (non-blocking)

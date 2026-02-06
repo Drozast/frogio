@@ -38,7 +38,8 @@ export class NotificationsService {
     // Send push notification via ntfy (secondary, non-blocking)
     if (this.NTFY_URL) {
       try {
-        const topic = `${tenantId}_${userId}`;
+        // Topic format must match mobile app subscription: frogio_{tenantId}_user_{userId}
+        const topic = `frogio_${tenantId}_user_${userId}`;
         const priority = type === 'urgent' ? 5 : type === 'citation' || type === 'infraction' ? 4 : 3;
 
         await fetch(`${this.NTFY_URL}/${topic}`, {

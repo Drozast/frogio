@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
 import '../../domain/entities/enhanced_report_entity.dart';
@@ -329,16 +330,13 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
     );
   }
 
-  Widget _buildHistoryTab(ReportEntity report) {
-    // Estados en orden de progreso
-    final statusOrder = [
-      ReportStatus.submitted,
-      ReportStatus.reviewing,
-      ReportStatus.inProgress,
-      ReportStatus.resolved,
-    ];
+  /// Verifica si el reporte es una emergencia SOS
+  bool _isEmergencyReport(ReportEntity report) {
+    return report.category.toLowerCase() == 'emergencia';
+  }
 
-    final currentStatusIndex = statusOrder.indexOf(report.status);
+  Widget _buildHistoryTab(ReportEntity report) {
+    final isEmergency = _isEmergencyReport(report);
     final isRejected = report.status == ReportStatus.rejected;
 
     // Ordenar historial por fecha
@@ -357,13 +355,16 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.track_changes, color: AppTheme.primaryColor),
-                      SizedBox(width: 8),
+                      Icon(
+                        isEmergency ? Icons.sos_rounded : Icons.track_changes,
+                        color: isEmergency ? Colors.red : AppTheme.primaryColor,
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        'Estado Actual',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        isEmergency ? 'Seguimiento de Emergencia' : 'Estado Actual',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -389,83 +390,10 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                         ],
                       ),
                     )
+                  else if (isEmergency)
+                    _buildEmergencyProgressTracker(report)
                   else
-                    Row(
-                      children: statusOrder.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final status = entry.value;
-                        final isCompleted = currentStatusIndex >= index;
-                        final isCurrent = currentStatusIndex == index;
-                        final isLast = index == statusOrder.length - 1;
-                        final color = isCompleted ? _getStatusColor(status) : Colors.grey.shade300;
-
-                        return Expanded(
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    // Círculo de estado
-                                    AnimatedContainer(
-                                      duration: const Duration(milliseconds: 300),
-                                      width: isCurrent ? 40 : 32,
-                                      height: isCurrent ? 40 : 32,
-                                      decoration: BoxDecoration(
-                                        color: isCompleted ? color : Colors.white,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: color,
-                                          width: isCurrent ? 3 : 2,
-                                        ),
-                                        boxShadow: isCurrent
-                                            ? [
-                                                BoxShadow(
-                                                  color: color.withValues(alpha: 0.4),
-                                                  blurRadius: 8,
-                                                  spreadRadius: 2,
-                                                ),
-                                              ]
-                                            : null,
-                                      ),
-                                      child: Icon(
-                                        _getStatusIcon(status),
-                                        size: isCurrent ? 20 : 16,
-                                        color: isCompleted ? Colors.white : Colors.grey.shade400,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    // Etiqueta
-                                    Text(
-                                      _getShortStatusName(status),
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                                        color: isCompleted ? color : Colors.grey,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Línea conectora
-                              if (!isLast)
-                                Expanded(
-                                  child: Container(
-                                    height: 3,
-                                    margin: const EdgeInsets.only(bottom: 24),
-                                    decoration: BoxDecoration(
-                                      color: currentStatusIndex > index
-                                          ? _getStatusColor(statusOrder[index + 1])
-                                          : Colors.grey.shade300,
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                    _buildNormalProgressTracker(report),
                 ],
               ),
             ),
@@ -644,6 +572,203 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
     );
   }
 
+  /// Tracker de progreso para emergencias SOS: Enviado → En camino → Finalizado
+  Widget _buildEmergencyProgressTracker(ReportEntity report) {
+    // Pasos de emergencia SOS
+    final sosSteps = [
+      {'label': 'Enviado', 'icon': Icons.send_rounded, 'status': ReportStatus.submitted},
+      {'label': 'En camino', 'icon': Icons.directions_run_rounded, 'status': ReportStatus.inProgress},
+      {'label': 'Finalizado', 'icon': Icons.check_circle_rounded, 'status': ReportStatus.resolved},
+    ];
+
+    // Determinar el paso actual basado en el estado del reporte
+    int currentStep;
+    switch (report.status) {
+      case ReportStatus.submitted:
+      case ReportStatus.reviewing:
+        currentStep = 0;
+        break;
+      case ReportStatus.inProgress:
+        currentStep = 1;
+        break;
+      case ReportStatus.resolved:
+      case ReportStatus.archived:
+        currentStep = 2;
+        break;
+      default:
+        currentStep = 0;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: List.generate(sosSteps.length, (index) {
+          final step = sosSteps[index];
+          final isCompleted = index <= currentStep;
+          final isCurrent = index == currentStep;
+          final isLast = index == sosSteps.length - 1;
+
+          return Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: isCurrent ? 44 : 36,
+                        height: isCurrent ? 44 : 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isCompleted ? Colors.red.shade600 : Colors.grey.shade300,
+                          border: isCurrent
+                              ? Border.all(color: Colors.red.shade800, width: 3)
+                              : null,
+                          boxShadow: isCurrent
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.red.withValues(alpha: 0.4),
+                                    blurRadius: 8,
+                                    spreadRadius: 2,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Icon(
+                          step['icon'] as IconData,
+                          size: isCurrent ? 22 : 18,
+                          color: isCompleted ? Colors.white : Colors.grey.shade500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        step['label'] as String,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                          color: isCompleted ? Colors.red.shade700 : Colors.grey.shade500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                if (!isLast)
+                  Container(
+                    width: 24,
+                    height: 3,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: index < currentStep
+                          ? Colors.red.shade600
+                          : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  /// Tracker de progreso para reportes normales: Enviado → Revisión → En Proceso → Resuelto
+  Widget _buildNormalProgressTracker(ReportEntity report) {
+    final statusOrder = [
+      ReportStatus.submitted,
+      ReportStatus.reviewing,
+      ReportStatus.inProgress,
+      ReportStatus.resolved,
+    ];
+
+    final currentStatusIndex = statusOrder.indexOf(report.status);
+
+    return Row(
+      children: statusOrder.asMap().entries.map((entry) {
+        final index = entry.key;
+        final status = entry.value;
+        final isCompleted = currentStatusIndex >= index;
+        final isCurrent = currentStatusIndex == index;
+        final isLast = index == statusOrder.length - 1;
+        final color = isCompleted ? _getStatusColor(status) : Colors.grey.shade300;
+
+        return Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    // Círculo de estado
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: isCurrent ? 40 : 32,
+                      height: isCurrent ? 40 : 32,
+                      decoration: BoxDecoration(
+                        color: isCompleted ? color : Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: color,
+                          width: isCurrent ? 3 : 2,
+                        ),
+                        boxShadow: isCurrent
+                            ? [
+                                BoxShadow(
+                                  color: color.withValues(alpha: 0.4),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Icon(
+                        _getStatusIcon(status),
+                        size: isCurrent ? 20 : 16,
+                        color: isCompleted ? Colors.white : Colors.grey.shade400,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Etiqueta
+                    Text(
+                      _getShortStatusName(status),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                        color: isCompleted ? color : Colors.grey,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              // Línea conectora
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    height: 3,
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: currentStatusIndex > index
+                          ? _getStatusColor(statusOrder[index + 1])
+                          : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   IconData _getStatusIcon(ReportStatus status) {
     switch (status) {
       case ReportStatus.draft:
@@ -816,7 +941,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
                         userAgentPackageName: 'com.frogio.santajuana',
                       ),
                       MarkerLayer(
@@ -1241,7 +1366,7 @@ class _FullscreenMapWidgetState extends State<_FullscreenMapWidget> {
           ),
           children: [
             TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.frogio.santajuana',
             ),
             MarkerLayer(

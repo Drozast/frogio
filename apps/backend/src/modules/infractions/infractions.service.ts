@@ -49,7 +49,7 @@ export class InfractionsService {
     }
 
     if (filters?.userId) {
-      query += ` AND i.user_id = $${paramIndex}`;
+      query += ` AND i.user_id = $${paramIndex}::uuid`;
       params.push(filters.userId);
       paramIndex++;
     }
@@ -68,7 +68,7 @@ export class InfractionsService {
        FROM "${tenantId}".infractions i
        LEFT JOIN "${tenantId}".users u ON i.user_id = u.id
        LEFT JOIN "${tenantId}".users issuer ON i.issued_by = issuer.id
-       WHERE i.id = $1 LIMIT 1`,
+       WHERE i.id = $1::uuid LIMIT 1`,
       id
     );
 
@@ -123,7 +123,7 @@ export class InfractionsService {
     const [updatedInfraction] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".infractions
        SET ${updates.join(', ')}
-       WHERE id = $${paramIndex}
+       WHERE id = $${paramIndex}::uuid
        RETURNING *`,
       ...params
     );
@@ -142,7 +142,7 @@ export class InfractionsService {
 
   async delete(id: string, tenantId: string) {
     const [deletedInfraction] = await prisma.$queryRawUnsafe<any[]>(
-      `DELETE FROM "${tenantId}".infractions WHERE id = $1 RETURNING id`,
+      `DELETE FROM "${tenantId}".infractions WHERE id = $1::uuid RETURNING id`,
       id
     );
 
@@ -166,7 +166,7 @@ export class InfractionsService {
 
     const params: any[] = [];
     if (userId) {
-      query += ` AND user_id = $1`;
+      query += ` AND user_id = $1::uuid`;
       params.push(userId);
     }
 

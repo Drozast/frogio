@@ -29,6 +29,11 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
+        <!-- Ícono de notificación por defecto -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+
         <!-- Google Maps API Key -->
         <meta-data android:name="com.google.android.geo.API_KEY"
                    android:value="AIzaSyCQ81wHnGrU_rbPUXE__OhNm-h2iB8Hbeo"/>

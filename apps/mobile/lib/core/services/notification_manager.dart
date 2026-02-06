@@ -316,7 +316,18 @@ class NotificationManager {
         _navigateToReportDetail(context, reportId);
         break;
       case 'new_report':
-        _navigateToReportsList(context);
+        // Para inspectores: navegar al mapa con la ubicación del reporte
+        final reportLat = data['latitude'] is double
+            ? data['latitude'] as double
+            : double.tryParse(data['latitude']?.toString() ?? '');
+        final reportLng = data['longitude'] is double
+            ? data['longitude'] as double
+            : double.tryParse(data['longitude']?.toString() ?? '');
+        Navigator.of(context).pushNamed('/inspector-map', arguments: {
+          if (reportLat != null) 'latitude': reportLat,
+          if (reportLng != null) 'longitude': reportLng,
+          'reportId': data['reportId'],
+        });
         break;
       case 'reminder':
         _handleReminder(context, data);
@@ -334,10 +345,6 @@ class NotificationManager {
     if (reportId != null) {
       Navigator.of(context).pushNamed('/report-detail', arguments: reportId);
     }
-  }
-
-  void _navigateToReportsList(BuildContext context) {
-    Navigator.of(context).pushNamed('/reports');
   }
 
   void _navigateToScreen(BuildContext context, String screen) {

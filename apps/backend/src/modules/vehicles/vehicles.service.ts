@@ -51,7 +51,7 @@ export class VehiclesService {
     let paramIndex = 1;
 
     if (filters?.ownerId) {
-      query += ` AND v.owner_id = $${paramIndex}`;
+      query += ` AND v.owner_id = $${paramIndex}::uuid`;
       params.push(filters.ownerId);
       paramIndex++;
     }
@@ -74,7 +74,7 @@ export class VehiclesService {
        u.first_name as owner_first_name, u.last_name as owner_last_name, u.email as owner_email, u.phone as owner_phone, u.rut as owner_rut, u.address as owner_address
        FROM "${tenantId}".vehicles v
        LEFT JOIN "${tenantId}".users u ON v.owner_id = u.id
-       WHERE v.id = $1 LIMIT 1`,
+       WHERE v.id = $1::uuid LIMIT 1`,
       id
     );
 
@@ -203,7 +203,7 @@ export class VehiclesService {
     const [updatedVehicle] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".vehicles
        SET ${updates.join(', ')}
-       WHERE id = $${paramIndex}
+       WHERE id = $${paramIndex}::uuid
        RETURNING *`,
       ...params
     );
@@ -217,7 +217,7 @@ export class VehiclesService {
 
   async delete(id: string, tenantId: string) {
     const [deletedVehicle] = await prisma.$queryRawUnsafe<any[]>(
-      `DELETE FROM "${tenantId}".vehicles WHERE id = $1 RETURNING id`,
+      `DELETE FROM "${tenantId}".vehicles WHERE id = $1::uuid RETURNING id`,
       id
     );
 
@@ -233,7 +233,7 @@ export class VehiclesService {
   async startVehicleUsage(data: StartVehicleUsageDto, tenantId: string) {
     // Check if vehicle exists
     const [vehicle] = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, plate FROM "${tenantId}".vehicles WHERE id = $1 LIMIT 1`,
+      `SELECT id, plate FROM "${tenantId}".vehicles WHERE id = $1::uuid LIMIT 1`,
       data.vehicleId
     );
 
@@ -243,7 +243,7 @@ export class VehiclesService {
 
     // Check if there's already an active log for this vehicle
     const [activeLog] = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id FROM "${tenantId}".vehicle_logs WHERE vehicle_id = $1 AND status = 'active' LIMIT 1`,
+      `SELECT id FROM "${tenantId}".vehicle_logs WHERE vehicle_id = $1::uuid AND status = 'active' LIMIT 1`,
       data.vehicleId
     );
 
@@ -270,7 +270,7 @@ export class VehiclesService {
   async endVehicleUsage(logId: string, data: EndVehicleUsageDto, tenantId: string) {
     // Check if log exists and is active
     const [log] = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM "${tenantId}".vehicle_logs WHERE id = $1 LIMIT 1`,
+      `SELECT * FROM "${tenantId}".vehicle_logs WHERE id = $1::uuid LIMIT 1`,
       logId
     );
 
@@ -307,7 +307,7 @@ export class VehiclesService {
            route = $3::jsonb, stops = $4::jsonb,
            total_distance_km = $5, total_stop_time_seconds = $6,
            updated_at = NOW()
-       WHERE id = $7
+       WHERE id = $7::uuid
        RETURNING *`,
       data.endKm,
       data.observations || null,
@@ -323,7 +323,7 @@ export class VehiclesService {
 
   async addStopToLog(logId: string, stop: any, tenantId: string) {
     const [log] = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM "${tenantId}".vehicle_logs WHERE id = $1 AND status = 'active' LIMIT 1`,
+      `SELECT * FROM "${tenantId}".vehicle_logs WHERE id = $1::uuid AND status = 'active' LIMIT 1`,
       logId
     );
 
@@ -337,7 +337,7 @@ export class VehiclesService {
     const [updatedLog] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".vehicle_logs
        SET stops = $1::jsonb, updated_at = NOW()
-       WHERE id = $2
+       WHERE id = $2::uuid
        RETURNING *`,
       JSON.stringify(currentStops),
       logId
@@ -348,7 +348,7 @@ export class VehiclesService {
 
   async updateRoutePoints(logId: string, routePoints: any[], tenantId: string) {
     const [log] = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM "${tenantId}".vehicle_logs WHERE id = $1 AND status = 'active' LIMIT 1`,
+      `SELECT * FROM "${tenantId}".vehicle_logs WHERE id = $1::uuid AND status = 'active' LIMIT 1`,
       logId
     );
 
@@ -362,7 +362,7 @@ export class VehiclesService {
     const [updatedLog] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".vehicle_logs
        SET route = $1::jsonb, updated_at = NOW()
-       WHERE id = $2
+       WHERE id = $2::uuid
        RETURNING *`,
       JSON.stringify(currentRoute),
       logId
@@ -379,7 +379,7 @@ export class VehiclesService {
        FROM "${tenantId}".vehicle_logs vl
        LEFT JOIN "${tenantId}".vehicles v ON vl.vehicle_id = v.id
        LEFT JOIN "${tenantId}".users u ON vl.driver_id = u.id
-       WHERE vl.vehicle_id = $1
+       WHERE vl.vehicle_id = $1::uuid
        ORDER BY vl.start_time DESC
        LIMIT $2`,
       vehicleId,
@@ -395,7 +395,7 @@ export class VehiclesService {
        v.plate, v.brand, v.model
        FROM "${tenantId}".vehicle_logs vl
        LEFT JOIN "${tenantId}".vehicles v ON vl.vehicle_id = v.id
-       WHERE vl.driver_id = $1
+       WHERE vl.driver_id = $1::uuid
        ORDER BY vl.start_time DESC
        LIMIT $2`,
       driverId,
@@ -428,7 +428,7 @@ export class VehiclesService {
        FROM "${tenantId}".vehicle_logs vl
        LEFT JOIN "${tenantId}".vehicles v ON vl.vehicle_id = v.id
        LEFT JOIN "${tenantId}".users u ON vl.driver_id = u.id
-       WHERE vl.id = $1 LIMIT 1`,
+       WHERE vl.id = $1::uuid LIMIT 1`,
       logId
     );
 
@@ -443,7 +443,7 @@ export class VehiclesService {
     const [log] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".vehicle_logs
        SET status = 'cancelled', updated_at = NOW()
-       WHERE id = $1 AND status = 'active'
+       WHERE id = $1::uuid AND status = 'active'
        RETURNING *`,
       logId
     );

@@ -19,7 +19,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string(),
   JWT_REFRESH_SECRET: z.string(),
   JWT_EXPIRES_IN: z.string().default('15m'),
-  JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+  JWT_REFRESH_EXPIRES_IN: z.string().default('365d'),
 
   // OAuth Google
   GOOGLE_CLIENT_ID: z.string().optional(),

@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as path;
 
+import '../../../../core/config/api_config.dart';
 import '../../../../di/injection_container_api.dart' as di;
 import '../../data/models/citation_model.dart';
 import '../../domain/entities/citation_entity.dart';
@@ -1274,7 +1275,7 @@ class _MapPickerScreenState extends State<_MapPickerScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.frogio.santa_juana',
                     ),
                     MarkerLayer(

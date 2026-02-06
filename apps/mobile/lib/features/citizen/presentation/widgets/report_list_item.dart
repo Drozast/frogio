@@ -23,14 +23,20 @@ class ReportListItem extends StatelessWidget {
     }).join(' ');
   }
 
+  bool get _isEmergency => report.category.toLowerCase() == 'emergencia';
+
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
+      elevation: _isEmergency ? 4 : 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
+        side: _isEmergency
+            ? BorderSide(color: Colors.red.shade300, width: 2)
+            : BorderSide.none,
       ),
+      color: _isEmergency ? Colors.red.shade50 : null,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -39,6 +45,33 @@ class ReportListItem extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // SOS Banner for emergencies
+              if (_isEmergency)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade600,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.sos_rounded, color: Colors.white, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'ALERTA DE EMERGENCIA',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               // Header con título y estado
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,9 +82,10 @@ class ReportListItem extends StatelessWidget {
                       children: [
                         Text(
                           _capitalize(report.title),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
+                            color: _isEmergency ? Colors.red.shade900 : null,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -59,18 +93,18 @@ class ReportListItem extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            if (report.category.toLowerCase() == 'emergencia') ...[
-                              Icon(Icons.emergency, size: 14, color: Colors.red[600]),
+                            if (_isEmergency) ...[
+                              Icon(Icons.emergency, size: 14, color: Colors.red[700]),
                               const SizedBox(width: 4),
                             ],
                             Text(
                               _capitalize(report.category),
                               style: TextStyle(
                                 fontSize: 12,
-                                color: report.category.toLowerCase() == 'emergencia'
-                                    ? Colors.red[600]
+                                color: _isEmergency
+                                    ? Colors.red[700]
                                     : Colors.grey[600],
-                                fontWeight: report.category.toLowerCase() == 'emergencia'
+                                fontWeight: _isEmergency
                                     ? FontWeight.bold
                                     : FontWeight.normal,
                               ),

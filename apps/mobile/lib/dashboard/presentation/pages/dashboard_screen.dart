@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 
-import '../../../core/services/session_timeout_service.dart';
 import '../../../di/injection_container_api.dart' as di;
 import '../../../features/auth/domain/entities/user_entity.dart';
 import '../../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -21,6 +20,7 @@ import '../../../features/citizen/presentation/pages/citizen_home_screen.dart';
 import '../../../features/admin/presentation/bloc/statistics/statistics_bloc.dart';
 import '../../../features/admin/presentation/pages/admin_dashboard_screen.dart';
 import '../../../features/inspector/presentation/pages/inspector_home_screen_v2.dart';
+import '../../../features/inspector/presentation/pages/inspector_map_screen.dart';
 import '../../../features/inspector/presentation/pages/citations_main_screen.dart';
 import '../../../features/inspector/presentation/bloc/citation_bloc.dart';
 import '../../../features/panic/presentation/bloc/panic_bloc.dart';
@@ -63,14 +63,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     );
     _animationController.forward();
 
-    // Inicializar servicio de timeout de sesión
-    final sessionService = di.sl<SessionTimeoutService>();
-    sessionService.onSessionTimeout = () {
-      if (mounted) {
-        context.read<AuthBloc>().add(SignOutEvent());
-      }
-    };
-    sessionService.startTimer();
+    // Session timeout desactivado: la sesión solo se cierra con logout explícito
 
     // Obtener ubicación para el botón de pánico
     _getCurrentLocation();
@@ -354,32 +347,27 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: GestureDetector(
-        onTap: () {
-          di.sl<SessionTimeoutService>().updateLastActivityTime();
-        },
-        child: Stack(
-          children: [
-            // Fondo con patrón de nenúfares
-            _buildBackgroundPattern(),
+      body: Stack(
+        children: [
+          // Fondo con patrón de nenúfares
+          _buildBackgroundPattern(),
 
-            // Contenido principal
-            Column(
-              children: [
-                // Header personalizado estilo FROGIO - solo en Inicio
-                if (showHeader) _buildCustomHeader(user),
+          // Contenido principal
+          Column(
+            children: [
+              // Header personalizado estilo FROGIO - solo en Inicio
+              if (showHeader) _buildCustomHeader(user),
 
-                // SafeArea para páginas sin header
-                if (!showHeader) SafeArea(child: Container()),
+              // SafeArea para páginas sin header
+              if (!showHeader) SafeArea(child: Container()),
 
-                // Contenido de la página actual
-                Expanded(
-                  child: _getPage(_currentIndex, user),
-                ),
-              ],
-            ),
-          ],
-        ),
+              // Contenido de la página actual
+              Expanded(
+                child: _getPage(_currentIndex, user),
+              ),
+            ],
+          ),
+        ],
       ),
       // Bottom Navigation Bar curva con botón SOS
       bottomNavigationBar: _buildCurvedBottomNavBar(user),
@@ -701,8 +689,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       case 'inspector':
         return [
           _buildNavItem(Icons.home_rounded, 'Inicio', 0),
-          _buildNavItem(Icons.assignment_outlined, 'Citaciones', 1),
-          _buildNavItem(Icons.person_outline, 'Perfil', 2),
+          _buildNavItem(Icons.map_rounded, 'Mapa', 1),
+          _buildNavItem(Icons.assignment_outlined, 'Citaciones', 2),
+          _buildNavItem(Icons.person_outline, 'Perfil', 3),
         ];
       case 'citizen':
       default:
@@ -721,7 +710,6 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         setState(() {
           _currentIndex = index;
         });
-        di.sl<SessionTimeoutService>().updateLastActivityTime();
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -932,9 +920,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           case 0:
             return CitizenHomeScreen(user: user);
           case 1:
-            return MyReportsScreen(userId: user.id);
+            return MyReportsScreen(userId: user.id, user: user);
           case 2:
-            return _buildProfilePage(user);
+            // Perfil completo con pestañas Datos, Familia, Ubicación
+            return CompleteProfileScreen(user: user, isEmbedded: true);
           default:
             return CitizenHomeScreen(user: user);
         }
@@ -943,11 +932,13 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           case 0:
             return InspectorHomeScreenV2(user: user);
           case 1:
+            return const InspectorMapScreen();
+          case 2:
             return BlocProvider(
               create: (_) => di.sl<CitationBloc>()..add(LoadMyCitationsEvent()),
               child: CitationsMainScreen(user: user),
             );
-          case 2:
+          case 3:
             return _buildProfilePage(user);
           default:
             return InspectorHomeScreenV2(user: user);

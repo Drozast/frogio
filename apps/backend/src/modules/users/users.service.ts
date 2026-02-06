@@ -75,7 +75,7 @@ export class UsersService {
   async findById(id: string, tenantId: string) {
     const [user] = await prisma.$queryRawUnsafe<any[]>(
       `SELECT id, email, rut, first_name, last_name, phone, address, role, is_active, email_verified, avatar, created_at, updated_at
-       FROM "${tenantId}".users WHERE id = $1 LIMIT 1`,
+       FROM "${tenantId}".users WHERE id = $1::uuid LIMIT 1`,
       id
     );
 
@@ -137,7 +137,7 @@ export class UsersService {
     const [updatedUser] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".users
        SET ${updates.join(', ')}
-       WHERE id = $${paramIndex}
+       WHERE id = $${paramIndex}::uuid
        RETURNING id, email, rut, first_name, last_name, phone, address, role, is_active, email_verified, avatar, created_at, updated_at`,
       ...params
     );
@@ -153,7 +153,7 @@ export class UsersService {
     const [user] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".users
        SET is_active = NOT is_active, updated_at = NOW()
-       WHERE id = $1
+       WHERE id = $1::uuid
        RETURNING id, email, rut, first_name, last_name, phone, address, role, is_active, email_verified, avatar, created_at, updated_at`,
       id
     );
@@ -170,7 +170,7 @@ export class UsersService {
     const [user] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".users
        SET is_active = false, updated_at = NOW()
-       WHERE id = $1
+       WHERE id = $1::uuid
        RETURNING id`,
       id
     );
@@ -188,7 +188,7 @@ export class UsersService {
     const [user] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".users
        SET password_hash = $1, updated_at = NOW()
-       WHERE id = $2
+       WHERE id = $2::uuid
        RETURNING id`,
       hashedPassword,
       id

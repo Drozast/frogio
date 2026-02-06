@@ -19,6 +19,7 @@ import '../bloc/report/enhanced_report_bloc.dart';
 import '../bloc/report/enhanced_report_event.dart';
 import '../bloc/report/enhanced_report_state.dart';
 import 'create_report_screen.dart';
+import 'my_reports_screen.dart';
 
 /// Pantalla principal del Ciudadano - Diseno Moderno Minimalista
 ///
@@ -764,7 +765,15 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                 title: 'Mis denuncias',
                 color: AppTheme.info,
                 onTap: () {
-                  // Navegar a tab de denuncias (manejado por padre)
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MyReportsScreen(
+                        userId: widget.user.id,
+                        user: widget.user,
+                      ),
+                    ),
+                  );
                 },
               ),
             ),
