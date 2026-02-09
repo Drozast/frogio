@@ -11,8 +11,6 @@ import {
   FunnelIcon,
   CalendarIcon,
   MagnifyingGlassIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 
 interface Report {
@@ -103,7 +101,8 @@ export default function ReportsTable({ reports, inspectors }: ReportsTableProps)
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
-  const [selectedDate, setSelectedDate] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Agrupar inspectores por estado activo/inactivo
   const activeInspectors = inspectors.filter(i => i.isActive !== false);
@@ -131,15 +130,27 @@ export default function ReportsTable({ reports, inspectors }: ReportsTableProps)
       // Priority filter
       if (filterPriority && report.priority !== filterPriority) return false;
 
-      // Date filter
-      if (selectedDate) {
-        const reportDate = new Date(report.created_at).toISOString().split('T')[0];
-        if (reportDate !== selectedDate) return false;
+      // Date range filter
+      if (startDate || endDate) {
+        const reportDate = new Date(report.created_at);
+        reportDate.setHours(0, 0, 0, 0);
+
+        if (startDate) {
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          if (reportDate < start) return false;
+        }
+
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          if (reportDate > end) return false;
+        }
       }
 
       return true;
     });
-  }, [reports, searchQuery, filterType, filterStatus, filterPriority, selectedDate]);
+  }, [reports, searchQuery, filterType, filterStatus, filterPriority, startDate, endDate]);
 
   // Group reports by date
   const groupedReports = useMemo(() => {
@@ -161,26 +172,16 @@ export default function ReportsTable({ reports, inspectors }: ReportsTableProps)
     return sortedGroups;
   }, [filteredReports]);
 
-  // Calendar navigation
-  const navigateDate = (direction: 'prev' | 'next') => {
-    const current = selectedDate ? new Date(selectedDate) : new Date();
-    if (direction === 'prev') {
-      current.setDate(current.getDate() - 1);
-    } else {
-      current.setDate(current.getDate() + 1);
-    }
-    setSelectedDate(current.toISOString().split('T')[0]);
-  };
-
   const clearFilters = () => {
     setSearchQuery('');
     setFilterType('');
     setFilterStatus('');
     setFilterPriority('');
-    setSelectedDate('');
+    setStartDate('');
+    setEndDate('');
   };
 
-  const hasActiveFilters = searchQuery || filterType || filterStatus || filterPriority || selectedDate;
+  const hasActiveFilters = searchQuery || filterType || filterStatus || filterPriority || startDate || endDate;
 
   const handleView = (reportId: string) => {
     router.push(`/reports/${reportId}`);
@@ -375,31 +376,31 @@ export default function ReportsTable({ reports, inspectors }: ReportsTableProps)
               />
             </div>
 
-            {/* Date Navigation */}
+            {/* Date Range */}
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => navigateDate('prev')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Día anterior"
-              >
-                <ChevronLeftIcon className="h-5 w-5 text-gray-600" />
-              </button>
               <div className="relative">
                 <CalendarIcon className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  max={endDate || undefined}
                   className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  title="Fecha desde"
                 />
               </div>
-              <button
-                onClick={() => navigateDate('next')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Día siguiente"
-              >
-                <ChevronRightIcon className="h-5 w-5 text-gray-600" />
-              </button>
+              <span className="text-gray-400 text-sm">—</span>
+              <div className="relative">
+                <CalendarIcon className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate || undefined}
+                  className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  title="Fecha hasta"
+                />
+              </div>
             </div>
 
             {/* Filter Toggle */}
@@ -415,7 +416,7 @@ export default function ReportsTable({ reports, inspectors }: ReportsTableProps)
               <span className="text-sm font-medium">Filtros</span>
               {hasActiveFilters && (
                 <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-indigo-600 rounded-full">
-                  {[filterType, filterStatus, filterPriority, selectedDate].filter(Boolean).length}
+                  {[filterType, filterStatus, filterPriority, startDate, endDate].filter(Boolean).length}
                 </span>
               )}
             </button>
