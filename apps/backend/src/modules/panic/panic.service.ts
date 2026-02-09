@@ -2,8 +2,25 @@ import prisma from '../../config/database.js';
 import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
 import type { CreatePanicAlertDto, PanicAlertFilters } from './panic.types.js';
+import { ReportsService } from '../reports/reports.service.js';
+
+const reportsService = new ReportsService();
 
 export class PanicService {
+  // Helper to find associated emergency report
+  private async findAssociatedReport(alertId: string, userId: string, tenantId: string): Promise<any | null> {
+    const [report] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM "${tenantId}".reports
+       WHERE type = 'emergencia'
+       AND user_id = $1::uuid
+       AND description LIKE $2
+       AND status IN ('pendiente', 'recibido', 'en_proceso')
+       LIMIT 1`,
+      userId,
+      `%ID Alerta: ${alertId}%`
+    );
+    return report || null;
+  }
   async create(data: CreatePanicAlertDto, userId: string, tenantId: string) {
     // Create panic alert
     const [alert] = await prisma.$queryRawUnsafe<any[]>(
@@ -155,19 +172,16 @@ export class PanicService {
       throw new Error('Alerta no encontrada o ya atendida');
     }
 
-    // Actualizar el reporte de emergencia asociado a 'en_proceso'
+    // Actualizar el reporte de emergencia asociado a 'en_proceso' con historial
     try {
-      await prisma.$queryRawUnsafe(
-        `UPDATE "${tenantId}".reports
-         SET status = 'en_proceso', updated_at = NOW()
-         WHERE type = 'emergencia'
-         AND user_id = $1::uuid
-         AND description LIKE $2
-         AND status IN ('pendiente', 'recibido')`,
-        alert.user_id,
-        `%ID Alerta: ${id}%`
-      );
-      logger.info(`Updated emergency report status to 'en_proceso' for panic alert ${id}`);
+      const associatedReport = await this.findAssociatedReport(id, alert.user_id, tenantId);
+      if (associatedReport) {
+        await reportsService.update(associatedReport.id, {
+          status: 'en_proceso',
+          changeReason: 'Inspector en camino - respondiendo a alerta SOS',
+        }, responderId, tenantId);
+        logger.info(`Updated emergency report status to 'en_proceso' for panic alert ${id}`);
+      }
     } catch (e) {
       logger.warn(`Could not update emergency report status: ${e}`);
     }
@@ -223,23 +237,18 @@ export class PanicService {
       throw new Error('Alerta no encontrada o ya resuelta');
     }
 
-    // Actualizar el reporte de emergencia asociado a 'resuelto' y agregar las notas
+    // Actualizar el reporte de emergencia asociado a 'resuelto' con historial
     try {
-      const notesAppend = notes ? `\n\n--- Resolución del Inspector ---\n${notes}` : '\n\n--- Emergencia atendida ---';
-      await prisma.$queryRawUnsafe(
-        `UPDATE "${tenantId}".reports
-         SET status = 'resuelto',
-             description = description || $1,
-             updated_at = NOW()
-         WHERE type = 'emergencia'
-         AND user_id = $2::uuid
-         AND description LIKE $3
-         AND status IN ('pendiente', 'recibido', 'en_proceso')`,
-        notesAppend,
-        alert.user_id,
-        `%ID Alerta: ${id}%`
-      );
-      logger.info(`Updated emergency report status to 'resuelto' for panic alert ${id}`);
+      const associatedReport = await this.findAssociatedReport(id, alert.user_id, tenantId);
+      if (associatedReport) {
+        const resolutionText = notes || 'Emergencia atendida y resuelta';
+        await reportsService.update(associatedReport.id, {
+          status: 'resuelto',
+          resolution: resolutionText,
+          changeReason: resolutionText,
+        }, alert.responder_id || alert.user_id, tenantId);
+        logger.info(`Updated emergency report status to 'resuelto' for panic alert ${id}`);
+      }
     } catch (e) {
       logger.warn(`Could not update emergency report status: ${e}`);
     }
@@ -294,22 +303,17 @@ export class PanicService {
       throw new Error('No puedes cancelar esta alerta');
     }
 
-    // Actualizar el reporte de emergencia asociado a 'rechazado' (cancelado por usuario)
+    // Actualizar el reporte de emergencia asociado a 'rechazado' con historial
     try {
-      await prisma.$queryRawUnsafe(
-        `UPDATE "${tenantId}".reports
-         SET status = 'rechazado',
-             description = description || $1,
-             updated_at = NOW()
-         WHERE type = 'emergencia'
-         AND user_id = $2::uuid
-         AND description LIKE $3
-         AND status IN ('pendiente', 'recibido', 'en_proceso')`,
-        '\n\n--- Cancelado por el usuario ---',
-        alert.user_id,
-        `%ID Alerta: ${id}%`
-      );
-      logger.info(`Updated emergency report status to 'rechazado' for cancelled panic alert ${id}`);
+      const associatedReport = await this.findAssociatedReport(id, alert.user_id, tenantId);
+      if (associatedReport) {
+        await reportsService.update(associatedReport.id, {
+          status: 'rechazado',
+          resolution: 'Alerta cancelada por el ciudadano',
+          changeReason: 'Cancelado por el usuario',
+        }, userId, tenantId);
+        logger.info(`Updated emergency report status to 'rechazado' for cancelled panic alert ${id}`);
+      }
     } catch (e) {
       logger.warn(`Could not update emergency report status: ${e}`);
     }
@@ -345,22 +349,17 @@ export class PanicService {
       throw new Error('Alerta no encontrada o ya resuelta');
     }
 
-    // Actualizar el reporte de emergencia asociado a 'rechazado' con el motivo
+    // Actualizar el reporte de emergencia asociado a 'rechazado' con historial
     try {
-      await prisma.$queryRawUnsafe(
-        `UPDATE "${tenantId}".reports
-         SET status = 'rechazado',
-             description = description || $1,
-             updated_at = NOW()
-         WHERE type = 'emergencia'
-         AND user_id = $2::uuid
-         AND description LIKE $3
-         AND status IN ('pendiente', 'recibido', 'en_proceso')`,
-        `\n\n--- Descartado por Inspector ---\nMotivo: ${reason}`,
-        alert.user_id,
-        `%ID Alerta: ${id}%`
-      );
-      logger.info(`Updated emergency report status to 'rechazado' for dismissed panic alert ${id}`);
+      const associatedReport = await this.findAssociatedReport(id, alert.user_id, tenantId);
+      if (associatedReport) {
+        await reportsService.update(associatedReport.id, {
+          status: 'rechazado',
+          resolution: `Descartado por inspector. Motivo: ${reason}`,
+          changeReason: `Descartado: ${reason}`,
+        }, dismissedBy, tenantId);
+        logger.info(`Updated emergency report status to 'rechazado' for dismissed panic alert ${id}`);
+      }
     } catch (e) {
       logger.warn(`Could not update emergency report status: ${e}`);
     }
