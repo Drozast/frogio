@@ -44,17 +44,63 @@ export class ReportsService {
     );
   }
 
-  // Get version history for a report
-  async getVersionHistory(reportId: string, tenantId: string): Promise<ReportVersion[]> {
-    const versions = await prisma.$queryRawUnsafe<ReportVersion[]>(
+  // Get version history for a report (includes initial creation)
+  async getVersionHistory(reportId: string, tenantId: string): Promise<any[]> {
+    // Get the report to include creation info
+    const [report] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT r.*, u.first_name as creator_first_name, u.last_name as creator_last_name
+       FROM "${tenantId}".reports r
+       LEFT JOIN "${tenantId}".users u ON r.user_id = u.id
+       WHERE r.id = $1::uuid`,
+      reportId
+    );
+
+    if (!report) {
+      return [];
+    }
+
+    // Get all versions
+    const versions = await prisma.$queryRawUnsafe<any[]>(
       `SELECT rv.*, u.first_name as modifier_first_name, u.last_name as modifier_last_name
        FROM "${tenantId}".report_versions rv
        LEFT JOIN "${tenantId}".users u ON rv.modified_by = u.id
        WHERE rv.report_id = $1::uuid
-       ORDER BY rv.version_number DESC`,
+       ORDER BY rv.version_number ASC`,
       reportId
     );
-    return versions;
+
+    // Build complete history
+    const history: any[] = [];
+
+    // Add initial creation entry
+    history.push({
+      id: `creation-${report.id}`,
+      report_id: report.id,
+      version_number: 0,
+      title: report.title,
+      description: report.description,
+      type: report.type,
+      status: 'pendiente',
+      priority: report.priority,
+      address: report.address,
+      modified_by: report.user_id,
+      modified_at: report.created_at,
+      change_reason: 'Denuncia creada por ciudadano',
+      modifier_first_name: report.creator_first_name,
+      modifier_last_name: report.creator_last_name,
+      is_creation: true,
+    });
+
+    // Add all versions
+    versions.forEach(v => {
+      history.push({
+        ...v,
+        is_creation: false,
+      });
+    });
+
+    // Return in reverse chronological order (newest first)
+    return history.reverse();
   }
 
   // Get a specific version
