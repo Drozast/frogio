@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 // Use internal API_URL for server-side requests (container name)
-const API_URL = process.env.API_URL || 'http://backend:3000';
+import { API_URL } from '@/lib/api-config';
 
 export async function GET(request: NextRequest) {
   try {
