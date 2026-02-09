@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation';
 import AppLayout from '@/components/layout/AppLayout';
 import ReportsClient from '@/components/reports/ReportsClient';
 
-const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// Use internal Docker URL for SSR, external URL as fallback
+const API_URL = process.env.INTERNAL_API_URL || process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 async function getReports(token: string) {
   try {

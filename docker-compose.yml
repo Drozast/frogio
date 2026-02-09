@@ -122,8 +122,10 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:3000}
+      # Internal URL for SSR (bypasses Cloudflare)
+      INTERNAL_API_URL: http://backend:3000
     ports:
-      - "3001:3000"
+      - "3111:3000"
     networks:
       - frogio_network
 
