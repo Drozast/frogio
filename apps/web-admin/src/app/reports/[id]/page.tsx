@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import InspectorSelector from './InspectorSelector';
 import VersionHistory from './VersionHistory';
+import ReportMap from './ReportMap';
 import { API_URL } from '@/lib/api-config';
 
 interface Report {
@@ -179,17 +180,10 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
 
               {hasLocation ? (
                 <div className="space-y-4">
-                  <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                    <iframe
-                      width="100%"
-                      height="100%"
-                      style={{ border: 0 }}
-                      loading="lazy"
-                      allowFullScreen
-                      referrerPolicy="no-referrer-when-downgrade"
-                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${report.latitude},${report.longitude}&zoom=16`}
-                    />
-                  </div>
+                  <ReportMap
+                    latitude={Number(report.latitude)}
+                    longitude={Number(report.longitude)}
+                  />
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-gray-500">
                       Coordenadas: {Number(report.latitude).toFixed(6)}, {Number(report.longitude).toFixed(6)}
