@@ -5,7 +5,7 @@ import { API_URL } from '@/lib/api-config';
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get('accessToken')?.value;
 
     if (!accessToken) {
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get('accessToken')?.value;
 
     if (!accessToken) {

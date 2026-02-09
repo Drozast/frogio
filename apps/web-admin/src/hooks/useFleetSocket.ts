@@ -43,19 +43,30 @@ interface UseFleetSocketReturn {
 
 const TENANT_ID = 'santa_juana';
 
-// Get the socket URL - use window location for client-side
+// Get the socket URL for WebSocket connections
 function getSocketUrl(): string {
+  // First try the public API URL (available client-side)
+  const publicApiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (publicApiUrl) {
+    return publicApiUrl;
+  }
+
+  // Fallback for local development
   if (typeof window === 'undefined') {
     return 'http://localhost:3000';
   }
-  // Use the same host as the current page, but port 3000 for the backend
+
   const host = window.location.hostname;
-  // If accessing via localhost or IP, use port 3000
+
+  // Local development
   if (host === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
     return `http://${host}:3000`;
   }
-  // For domain access, try the API subdomain
-  return process.env.NEXT_PUBLIC_API_URL || `http://${host}:3000`;
+
+  // Production: derive API URL from current domain
+  // e.g., admin-frogio.drozast.xyz -> api-frogio.drozast.xyz
+  const apiHost = host.replace('admin-', 'api-');
+  return `https://${apiHost}`;
 }
 
 export function useFleetSocket(): UseFleetSocketReturn {

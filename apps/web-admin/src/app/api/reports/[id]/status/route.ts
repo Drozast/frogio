@@ -7,7 +7,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
 
   if (!accessToken) {

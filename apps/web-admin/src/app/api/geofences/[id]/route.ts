@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get('accessToken')?.value;
 
     if (!accessToken) {
@@ -39,7 +39,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get('accessToken')?.value;
 
     if (!accessToken) {
@@ -75,7 +75,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get('accessToken')?.value;
 
     if (!accessToken) {
