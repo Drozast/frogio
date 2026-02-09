@@ -79,9 +79,17 @@ export default function CitationDetailPage() {
     try {
       const response = await fetch(`/api/citations/${id}`);
       if (!response.ok) {
-        throw new Error('Error al cargar la citación');
+        throw new Error('Error al cargar la citacion');
       }
       const data = await response.json();
+      // Parse photos if it's a JSON string
+      if (data.photos && typeof data.photos === 'string') {
+        try {
+          data.photos = JSON.parse(data.photos);
+        } catch {
+          data.photos = [];
+        }
+      }
       setCitation(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -280,7 +288,7 @@ export default function CitationDetailPage() {
             )}
 
             {/* Photos */}
-            {citation.photos && citation.photos.length > 0 && (
+            {citation.photos && Array.isArray(citation.photos) && citation.photos.length > 0 && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Evidencia Fotográfica</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
