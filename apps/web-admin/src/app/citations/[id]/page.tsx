@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppLayout from '@/components/layout/AppLayout';
+import CitationVersionHistory from './CitationVersionHistory';
 import {
   ArrowLeftIcon,
   UserIcon,
@@ -307,7 +308,7 @@ export default function CitationDetailPage() {
           <div className="space-y-6">
             {/* Meta Info */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Información</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Informacion</h3>
               <dl className="space-y-3">
                 <div>
                   <dt className="text-sm text-gray-500 flex items-center gap-1">
@@ -338,7 +339,7 @@ export default function CitationDetailPage() {
                 <div>
                   <dt className="text-sm text-gray-500 flex items-center gap-1">
                     <ClockIcon className="h-4 w-4" />
-                    Última Actualización
+                    Ultima Actualizacion
                   </dt>
                   <dd className="text-sm font-medium text-gray-900 mt-1">
                     {new Date(citation.updated_at).toLocaleDateString('es-CL', {
@@ -352,6 +353,9 @@ export default function CitationDetailPage() {
                 </div>
               </dl>
             </div>
+
+            {/* Version History */}
+            <CitationVersionHistory citationId={id} />
           </div>
         </div>
       </div>

@@ -2,6 +2,106 @@ import prisma from '../../config/database.js';
 import type { CreateCitationDto, UpdateCitationDto, CitationFilters, Citation } from './citations.types.js';
 
 export class CitationsService {
+  // Save version after updating (captures the new state)
+  private async saveVersionAfterUpdate(citationId: string, modifiedBy: string, tenantId: string, changeReason?: string): Promise<void> {
+    // Get next version number
+    const [versionCount] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT COALESCE(MAX(version_number), 0) + 1 as next_version
+       FROM "${tenantId}".citation_versions WHERE citation_id = $1::uuid`,
+      citationId
+    );
+    const nextVersion = parseInt(versionCount?.next_version || '1');
+
+    // Get updated citation state
+    const [updatedCitation] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT * FROM "${tenantId}".court_citations WHERE id = $1::uuid`,
+      citationId
+    );
+
+    if (!updatedCitation) return;
+
+    // Insert version snapshot with the NEW state
+    await prisma.$queryRawUnsafe(
+      `INSERT INTO "${tenantId}".citation_versions
+       (citation_id, version_number, citation_type, target_type, target_name, target_rut,
+        target_address, target_phone, target_plate, location_address, status, notes,
+        notification_method, modified_by, modified_at, change_reason)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::uuid, NOW(), $15)`,
+      citationId,
+      nextVersion,
+      updatedCitation.citation_type,
+      updatedCitation.target_type,
+      updatedCitation.target_name,
+      updatedCitation.target_rut,
+      updatedCitation.target_address,
+      updatedCitation.target_phone,
+      updatedCitation.target_plate,
+      updatedCitation.location_address,
+      updatedCitation.status,
+      updatedCitation.notes,
+      updatedCitation.notification_method,
+      modifiedBy,
+      changeReason || null
+    );
+  }
+
+  // Get version history for a citation (includes initial creation)
+  async getVersionHistory(citationId: string, tenantId: string): Promise<any[]> {
+    // Get the citation to include creation info
+    const [citation] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT cc.*, u.first_name as issuer_first_name, u.last_name as issuer_last_name
+       FROM "${tenantId}".court_citations cc
+       LEFT JOIN "${tenantId}".users u ON cc.issued_by = u.id
+       WHERE cc.id = $1::uuid`,
+      citationId
+    );
+
+    if (!citation) {
+      return [];
+    }
+
+    // Get all versions
+    const versions = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT cv.*, u.first_name as modifier_first_name, u.last_name as modifier_last_name
+       FROM "${tenantId}".citation_versions cv
+       LEFT JOIN "${tenantId}".users u ON cv.modified_by = u.id
+       WHERE cv.citation_id = $1::uuid
+       ORDER BY cv.version_number ASC`,
+      citationId
+    );
+
+    // Build complete history
+    const history: any[] = [];
+
+    // Add initial creation entry
+    history.push({
+      id: `creation-${citation.id}`,
+      citation_id: citation.id,
+      version_number: 0,
+      citation_type: citation.citation_type,
+      target_type: citation.target_type,
+      target_name: citation.target_name,
+      status: 'pendiente',
+      modified_by: citation.issued_by,
+      modified_at: citation.created_at,
+      change_reason: `Citación creada por inspector`,
+      modifier_first_name: citation.issuer_first_name,
+      modifier_last_name: citation.issuer_last_name,
+      is_creation: true,
+    });
+
+    // Add all versions
+    versions.forEach(v => {
+      history.push({
+        ...v,
+        is_creation: false,
+      });
+    });
+
+    // Return in reverse chronological order (newest first)
+    return history.reverse();
+  }
+
   async create(data: CreateCitationDto, tenantId: string, issuedBy: string): Promise<Citation> {
     const [citation] = await prisma.$queryRawUnsafe<Citation[]>(
       `INSERT INTO "${tenantId}".court_citations
@@ -134,7 +234,7 @@ export class CitationsService {
     return citation;
   }
 
-  async update(id: string, data: UpdateCitationDto, tenantId: string): Promise<Citation> {
+  async update(id: string, data: UpdateCitationDto & { changeReason?: string }, modifiedBy: string, tenantId: string): Promise<Citation> {
     const updates: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -233,6 +333,10 @@ export class CitationsService {
     if (!updatedCitation) {
       throw new Error('Citación no encontrada');
     }
+
+    // Save version AFTER update to capture the new state
+    const changeReason = data.changeReason || data.notes || undefined;
+    await this.saveVersionAfterUpdate(id, modifiedBy, tenantId, changeReason);
 
     return updatedCitation;
   }

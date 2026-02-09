@@ -178,6 +178,7 @@ export class PanicService {
       if (associatedReport) {
         await reportsService.update(associatedReport.id, {
           status: 'en_proceso',
+          assignedTo: responderId,
           changeReason: 'Inspector en camino - respondiendo a alerta SOS',
         }, responderId, tenantId);
         logger.info(`Updated emergency report status to 'en_proceso' for panic alert ${id}`);
@@ -244,6 +245,7 @@ export class PanicService {
         const resolutionText = notes || 'Emergencia atendida y resuelta';
         await reportsService.update(associatedReport.id, {
           status: 'resuelto',
+          assignedTo: alert.responder_id || undefined,
           resolution: resolutionText,
           changeReason: resolutionText,
         }, alert.responder_id || alert.user_id, tenantId);
@@ -309,6 +311,7 @@ export class PanicService {
       if (associatedReport) {
         await reportsService.update(associatedReport.id, {
           status: 'rechazado',
+          assignedTo: alert.responder_id || undefined,
           resolution: 'Alerta cancelada por el ciudadano',
           changeReason: 'Cancelado por el usuario',
         }, userId, tenantId);
@@ -355,6 +358,7 @@ export class PanicService {
       if (associatedReport) {
         await reportsService.update(associatedReport.id, {
           status: 'rechazado',
+          assignedTo: dismissedBy,
           resolution: `Descartado por inspector. Motivo: ${reason}`,
           changeReason: `Descartado: ${reason}`,
         }, dismissedBy, tenantId);

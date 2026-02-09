@@ -73,12 +73,27 @@ export class CitationsController {
       const { id } = req.params;
       const data: UpdateCitationDto = req.body;
       const tenantId = req.user!.tenantId;
+      const modifiedBy = req.user!.userId;
 
-      const citation = await citationsService.update(id, data, tenantId);
+      const citation = await citationsService.update(id, data, modifiedBy, tenantId);
 
       res.json(citation);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al actualizar citación';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  async getVersionHistory(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const tenantId = req.user!.tenantId;
+
+      const versions = await citationsService.getVersionHistory(id, tenantId);
+
+      res.json(versions);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al obtener historial';
       res.status(400).json({ error: message });
     }
   }

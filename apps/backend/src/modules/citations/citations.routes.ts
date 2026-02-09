@@ -20,6 +20,9 @@ router.get('/stats', roleGuard('inspector', 'admin'), (req, res) => citationsCon
 // Bulk import from Excel
 router.post('/import', roleGuard('admin'), (req, res) => citationsController.bulkImport(req as AuthRequest, res));
 
+// Get citation version history
+router.get('/:id/versions', (req, res) => citationsController.getVersionHistory(req as AuthRequest, res));
+
 // Only Inspectors and Admins can create citations
 router.post('/', roleGuard('inspector', 'admin'), (req, res) => citationsController.create(req as AuthRequest, res));
 
