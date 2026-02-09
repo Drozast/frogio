@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import AppLayout from '@/components/layout/AppLayout';
-import VehicleList from '@/components/fleet/VehicleList';
+import AllVehiclesList from '@/components/fleet/AllVehiclesList';
 import GeofenceAlerts from '@/components/fleet/GeofenceAlerts';
 import LogDetailModal from '@/components/fleet/LogDetailModal';
 import { useFleetSocket, VehiclePosition } from '@/hooks/useFleetSocket';
@@ -554,7 +554,7 @@ function FleetPageContent() {
               <div className="lg:col-span-1 bg-white rounded-lg shadow overflow-hidden flex flex-col">
                 <div className="p-3 border-b bg-gray-50">
                   <div className="flex items-center justify-between">
-                    <h2 className="font-semibold text-gray-900 text-sm">Vehículos Activos</h2>
+                    <h2 className="font-semibold text-gray-900 text-sm">Vehículos</h2>
                     <button
                       onClick={refreshPositions}
                       className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
@@ -565,25 +565,31 @@ function FleetPageContent() {
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                  <VehicleList
-                    vehicles={mergedVehicles}
+                  <AllVehiclesList
                     selectedVehicleId={selectedVehicleId}
                     onVehicleSelect={setSelectedVehicleId}
+                    liveVehicles={mergedVehicles}
                   />
                 </div>
 
                 {/* Quick Stats */}
                 <div className="p-3 border-t bg-gray-50">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <div className="p-2 bg-green-50 rounded text-center">
-                      <p className="text-xs text-green-600">En Movimiento</p>
+                      <p className="text-xs text-green-600">GPS Activo</p>
                       <p className="text-lg font-bold text-green-700">
-                        {Array.from(mergedVehicles.values()).filter(v => v.status === 'moving').length}
+                        {mergedVehicles.size}
                       </p>
                     </div>
-                    <div className="p-2 bg-red-50 rounded text-center">
-                      <p className="text-xs text-red-600">Detenidos</p>
-                      <p className="text-lg font-bold text-red-700">
+                    <div className="p-2 bg-blue-50 rounded text-center">
+                      <p className="text-xs text-blue-600">En Uso</p>
+                      <p className="text-lg font-bold text-blue-700">
+                        {Array.from(mergedVehicles.values()).filter(v => v.status === 'moving' || v.status === 'slow').length}
+                      </p>
+                    </div>
+                    <div className="p-2 bg-gray-50 rounded text-center border">
+                      <p className="text-xs text-gray-600">Detenidos</p>
+                      <p className="text-lg font-bold text-gray-700">
                         {Array.from(mergedVehicles.values()).filter(v => v.status === 'stopped').length}
                       </p>
                     </div>
