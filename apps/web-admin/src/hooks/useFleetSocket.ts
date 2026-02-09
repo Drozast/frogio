@@ -43,17 +43,11 @@ interface UseFleetSocketReturn {
 
 const TENANT_ID = 'santa_juana';
 
-// Get the socket URL for WebSocket connections
+// Get the socket URL for WebSocket connections (CLIENT-SIDE ONLY)
 function getSocketUrl(): string {
-  // First try the public API URL (available client-side)
-  const publicApiUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (publicApiUrl) {
-    return publicApiUrl;
-  }
-
-  // Fallback for local development
+  // This should only be called on the client
   if (typeof window === 'undefined') {
-    return 'http://localhost:3000';
+    return ''; // Return empty, we'll handle this in useEffect
   }
 
   const host = window.location.hostname;
@@ -92,7 +86,12 @@ export function useFleetSocket(): UseFleetSocketReturn {
   }, []);
 
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') return;
+
     const socketUrl = getSocketUrl();
+    if (!socketUrl) return;
+
     console.log('Connecting to fleet socket:', socketUrl);
 
     const newSocket = io(`${socketUrl}/fleet`, {
