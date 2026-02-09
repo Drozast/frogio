@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { API_URL } from '@/lib/api-config';
 
-// Use API_URL for server-side requests (Docker service name)
-// Use NEXT_PUBLIC_API_URL for client-side requests (external IP)
-const API_URL = process.env.API_URL || process.env.API_URL || 'http://backend:3000';
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID || 'santa_juana';
 
 export async function POST(request: NextRequest) {
@@ -32,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Set HTTP-only cookies
     // secure: false porque estamos usando HTTP (no HTTPS) en producción local
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.set('accessToken', data.accessToken, {
       httpOnly: true,
       secure: false,
