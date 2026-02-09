@@ -278,7 +278,7 @@ export class ReportsService {
     const normalizedStatus = data.status ? normalizeStatus(data.status) : undefined;
 
     // Use resolution as change reason if not explicitly provided (for version history)
-    const changeReason = data.changeReason || data.resolution || null;
+    const changeReason = data.changeReason || data.resolution || undefined;
 
     const updates: string[] = [];
     const params: any[] = [];
