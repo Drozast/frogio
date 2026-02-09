@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ClockIcon, UserIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, UserIcon, CheckCircleIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 
 interface ReportVersion {
   id: string;
@@ -31,26 +31,16 @@ const statusLabels: Record<string, string> = {
   rechazado: 'Rechazado',
 };
 
-const priorityLabels: Record<string, string> = {
-  baja: 'Baja',
-  media: 'Media',
-  alta: 'Alta',
-  urgente: 'Urgente',
-};
-
-const typeLabels: Record<string, string> = {
-  denuncia: 'Denuncia',
-  sugerencia: 'Sugerencia',
-  emergencia: 'Emergencia',
-  infraestructura: 'Infraestructura',
-  otro: 'Otro',
+const statusColors: Record<string, { bg: string; text: string; border: string }> = {
+  pendiente: { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200' },
+  en_proceso: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+  resuelto: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
+  rechazado: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
 };
 
 export default function VersionHistory({ reportId }: VersionHistoryProps) {
   const [versions, setVersions] = useState<ReportVersion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
-  const [expandedVersion, setExpandedVersion] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchVersions() {
@@ -75,7 +65,7 @@ export default function VersionHistory({ reportId }: VersionHistoryProps) {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <ClockIcon className="h-5 w-5 text-gray-500" />
-          Historial de Versiones
+          Historial del Caso
         </h2>
         <div className="flex items-center justify-center py-4">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
@@ -89,7 +79,7 @@ export default function VersionHistory({ reportId }: VersionHistoryProps) {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <ClockIcon className="h-5 w-5 text-gray-500" />
-          Historial de Versiones
+          Historial del Caso
         </h2>
         <p className="text-sm text-gray-500 text-center py-4">
           Sin historial de cambios
@@ -98,39 +88,48 @@ export default function VersionHistory({ reportId }: VersionHistoryProps) {
     );
   }
 
-  const displayedVersions = expanded ? versions : versions.slice(0, 3);
-
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
         <ClockIcon className="h-5 w-5 text-gray-500" />
-        Historial de Versiones
-        <span className="text-sm font-normal text-gray-500">({versions.length})</span>
+        Historial del Caso
       </h2>
 
-      <div className="space-y-3">
-        {displayedVersions.map((version) => (
-          <div
-            key={version.id}
-            className="border border-gray-200 rounded-lg overflow-hidden"
-          >
-            {/* Version Header */}
-            <button
-              onClick={() => setExpandedVersion(expandedVersion === version.version_number ? null : version.version_number)}
-              className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+      <div className="space-y-4">
+        {versions.map((version, index) => {
+          const colors = statusColors[version.status] || statusColors.pendiente;
+          const isResolution = version.status === 'resuelto' || version.status === 'rechazado';
+
+          return (
+            <div
+              key={version.id}
+              className={`relative pl-6 ${index !== versions.length - 1 ? 'pb-4' : ''}`}
             >
-              <div className="flex items-center gap-3">
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">
-                  v{version.version_number}
-                </span>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {version.change_reason || 'Sin descripción del cambio'}
-                  </p>
-                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                    <UserIcon className="h-3 w-3" />
-                    {version.modifier_first_name} {version.modifier_last_name}
-                    <span className="mx-1">•</span>
+              {/* Timeline line */}
+              {index !== versions.length - 1 && (
+                <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-gray-200" />
+              )}
+
+              {/* Timeline dot */}
+              <div className={`absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center ${
+                isResolution ? 'bg-green-500' : 'bg-gray-300'
+              }`}>
+                {isResolution ? (
+                  <CheckCircleIcon className="h-4 w-4 text-white" />
+                ) : (
+                  <div className="w-2 h-2 rounded-full bg-white" />
+                )}
+              </div>
+
+              <div className={`${colors.bg} ${colors.border} border rounded-lg p-4`}>
+                {/* Header */}
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${colors.bg} ${colors.text}`}>
+                      {statusLabels[version.status] || version.status}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500">
                     {new Date(version.modified_at).toLocaleDateString('es-CL', {
                       day: '2-digit',
                       month: 'short',
@@ -138,61 +137,38 @@ export default function VersionHistory({ reportId }: VersionHistoryProps) {
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
-                  </p>
+                  </span>
                 </div>
-              </div>
-              {expandedVersion === version.version_number ? (
-                <ChevronUpIcon className="h-5 w-5 text-gray-400" />
-              ) : (
-                <ChevronDownIcon className="h-5 w-5 text-gray-400" />
-              )}
-            </button>
 
-            {/* Version Details */}
-            {expandedVersion === version.version_number && (
-              <div className="px-4 py-3 border-t border-gray-200 bg-white">
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <dt className="text-gray-500">Título</dt>
-                    <dd className="font-medium text-gray-900">{version.title}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-500">Tipo</dt>
-                    <dd className="font-medium text-gray-900">{typeLabels[version.type] || version.type}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-500">Estado</dt>
-                    <dd className="font-medium text-gray-900">{statusLabels[version.status] || version.status}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-500">Prioridad</dt>
-                    <dd className="font-medium text-gray-900">{priorityLabels[version.priority] || version.priority}</dd>
-                  </div>
-                  {version.address && (
-                    <div className="col-span-2">
-                      <dt className="text-gray-500">Dirección</dt>
-                      <dd className="font-medium text-gray-900">{version.address}</dd>
+                {/* Inspector info */}
+                <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                  <UserIcon className="h-4 w-4" />
+                  <span className="font-medium">
+                    {version.modifier_first_name} {version.modifier_last_name}
+                  </span>
+                </div>
+
+                {/* Notes/Resolution reason */}
+                {version.change_reason && (
+                  <div className={`mt-3 p-3 rounded-lg ${isResolution ? 'bg-white' : 'bg-white/50'}`}>
+                    <div className="flex items-start gap-2">
+                      <DocumentTextIcon className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-1">
+                          {isResolution ? 'Notas de resolución:' : 'Observaciones:'}
+                        </p>
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                          {version.change_reason}
+                        </p>
+                      </div>
                     </div>
-                  )}
-                  <div className="col-span-2">
-                    <dt className="text-gray-500">Descripción</dt>
-                    <dd className="font-medium text-gray-900 whitespace-pre-wrap">{version.description}</dd>
                   </div>
-                </dl>
+                )}
               </div>
-            )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
-
-      {versions.length > 3 && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="w-full mt-3 px-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
-        >
-          {expanded ? 'Ver menos' : `Ver todas (${versions.length - 3} más)`}
-        </button>
-      )}
     </div>
   );
 }
