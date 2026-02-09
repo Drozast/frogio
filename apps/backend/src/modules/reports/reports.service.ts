@@ -2,9 +2,23 @@ import prisma from '../../config/database.js';
 import { alertsService } from '../../services/alerts.service.js';
 import type { CreateReportDto, UpdateReportDto, ReportVersion } from './reports.types.js';
 
+// Normalize status values from English to Spanish
+const normalizeStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'resolved': 'resuelto',
+    'rejected': 'rechazado',
+    'duplicate': 'rechazado',
+    'in_progress': 'en_proceso',
+    'inprogress': 'en_proceso',
+    'pending': 'pendiente',
+    'submitted': 'pendiente',
+  };
+  return statusMap[status.toLowerCase()] || status;
+};
+
 export class ReportsService {
-  // Save current state as a version before updating
-  private async saveVersion(reportId: string, modifiedBy: string, tenantId: string, changeReason?: string): Promise<void> {
+  // Save version after updating (captures the new state)
+  private async saveVersionAfterUpdate(reportId: string, modifiedBy: string, tenantId: string, changeReason?: string): Promise<void> {
     // Get next version number
     const [versionCount] = await prisma.$queryRawUnsafe<any[]>(
       `SELECT COALESCE(MAX(version_number), 0) + 1 as next_version
@@ -13,15 +27,15 @@ export class ReportsService {
     );
     const nextVersion = parseInt(versionCount?.next_version || '1');
 
-    // Get current report state
-    const [currentReport] = await prisma.$queryRawUnsafe<any[]>(
+    // Get updated report state
+    const [updatedReport] = await prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM "${tenantId}".reports WHERE id = $1::uuid`,
       reportId
     );
 
-    if (!currentReport) return;
+    if (!updatedReport) return;
 
-    // Insert version snapshot
+    // Insert version snapshot with the NEW state
     await prisma.$queryRawUnsafe(
       `INSERT INTO "${tenantId}".report_versions
        (report_id, version_number, title, description, type, status, priority, address,
@@ -29,16 +43,16 @@ export class ReportsService {
        VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::uuid, $12, $13::uuid, NOW(), $14)`,
       reportId,
       nextVersion,
-      currentReport.title,
-      currentReport.description,
-      currentReport.type,
-      currentReport.status,
-      currentReport.priority,
-      currentReport.address,
-      currentReport.latitude,
-      currentReport.longitude,
-      currentReport.assigned_to,
-      currentReport.resolution,
+      updatedReport.title,
+      updatedReport.description,
+      updatedReport.type,
+      updatedReport.status,
+      updatedReport.priority,
+      updatedReport.address,
+      updatedReport.latitude,
+      updatedReport.longitude,
+      updatedReport.assigned_to,
+      updatedReport.resolution,
       modifiedBy,
       changeReason || null
     );
@@ -260,8 +274,11 @@ export class ReportsService {
     const currentReport = await this.findById(id, tenantId);
     const oldStatus = currentReport.status;
 
-    // Save current state as a version before updating
-    await this.saveVersion(id, modifiedBy, tenantId, data.changeReason);
+    // Normalize status values from English to Spanish
+    const normalizedStatus = data.status ? normalizeStatus(data.status) : undefined;
+
+    // Use resolution as change reason if not explicitly provided (for version history)
+    const changeReason = data.changeReason || data.resolution || null;
 
     const updates: string[] = [];
     const params: any[] = [];
@@ -285,9 +302,9 @@ export class ReportsService {
       paramIndex++;
     }
 
-    if (data.status !== undefined) {
+    if (normalizedStatus !== undefined) {
       updates.push(`status = $${paramIndex}`);
-      params.push(data.status);
+      params.push(normalizedStatus);
       paramIndex++;
     }
 
@@ -311,6 +328,11 @@ export class ReportsService {
         params.push(data.assignedTo);
         paramIndex++;
       }
+    } else if (normalizedStatus === 'resuelto' || normalizedStatus === 'rechazado') {
+      // Auto-assign to the inspector who closes the report
+      updates.push(`assigned_to = $${paramIndex}::uuid`);
+      params.push(modifiedBy);
+      paramIndex++;
     }
 
     if (data.resolution !== undefined) {
@@ -338,12 +360,15 @@ export class ReportsService {
       throw new Error('Reporte no encontrado');
     }
 
+    // Save version AFTER update to capture the new state
+    await this.saveVersionAfterUpdate(id, modifiedBy, tenantId, changeReason);
+
     // Send alert if status changed
-    if (data.status && data.status !== oldStatus) {
+    if (normalizedStatus && normalizedStatus !== oldStatus) {
       await alertsService.onReportStatusChange(tenantId, {
         ...updatedReport,
         reporterId: currentReport.user_id,
-      }, oldStatus, data.status);
+      }, oldStatus, normalizedStatus);
     }
 
     return updatedReport;
