@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import AppLayout from '@/components/layout/AppLayout';
 import AllVehiclesList from '@/components/fleet/AllVehiclesList';
-import GeofenceAlerts from '@/components/fleet/GeofenceAlerts';
+import VehicleUsageHistory from '@/components/fleet/VehicleUsageHistory';
 import LogDetailModal from '@/components/fleet/LogDetailModal';
 import { useFleetSocket, VehiclePosition } from '@/hooks/useFleetSocket';
 import {
@@ -571,30 +571,6 @@ function FleetPageContent() {
                     liveVehicles={mergedVehicles}
                   />
                 </div>
-
-                {/* Quick Stats */}
-                <div className="p-3 border-t bg-gray-50">
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="p-2 bg-green-50 rounded text-center">
-                      <p className="text-xs text-green-600">GPS Activo</p>
-                      <p className="text-lg font-bold text-green-700">
-                        {mergedVehicles.size}
-                      </p>
-                    </div>
-                    <div className="p-2 bg-blue-50 rounded text-center">
-                      <p className="text-xs text-blue-600">En Uso</p>
-                      <p className="text-lg font-bold text-blue-700">
-                        {Array.from(mergedVehicles.values()).filter(v => v.status === 'moving' || v.status === 'slow').length}
-                      </p>
-                    </div>
-                    <div className="p-2 bg-gray-50 rounded text-center border">
-                      <p className="text-xs text-gray-600">Detenidos</p>
-                      <p className="text-lg font-bold text-gray-700">
-                        {Array.from(mergedVehicles.values()).filter(v => v.status === 'stopped').length}
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Center - Map */}
@@ -609,48 +585,21 @@ function FleetPageContent() {
                     vehicles={mergedVehicles}
                     selectedVehicleId={selectedVehicleId}
                     onVehicleClick={setSelectedVehicleId}
-                    geofences={mapGeofences}
-                    showGeofences={showGeofences}
+                    geofences={[]}
+                    showGeofences={false}
                   />
                 </div>
               </div>
 
-              {/* Right Panel - Alerts */}
-              <div className="lg:col-span-1 flex flex-col gap-3">
-                {/* Geofence Toggle */}
-                <div className="bg-white rounded-lg shadow p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-gray-900 text-sm">Zonas Geofencing</h3>
-                      <p className="text-xs text-gray-500">{geofences.length} zona{geofences.length !== 1 ? 's' : ''}</p>
-                    </div>
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showGeofences}
-                        onChange={(e) => setShowGeofences(e.target.checked)}
-                        className="sr-only"
-                      />
-                      <div className={`w-10 h-6 rounded-full transition-colors ${
-                        showGeofences ? 'bg-indigo-600' : 'bg-gray-300'
-                      }`}>
-                        <div className={`w-4 h-4 rounded-full bg-white shadow transform transition-transform mt-1 ${
-                          showGeofences ? 'translate-x-5' : 'translate-x-1'
-                        }`} />
-                      </div>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Geofence Events */}
-                <div className="bg-white rounded-lg shadow overflow-hidden flex-1 flex flex-col">
-                  <div className="p-3 border-b bg-gray-50">
-                    <h3 className="font-semibold text-gray-900 text-sm">Alertas Recientes</h3>
-                  </div>
-                  <div className="flex-1 overflow-y-auto">
-                    <GeofenceAlerts events={geofenceEvents} />
-                  </div>
-                </div>
+              {/* Right Panel - Vehicle Usage History */}
+              <div className="lg:col-span-1 bg-white rounded-lg shadow overflow-hidden flex flex-col">
+                <VehicleUsageHistory
+                  onViewRoute={(vehicleId, date) => {
+                    setHistoryVehicleId(vehicleId);
+                    setHistoryDate(date);
+                    handleTabChange('history');
+                  }}
+                />
               </div>
             </div>
           )}
