@@ -142,7 +142,7 @@ export default function RouteMap({ points, vehiclePlate }: RouteMapProps) {
         })
           .bindPopup(`
             <strong>${new Date(point.recorded_at).toLocaleTimeString('es-CL')}</strong><br>
-            Velocidad: ${point.speed ? `${point.speed.toFixed(0)} km/h` : 'N/A'}
+            Velocidad: ${point.speed ? `${Number(point.speed).toFixed(0)} km/h` : 'N/A'}
           `)
           .addTo(map);
       }

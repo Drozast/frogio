@@ -254,7 +254,7 @@ export default function VehicleUsageHistory({ onViewRoute }: VehicleUsageHistory
                   </span>
                   {log.total_distance_km && (
                     <span className="text-green-600 font-medium">
-                      +{log.total_distance_km.toFixed(1)} km
+                      +{Number(log.total_distance_km).toFixed(1)} km
                     </span>
                   )}
                 </div>

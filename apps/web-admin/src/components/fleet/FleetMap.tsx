@@ -147,7 +147,7 @@ export default function FleetMap({
             </p>
             <div style="display: flex; gap: 12px; font-size: 12px; color: #6b7280;">
               <span>
-                <strong>Velocidad:</strong> ${vehicle.speed ? `${vehicle.speed.toFixed(0)} km/h` : 'N/A'}
+                <strong>Velocidad:</strong> ${vehicle.speed ? `${Number(vehicle.speed).toFixed(0)} km/h` : 'N/A'}
               </span>
             </div>
             <p style="margin: 8px 0 0 0; font-size: 11px; color: #9ca3af;">

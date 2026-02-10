@@ -177,7 +177,7 @@ export default function AllVehiclesList({
                       GPS activo
                     </span>
                     <span>
-                      {liveData.speed ? `${liveData.speed.toFixed(0)} km/h` : '0 km/h'}
+                      {liveData.speed ? `${Number(liveData.speed).toFixed(0)} km/h` : '0 km/h'}
                     </span>
                   </div>
                 )}

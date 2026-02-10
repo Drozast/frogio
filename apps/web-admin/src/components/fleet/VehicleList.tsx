@@ -73,7 +73,7 @@ export default function VehicleList({ vehicles, selectedVehicleId, onVehicleSele
               </p>
               <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
                 <span>
-                  {vehicle.speed ? `${vehicle.speed.toFixed(0)} km/h` : '0 km/h'}
+                  {vehicle.speed ? `${Number(vehicle.speed).toFixed(0)} km/h` : '0 km/h'}
                 </span>
                 <span>
                   {new Date(vehicle.recordedAt).toLocaleTimeString('es-CL', {
