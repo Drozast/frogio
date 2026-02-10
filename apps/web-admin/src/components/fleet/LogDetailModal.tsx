@@ -165,14 +165,14 @@ export default function LogDetailModal({ isOpen, onClose, log }: LogDetailModalP
       { Campo: 'Duración', Valor: getDuration() },
       { Campo: 'Km Inicial', Valor: log.start_km.toString() },
       { Campo: 'Km Final', Valor: log.end_km?.toString() || 'N/A' },
-      { Campo: 'Distancia Total', Valor: log.total_distance_km ? `${log.total_distance_km.toFixed(1)} km` : 'N/A' },
+      { Campo: 'Distancia Total', Valor: log.total_distance_km ? `${Number(log.total_distance_km).toFixed(1)} km` : 'N/A' },
       { Campo: 'Observaciones', Valor: log.observations || 'Sin observaciones' },
     ];
 
     if (routeStats) {
       infoData.push(
-        { Campo: 'Velocidad Promedio', Valor: `${routeStats.avgSpeed.toFixed(1)} km/h` },
-        { Campo: 'Velocidad Máxima', Valor: `${routeStats.maxSpeed.toFixed(1)} km/h` },
+        { Campo: 'Velocidad Promedio', Valor: `${Number(routeStats.avgSpeed).toFixed(1)} km/h` },
+        { Campo: 'Velocidad Máxima', Valor: `${Number(routeStats.maxSpeed).toFixed(1)} km/h` },
         { Campo: 'Puntos GPS', Valor: routePoints.length.toString() }
       );
     }
@@ -254,13 +254,13 @@ export default function LogDetailModal({ isOpen, onClose, log }: LogDetailModalP
       ['Duración', getDuration()],
       ['Km Inicial', log.start_km.toString()],
       ['Km Final', log.end_km?.toString() || 'N/A'],
-      ['Distancia Total', log.total_distance_km ? `${log.total_distance_km.toFixed(1)} km` : 'N/A'],
+      ['Distancia Total', log.total_distance_km ? `${Number(log.total_distance_km).toFixed(1)} km` : 'N/A'],
     ];
 
     if (routeStats) {
       detailsData.push(
-        ['Velocidad Promedio', `${routeStats.avgSpeed.toFixed(1)} km/h`],
-        ['Velocidad Máxima', `${routeStats.maxSpeed.toFixed(1)} km/h`],
+        ['Velocidad Promedio', `${Number(routeStats.avgSpeed).toFixed(1)} km/h`],
+        ['Velocidad Máxima', `${Number(routeStats.maxSpeed).toFixed(1)} km/h`],
         ['Puntos GPS', routePoints.length.toString()]
       );
     }
@@ -427,7 +427,7 @@ export default function LogDetailModal({ isOpen, onClose, log }: LogDetailModalP
                         Distancia
                       </div>
                       <p className="font-semibold text-gray-900">
-                        {log.total_distance_km ? `${log.total_distance_km.toFixed(1)} km` : 'N/A'}
+                        {log.total_distance_km ? `${Number(log.total_distance_km).toFixed(1)} km` : 'N/A'}
                       </p>
                     </div>
 
@@ -498,11 +498,11 @@ export default function LogDetailModal({ isOpen, onClose, log }: LogDetailModalP
                           <div className="grid grid-cols-3 gap-2 text-sm">
                             <div>
                               <p className="text-indigo-600">Vel. Promedio</p>
-                              <p className="font-bold text-indigo-900">{routeStats.avgSpeed.toFixed(1)} km/h</p>
+                              <p className="font-bold text-indigo-900">{Number(routeStats.avgSpeed).toFixed(1)} km/h</p>
                             </div>
                             <div>
                               <p className="text-indigo-600">Vel. Máxima</p>
-                              <p className="font-bold text-indigo-900">{routeStats.maxSpeed.toFixed(1)} km/h</p>
+                              <p className="font-bold text-indigo-900">{Number(routeStats.maxSpeed).toFixed(1)} km/h</p>
                             </div>
                             <div>
                               <p className="text-indigo-600">Puntos GPS</p>

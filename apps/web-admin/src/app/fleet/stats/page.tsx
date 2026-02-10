@@ -240,16 +240,16 @@ export default function FleetStatsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900 font-medium">
-                      {vehicle.totalDistanceKm.toFixed(1)} km
+                      {Number(vehicle.totalDistanceKm).toFixed(1)} km
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
                       {vehicle.totalTrips}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
-                      {vehicle.avgSpeed.toFixed(0)} km/h
+                      {Number(vehicle.avgSpeed).toFixed(0)} km/h
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
-                      {vehicle.maxSpeed.toFixed(0)} km/h
+                      {Number(vehicle.maxSpeed).toFixed(0)} km/h
                     </td>
                   </tr>
                 ))}
@@ -296,7 +296,7 @@ export default function FleetStatsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900 font-medium">
-                      {inspector.totalDistanceKm.toFixed(1)} km
+                      {Number(inspector.totalDistanceKm).toFixed(1)} km
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
                       {inspector.totalTrips}

@@ -749,7 +749,7 @@ function FleetPageContent() {
                               <span className="text-gray-400 mx-1">→</span>
                               <span className="text-gray-900">{log.end_km || '...'}</span>
                               {log.total_distance_km && (
-                                <p className="text-xs text-green-600">+{log.total_distance_km.toFixed(1)} km</p>
+                                <p className="text-xs text-green-600">+{Number(log.total_distance_km).toFixed(1)} km</p>
                               )}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
