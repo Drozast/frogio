@@ -60,10 +60,10 @@ export default function VehicleUsageHistory({ onViewRoute }: VehicleUsageHistory
   const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
-      // Fetch recent logs (last 7 days)
+      // Fetch recent logs (last 30 days)
       const endDate = new Date();
       const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 7);
+      startDate.setDate(startDate.getDate() - 30);
 
       const params = new URLSearchParams();
       params.append('startDate', startDate.toISOString().split('T')[0]);
@@ -72,12 +72,21 @@ export default function VehicleUsageHistory({ onViewRoute }: VehicleUsageHistory
       const response = await fetch(`/api/vehicles/logs?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
-        setLogs(data);
+        // Sort by start_time descending
+        const sortedData = Array.isArray(data)
+          ? data.sort((a: VehicleLog, b: VehicleLog) =>
+              new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+            )
+          : [];
+        setLogs(sortedData);
         setError(null);
       } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error loading logs:', errorData);
         setError('Error al cargar historial');
       }
-    } catch {
+    } catch (err) {
+      console.error('Error de conexión:', err);
       setError('Error de conexión');
     } finally {
       setLoading(false);
