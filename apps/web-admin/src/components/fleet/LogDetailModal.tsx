@@ -91,10 +91,10 @@ export default function LogDetailModal({ isOpen, onClose, log }: LogDetailModalP
 
       setLoadingRoute(true);
       try {
-        // Try to get route for the log's date
-        const startDate = log.start_time.split('T')[0];
+        // Try to get route for the log's date range
+        const logDate = log.start_time.split('T')[0];
         const response = await fetch(
-          `/api/fleet/history?vehicleId=${log.vehicle_id}&date=${startDate}`
+          `/api/fleet/history?vehicleId=${log.vehicle_id}&startDate=${logDate}&endDate=${logDate}`
         );
 
         if (response.ok) {
