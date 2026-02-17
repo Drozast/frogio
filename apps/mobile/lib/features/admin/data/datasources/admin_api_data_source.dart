@@ -83,23 +83,37 @@ class AdminApiDataSource implements AdminRemoteDataSource {
   Future<MunicipalStatisticsModel> getMunicipalStatistics(String muniId) async {
     try {
       final response = await client.get(
-        Uri.parse('$baseUrl/api/admin/statistics'),
+        Uri.parse('$baseUrl/api/dashboard/stats'),
         headers: _authHeaders,
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+
+        // Parse the dashboard stats response
+        final summary = data['summary'] ?? {};
+        final reportsByStatus = data['reportsByStatus'] ?? {};
+
+        // Calculate pending and resolved reports from status breakdown
+        final pendingReports = (reportsByStatus['pending'] ?? 0) as int;
+        final inProgressReports = (reportsByStatus['in_progress'] ?? 0) as int;
+        final resolvedReports = (reportsByStatus['resolved'] ?? 0) as int;
+
         return MunicipalStatisticsModel(
-          totalReports: data['totalReports'] ?? 156,
-          resolvedReports: data['resolvedReports'] ?? 133,
-          pendingReports: data['pendingReports'] ?? 23,
-          inProgressReports: data['inProgressReports'] ?? 12,
-          totalQueries: data['totalQueries'] ?? 45,
-          answeredQueries: data['answeredQueries'] ?? 40,
-          totalInfractions: data['totalInfractions'] ?? 89,
-          activeUsers: data['activeUsers'] ?? 1247,
-          inspectors: data['inspectors'] ?? 8,
+          totalReports: summary['totalReports'] ?? 0,
+          resolvedReports: resolvedReports,
+          pendingReports: pendingReports,
+          inProgressReports: inProgressReports,
+          totalQueries: 0, // Not available in this endpoint
+          answeredQueries: 0, // Not available in this endpoint
+          totalInfractions: summary['totalInfractions'] ?? 0,
+          activeUsers: summary['totalUsers'] ?? 0,
+          inspectors: data['inspectorsCount'] ?? 0,
           lastUpdated: DateTime.now(),
+          totalVehicles: summary['totalVehicles'] ?? 0,
+          activeTrips: data['bitacora']?['activeTrips'] ?? 0,
+          totalKmToday: (data['bitacora']?['totalKmToday'] ?? 0).toDouble(),
+          citizensCount: data['citizensCount'] ?? 0,
         );
       } else {
         // Return mock data for development
@@ -113,16 +127,20 @@ class AdminApiDataSource implements AdminRemoteDataSource {
 
   MunicipalStatisticsModel _getMockStatistics() {
     return MunicipalStatisticsModel(
-      totalReports: 156,
-      resolvedReports: 133,
-      pendingReports: 23,
-      inProgressReports: 12,
-      totalQueries: 45,
-      answeredQueries: 40,
-      totalInfractions: 89,
-      activeUsers: 1247,
-      inspectors: 8,
+      totalReports: 0,
+      resolvedReports: 0,
+      pendingReports: 0,
+      inProgressReports: 0,
+      totalQueries: 0,
+      answeredQueries: 0,
+      totalInfractions: 0,
+      activeUsers: 0,
+      inspectors: 0,
       lastUpdated: DateTime.now(),
+      totalVehicles: 0,
+      activeTrips: 0,
+      totalKmToday: 0.0,
+      citizensCount: 0,
     );
   }
 

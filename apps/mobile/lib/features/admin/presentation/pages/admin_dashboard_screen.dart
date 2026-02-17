@@ -295,11 +295,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           return _buildLoadingMetrics();
         }
 
-        // Default mock data for demo
-        const totalReports = 156;
-        const pendingReports = 23;
-        const totalCitations = 89;
-        const activeUsers = 1247;
+        // Use real data from StatisticsBloc or default to 0
+        int totalReports = 0;
+        int pendingReports = 0;
+        int totalCitations = 0;
+        int activeUsers = 0;
+        int totalVehicles = 0;
+        int inProgressReports = 0;
+
+        if (state is StatisticsLoaded) {
+          final stats = state.statistics;
+          totalReports = stats.reports.totalReports;
+          pendingReports = stats.reports.pendingReports;
+          inProgressReports = stats.reports.inProgressReports;
+          totalCitations = stats.infractions.totalInfractions;
+          activeUsers = stats.users.totalUsers;
+          totalVehicles = stats.vehicles.totalVehicles;
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,15 +330,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 TextButton.icon(
                   onPressed: () {
                     HapticFeedback.selectionClick();
-                    // Navigate to full statistics
+                    context.read<StatisticsBloc>().add(
+                          const RefreshStatisticsEvent(muniId: 'santa_juana'),
+                        );
                   },
                   icon: const Icon(
-                    Icons.analytics_outlined,
+                    Icons.refresh_rounded,
                     color: _infoBlue,
                     size: 18,
                   ),
                   label: const Text(
-                    'Ver todo',
+                    'Actualizar',
                     style: TextStyle(
                       color: _infoBlue,
                       fontSize: 13,
@@ -343,9 +357,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     icon: Icons.assignment_outlined,
                     title: 'Denuncias',
                     value: totalReports.toString(),
-                    subtitle: '+12 esta semana',
+                    subtitle: '$inProgressReports en proceso',
                     color: _infoBlue,
-                    trend: 8.5,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -356,8 +369,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     value: pendingReports.toString(),
                     subtitle: 'Por revisar',
                     color: _warningOrange,
-                    trend: -3.2,
-                    isNegativeTrendGood: true,
                   ),
                 ),
               ],
@@ -370,9 +381,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     icon: Icons.receipt_long_outlined,
                     title: 'Citaciones',
                     value: totalCitations.toString(),
-                    subtitle: 'Este mes',
+                    subtitle: 'Total',
                     color: _successGreen,
-                    trend: 15.3,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -383,9 +393,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     value: activeUsers.toString(),
                     subtitle: 'Activos',
                     color: _highlightBlue,
-                    trend: 5.7,
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMetricCard(
+                    icon: Icons.directions_car_outlined,
+                    title: 'Vehiculos',
+                    value: totalVehicles.toString(),
+                    subtitle: 'Registrados',
+                    color: _accentBlue,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: SizedBox()),
               ],
             ),
           ],
@@ -662,64 +687,91 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   }
 
   Widget _buildOperationalOverviewSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Resumen Operacional',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: _secondaryDark,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: _accentBlue.withValues(alpha: 0.2),
+    return BlocBuilder<StatisticsBloc, StatisticsState>(
+      builder: (context, state) {
+        double resolutionRate = 0.0;
+        double inspectorProductivity = 0.0;
+        int resolvedReports = 0;
+        int totalReports = 0;
+        int inspectorsCount = 0;
+        int totalCitations = 0;
+
+        if (state is StatisticsLoaded) {
+          final stats = state.statistics;
+          totalReports = stats.reports.totalReports;
+          resolvedReports = stats.reports.resolvedReports;
+          resolutionRate = totalReports > 0
+              ? (resolvedReports / totalReports)
+              : 0.0;
+          inspectorsCount = stats.users.inspectorUsers;
+          totalCitations = stats.infractions.totalInfractions;
+          inspectorProductivity = inspectorsCount > 0
+              ? (totalCitations / inspectorsCount / 100).clamp(0.0, 1.0)
+              : 0.0;
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Resumen Operacional',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          child: Column(
-            children: [
-              _buildOverviewRow(
-                icon: Icons.check_circle_outline,
-                title: 'Denuncias Resueltas',
-                value: '85%',
-                color: _successGreen,
-                progress: 0.85,
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: _secondaryDark,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _accentBlue.withValues(alpha: 0.2),
+                ),
               ),
-              const SizedBox(height: 20),
-              _buildOverviewRow(
-                icon: Icons.access_time,
-                title: 'Tiempo Promedio Resolucion',
-                value: '2.3 dias',
-                color: _infoBlue,
-                progress: 0.72,
+              child: Column(
+                children: [
+                  _buildOverviewRow(
+                    icon: Icons.check_circle_outline,
+                    title: 'Denuncias Resueltas',
+                    value: '${(resolutionRate * 100).toStringAsFixed(0)}%',
+                    color: _successGreen,
+                    progress: resolutionRate,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildOverviewRow(
+                    icon: Icons.assignment_turned_in_outlined,
+                    title: 'Resueltas / Total',
+                    value: '$resolvedReports / $totalReports',
+                    color: _infoBlue,
+                    progress: resolutionRate,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildOverviewRow(
+                    icon: Icons.local_police_outlined,
+                    title: 'Inspectores Activos',
+                    value: '$inspectorsCount',
+                    color: _warningOrange,
+                    progress: inspectorsCount > 0 ? 1.0 : 0.0,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildOverviewRow(
+                    icon: Icons.receipt_long_outlined,
+                    title: 'Citaciones por Inspector',
+                    value: inspectorsCount > 0
+                        ? (totalCitations / inspectorsCount).toStringAsFixed(1)
+                        : '0',
+                    color: _highlightBlue,
+                    progress: inspectorProductivity,
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
-              _buildOverviewRow(
-                icon: Icons.sentiment_satisfied_alt,
-                title: 'Satisfaccion Ciudadana',
-                value: '4.2/5',
-                color: _warningOrange,
-                progress: 0.84,
-              ),
-              const SizedBox(height: 20),
-              _buildOverviewRow(
-                icon: Icons.local_police_outlined,
-                title: 'Productividad Inspectores',
-                value: '92%',
-                color: _highlightBlue,
-                progress: 0.92,
-              ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 

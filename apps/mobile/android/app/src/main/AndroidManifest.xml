@@ -18,6 +18,11 @@
     <!-- Permiso para vibración (alerta de pánico) -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Permisos para cámara y galería (fotos de perfil y denuncias) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <!-- Permiso para notificaciones (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -25,7 +30,7 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
-        android:label="FROGIO"
+        android:label="Frogio: Seguridad Municipal"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

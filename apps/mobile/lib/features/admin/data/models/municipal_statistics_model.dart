@@ -13,6 +13,10 @@ class MunicipalStatisticsModel extends Equatable {
   final int activeUsers;
   final int inspectors;
   final DateTime lastUpdated;
+  final int totalVehicles;
+  final int activeTrips;
+  final double totalKmToday;
+  final int citizensCount;
 
   const MunicipalStatisticsModel({
     required this.totalReports,
@@ -25,6 +29,10 @@ class MunicipalStatisticsModel extends Equatable {
     required this.activeUsers,
     required this.inspectors,
     required this.lastUpdated,
+    this.totalVehicles = 0,
+    this.activeTrips = 0,
+    this.totalKmToday = 0.0,
+    this.citizensCount = 0,
   });
 
   factory MunicipalStatisticsModel.fromJson(Map<String, dynamic> json) {
@@ -54,6 +62,10 @@ class MunicipalStatisticsModel extends Equatable {
       'activeUsers': activeUsers,
       'inspectors': inspectors,
       'lastUpdated': lastUpdated,
+      'totalVehicles': totalVehicles,
+      'activeTrips': activeTrips,
+      'totalKmToday': totalKmToday,
+      'citizensCount': citizensCount,
     };
   }
 
@@ -89,26 +101,26 @@ class MunicipalStatisticsModel extends Equatable {
   UsersStatistics _createUsersStatistics() {
     return UsersStatistics(
       totalUsers: activeUsers,
-      citizenUsers: activeUsers - inspectors, // Calculado
+      citizenUsers: citizensCount > 0 ? citizensCount : activeUsers - inspectors,
       inspectorUsers: inspectors,
-      adminUsers: 0, // Valor por defecto
+      adminUsers: activeUsers - citizensCount - inspectors,
       activeUsers: activeUsers,
-      inactiveUsers: 0, // Valor por defecto
-      userRegistrationsByMonth: const {}, // Mapa vacío
-      averageUserEngagement: 0.0, // Valor por defecto
+      inactiveUsers: 0,
+      userRegistrationsByMonth: const {},
+      averageUserEngagement: 0.0,
     );
   }
 
   VehiclesStatistics _createVehiclesStatistics() {
-    return const VehiclesStatistics(
-      totalVehicles: 0, // Valor por defecto
-      activeVehicles: 0, // Valor por defecto
-      inMaintenanceVehicles: 0, // Valor por defecto
-      totalKilometers: 0.0, // Valor por defecto
-      averageKmPerVehicle: 0.0, // Valor por defecto
-      usageByVehicle: {}, // Mapa vacío
-      maintenanceCosts: 0.0, // Valor por defecto
-      fuelCosts: 0.0, // Valor por defecto
+    return VehiclesStatistics(
+      totalVehicles: totalVehicles,
+      activeVehicles: activeTrips,
+      inMaintenanceVehicles: 0,
+      totalKilometers: totalKmToday,
+      averageKmPerVehicle: totalVehicles > 0 ? totalKmToday / totalVehicles : 0.0,
+      usageByVehicle: const {},
+      maintenanceCosts: 0.0,
+      fuelCosts: 0.0,
     );
   }
 
@@ -162,5 +174,9 @@ class MunicipalStatisticsModel extends Equatable {
         activeUsers,
         inspectors,
         lastUpdated,
+        totalVehicles,
+        activeTrips,
+        totalKmToday,
+        citizensCount,
       ];
 }

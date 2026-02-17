@@ -5,7 +5,7 @@
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Frogio Santa Juana</string>
+		<string>Frogio: Seguridad Municipal</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 		<key>CFBundleName</key>
-		<string>frogio_santa_juana</string>
+		<string>Frogio</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
@@ -75,5 +75,11 @@
 			<key>MapLocation</key>
 			<string>FROGIO necesita tu ubicación para mostrar reportes cercanos en el mapa.</string>
 		</dict>
+
+		<!-- Permisos de cámara y galería -->
+		<key>NSCameraUsageDescription</key>
+		<string>FROGIO necesita acceso a la cámara para tomar fotos de tu perfil y adjuntar evidencia en denuncias.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>FROGIO necesita acceso a tu galería para seleccionar fotos de perfil y adjuntar evidencia en denuncias.</string>
 	</dict>
 </plist>
