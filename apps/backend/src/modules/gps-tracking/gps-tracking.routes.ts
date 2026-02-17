@@ -33,6 +33,11 @@ router.get('/vehicle/:vehicleId/history', (req, res) =>
   gpsController.getVehicleHistory(req as AuthRequest, res)
 );
 
+// GET /api/gps/vehicle/:vehicleId/activity-days - Get days with activity for calendar
+router.get('/vehicle/:vehicleId/activity-days', (req, res) =>
+  gpsController.getActivityDays(req as AuthRequest, res)
+);
+
 // GET /api/gps/stats - Get statistics (admins only)
 router.get('/stats', roleGuard('admin'), (req, res) =>
   gpsController.getStats(req as AuthRequest, res)

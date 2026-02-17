@@ -143,6 +143,29 @@ export class GpsTrackingController {
     }
   }
 
+  // GET /api/gps/vehicle/:vehicleId/activity-days - Get days with activity for calendar
+  async getActivityDays(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const tenantId = req.user?.tenantId || 'santa_juana';
+      const { vehicleId } = req.params;
+      const { year, month } = req.query;
+
+      const yearNum = year ? parseInt(year as string) : new Date().getFullYear();
+      const monthNum = month ? parseInt(month as string) : new Date().getMonth() + 1;
+
+      if (monthNum < 1 || monthNum > 12) {
+        res.status(400).json({ error: 'Mes inválido (1-12)' });
+        return;
+      }
+
+      const result = await this.gpsService.getActivityDays(tenantId, vehicleId, yearNum, monthNum);
+      res.json(result);
+    } catch (error) {
+      console.error('Error getting activity days:', error);
+      res.status(500).json({ error: 'Error al obtener días con actividad' });
+    }
+  }
+
   // GET /api/gps/stats - Get GPS statistics
   async getStats(req: AuthRequest, res: Response) {
     try {

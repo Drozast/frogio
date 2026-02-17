@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import AppLayout from '@/components/layout/AppLayout';
 import Link from 'next/link';
 import {
   ArrowLeftIcon,
-  CalendarIcon,
   TruckIcon,
   ClockIcon,
   MapPinIcon,
 } from '@heroicons/react/24/outline';
+import ActivityCalendar from '@/components/fleet/ActivityCalendar';
 
 const RouteMap = dynamic(() => import('@/components/fleet/RouteMap'), {
   ssr: false,
@@ -69,7 +69,7 @@ export default function FleetHistoryPage() {
     }
   }
 
-  async function fetchRoute() {
+  const fetchRoute = useCallback(async () => {
     if (!selectedVehicle || !selectedDate) return;
 
     setLoading(true);
@@ -93,7 +93,14 @@ export default function FleetHistoryPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [selectedVehicle, selectedDate]);
+
+  // Auto-fetch when vehicle and date are selected
+  useEffect(() => {
+    if (selectedVehicle && selectedDate) {
+      fetchRoute();
+    }
+  }, [selectedVehicle, selectedDate, fetchRoute]);
 
   const selectedVehicleData = vehicles.find(v => v.id === selectedVehicle);
 
@@ -138,27 +145,19 @@ export default function FleetHistoryPage() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <CalendarIcon className="h-4 w-4 inline mr-1" />
-                Fecha
-              </label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
+            {/* Activity Calendar */}
+            <ActivityCalendar
+              vehicleId={selectedVehicle}
+              selectedDate={selectedDate}
+              onDateSelect={(date) => setSelectedDate(date)}
+            />
 
-            <button
-              onClick={fetchRoute}
-              disabled={!selectedVehicle || loading}
-              className="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Cargando...' : 'Consultar Ruta'}
-            </button>
+            {loading && (
+              <div className="flex items-center justify-center py-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600" />
+                <span className="ml-2 text-sm text-gray-500">Cargando ruta...</span>
+              </div>
+            )}
 
             {/* Route Stats */}
             {routeData && (

@@ -345,6 +345,52 @@ export class GpsTrackingService {
     };
   }
 
+  // Get days with activity for a vehicle in a date range (for calendar highlighting)
+  async getActivityDays(
+    tenantId: string,
+    vehicleId: string,
+    year: number,
+    month: number
+  ): Promise<{ dates: string[]; activityByDate: Record<string, { trips: number; totalKm: number }> }> {
+    // Build date range for the month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const query = `
+      SELECT
+        DATE(vl.start_time AT TIME ZONE 'America/Santiago') as activity_date,
+        COUNT(*) as trips,
+        COALESCE(SUM(vl.total_distance_km), 0) as total_km
+      FROM "${tenantId}".vehicle_logs vl
+      WHERE vl.vehicle_id = $1::uuid
+        AND vl.start_time >= $2::timestamptz
+        AND vl.start_time <= $3::timestamptz
+        AND vl.status IN ('active', 'completed')
+      GROUP BY DATE(vl.start_time AT TIME ZONE 'America/Santiago')
+      ORDER BY activity_date
+    `;
+
+    const results = await prisma.$queryRawUnsafe<Array<{
+      activity_date: Date;
+      trips: string;
+      total_km: number;
+    }>>(query, vehicleId, startDate.toISOString(), endDate.toISOString());
+
+    const dates: string[] = [];
+    const activityByDate: Record<string, { trips: number; totalKm: number }> = {};
+
+    for (const row of results) {
+      const dateStr = row.activity_date.toISOString().split('T')[0];
+      dates.push(dateStr);
+      activityByDate[dateStr] = {
+        trips: Number(row.trips),
+        totalKm: Number(row.total_km),
+      };
+    }
+
+    return { dates, activityByDate };
+  }
+
   // Delete old GPS points (for cleanup)
   async cleanupOldPoints(tenantId: string, daysToKeep: number = 90): Promise<number> {
     // Validate daysToKeep is a positive integer to prevent injection
