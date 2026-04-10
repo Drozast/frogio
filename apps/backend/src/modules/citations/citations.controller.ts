@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { CitationsService } from './citations.service.js';
 import type { AuthRequest } from '../../middleware/auth.middleware.js';
 import type { CreateCitationDto, UpdateCitationDto, CitationFilters } from './citations.types.js';
+import { parsePagination, buildPaginatedResponse } from '../../middleware/pagination.middleware.js';
 
 const citationsService = new CitationsService();
 
@@ -25,6 +26,7 @@ export class CitationsController {
     try {
       const tenantId = req.user!.tenantId;
       const { status, citationType, targetType, search, fromDate, toDate } = req.query;
+      const pagination = parsePagination(req);
 
       // Citizens can only see their own citations
       const userId = req.user!.role === 'citizen' ? req.user!.userId : undefined;
@@ -39,9 +41,9 @@ export class CitationsController {
         userId,
       };
 
-      const citations = await citationsService.findAll(tenantId, filters);
+      const result = await citationsService.findAll(tenantId, filters, pagination.limit, pagination.offset);
 
-      res.json(citations);
+      res.json(buildPaginatedResponse(result.data, result.total, pagination));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al obtener citaciones';
       res.status(400).json({ error: message });

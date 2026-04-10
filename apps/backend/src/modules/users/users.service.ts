@@ -36,27 +36,26 @@ export class UsersService {
     return this.formatUser(user);
   }
 
-  async findAll(tenantId: string, filters?: UserFilters) {
-    let query = `SELECT id, email, rut, first_name, last_name, phone, address, role, is_active, email_verified, avatar, created_at, updated_at
-                 FROM "${tenantId}".users WHERE 1=1`;
+  async findAll(tenantId: string, filters?: UserFilters, limit: number = 50, offset: number = 0) {
+    let baseWhere = `FROM "${tenantId}".users WHERE 1=1`;
 
     const params: any[] = [];
     let paramIndex = 1;
 
     if (filters?.role) {
-      query += ` AND role = $${paramIndex}`;
+      baseWhere += ` AND role = $${paramIndex}`;
       params.push(filters.role);
       paramIndex++;
     }
 
     if (filters?.isActive !== undefined) {
-      query += ` AND is_active = $${paramIndex}`;
+      baseWhere += ` AND is_active = $${paramIndex}`;
       params.push(filters.isActive);
       paramIndex++;
     }
 
     if (filters?.search) {
-      query += ` AND (
+      baseWhere += ` AND (
         LOWER(email) LIKE $${paramIndex} OR
         LOWER(first_name) LIKE $${paramIndex} OR
         LOWER(last_name) LIKE $${paramIndex} OR
@@ -66,10 +65,17 @@ export class UsersService {
       paramIndex++;
     }
 
-    query += ` ORDER BY created_at DESC`;
+    // Count query
+    const countQuery = `SELECT COUNT(*) as total ${baseWhere}`;
+    const [countResult] = await prisma.$queryRawUnsafe<any[]>(countQuery, ...params);
+    const total = parseInt(countResult?.total || '0');
 
-    const users = await prisma.$queryRawUnsafe<any[]>(query, ...params);
-    return users.map(this.formatUser);
+    // Data query with pagination
+    const dataQuery = `SELECT id, email, rut, first_name, last_name, phone, address, role, is_active, email_verified, avatar, created_at, updated_at ${baseWhere} ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    const dataParams = [...params, limit, offset];
+
+    const users = await prisma.$queryRawUnsafe<any[]>(dataQuery, ...dataParams);
+    return { data: users.map(this.formatUser), total };
   }
 
   async findById(id: string, tenantId: string) {

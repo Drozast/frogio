@@ -4,6 +4,7 @@ import prisma from '../../config/database.js';
 import redis from '../../config/redis.js';
 import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
+import { emailService } from '../../services/email.service.js';
 import type { RegisterDto, LoginDto, AuthResponse, ForgotPasswordDto, ResetPasswordDto, UpdateProfileDto, UserProfile } from './auth.types.js';
 
 export class AuthService {
@@ -211,27 +212,30 @@ export class AuthService {
       await redis.setex(`password_reset:${user.id}`, 3600, resetToken);
     }
 
-    // Log the token (in production, this would be sent via email/ntfy)
-    logger.info(`Password reset token generated for ${user.email}: ${resetToken.substring(0, 20)}...`);
+    // Send password reset email
+    const emailSent = await emailService.sendPasswordReset(user.email, resetToken, tenantId);
 
-    // TODO: Send email/notification with reset link
-    // For now, we'll use ntfy if configured
-    if (env.NTFY_URL) {
-      try {
-        await fetch(`${env.NTFY_URL}/frogio-password-reset`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic: 'frogio-password-reset',
-            title: 'Recuperación de Contraseña - FROGIO',
-            message: `Se solicitó recuperación de contraseña para: ${user.email}`,
-            tags: ['key', 'lock'],
-          }),
-        });
-      } catch (e) {
-        logger.warn('Could not send ntfy notification for password reset');
+    if (!emailSent) {
+      // Fallback to ntfy if email not configured
+      if (env.NTFY_URL) {
+        try {
+          await fetch(`${env.NTFY_URL}/frogio-password-reset`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              topic: 'frogio-password-reset',
+              title: 'Recuperación de Contraseña - FROGIO',
+              message: `Se solicitó recuperación de contraseña para: ${user.email}`,
+              tags: ['key', 'lock'],
+            }),
+          });
+        } catch (e) {
+          logger.warn('Could not send ntfy notification for password reset');
+        }
       }
     }
+
+    logger.info(`Password reset requested for ${user.email} (email ${emailSent ? 'sent' : 'not sent - fallback used'})`);
 
     return { message: 'Si el correo existe, recibirás instrucciones para recuperar tu contraseña' };
   }

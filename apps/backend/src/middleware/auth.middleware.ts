@@ -30,6 +30,14 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
     };
 
     (req as AuthRequest).user = decoded;
+
+    // Verify tenant ID matches JWT if header is provided
+    const headerTenantId = req.headers['x-tenant-id'] as string;
+    if (headerTenantId && decoded.tenantId && headerTenantId !== decoded.tenantId) {
+      res.status(403).json({ error: 'Tenant ID no coincide con la sesión', code: 'TENANT_MISMATCH' });
+      return;
+    }
+
     next();
   } catch (error) {
     res.status(401).json({ error: 'Token inválido o expirado' });

@@ -24,6 +24,7 @@ import tripLogsRoutes from './modules/trip-logs/trip-logs.routes.js';
 import exportsRoutes from './modules/exports/exports.routes.js';
 import gpsTrackingRoutes from './modules/gps-tracking/gps-tracking.routes.js';
 import geofencesRoutes from './modules/geofences/geofences.routes.js';
+import { apiRateLimit } from './middleware/rate-limit.middleware.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -55,6 +56,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use('/api', apiRateLimit);
 
 // Request logging
 app.use((_req, _res, next) => {

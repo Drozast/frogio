@@ -1,5 +1,12 @@
 // Prisma Schema para FROGIO
 // Database: PostgreSQL con Multi-Tenancy (Schema per Tenant)
+//
+// IMPORTANT: This project uses a multi-tenant architecture where each tenant
+// has its own PostgreSQL SCHEMA (e.g., santa_juana.users, santa_juana.reports).
+// Prisma manages ONLY the public schema tables (Tenant, SuperAdmin).
+// All tenant-scoped models below are marked @@ignore so Prisma won't generate
+// migrations for them -- they exist here for documentation and type reference.
+// Tenant tables are created/managed via raw SQL migrations in ./migrations/.
 
 generator client {
   provider      = "prisma-client-js"
@@ -12,25 +19,25 @@ datasource db {
 }
 
 // ========================================
-// SCHEMA PUBLIC (Compartido - Super Admin)
+// SCHEMA PUBLIC (Shared - Super Admin)
 // ========================================
 
 model Tenant {
-  id                   String    @id @default(uuid())
-  slug                 String    @unique // 'santa-juana'
-  name                 String // 'Municipalidad de Santa Juana'
-  subdomain            String?   @unique
-  subscriptionType     String // 'monthly' | 'yearly'
-  subscriptionStatus   String // 'active' | 'inactive' | 'trial'
-  subscriptionStart    DateTime
-  subscriptionEnd      DateTime?
-  contactName          String?
-  contactEmail         String?
-  contactPhone         String?
-  dbSchema             String // Nombre del schema en PostgreSQL
-  config               Json? // Configuración personalizada
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  id                 String    @id @default(uuid())
+  slug               String    @unique // e.g. 'santa_juana'
+  name               String // e.g. 'Municipalidad de Santa Juana'
+  subdomain          String?   @unique
+  subscriptionType   String    @map("subscription_type") // 'monthly' | 'yearly'
+  subscriptionStatus String    @map("subscription_status") // 'active' | 'inactive' | 'trial'
+  subscriptionStart  DateTime  @map("subscription_start")
+  subscriptionEnd    DateTime? @map("subscription_end")
+  contactName        String?   @map("contact_name")
+  contactEmail       String?   @map("contact_email")
+  contactPhone       String?   @map("contact_phone")
+  dbSchema           String    @map("db_schema") // PostgreSQL schema name
+  config             Json? // Custom configuration
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
   @@map("tenants")
 }
@@ -38,310 +45,368 @@ model Tenant {
 model SuperAdmin {
   id           String   @id @default(uuid())
   email        String   @unique
-  passwordHash String
+  passwordHash String   @map("password_hash")
   name         String?
   avatar       String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("super_admins")
 }
 
 // ========================================
-// SCHEMA PER TENANT (Ejemplo: santa_juana)
-// Estos modelos se replicarán en cada schema
+// TENANT-SCOPED TABLES (per-schema)
+// These models mirror the SQL in ./migrations/
+// and are @@ignore'd so Prisma won't manage them.
+// All queries use raw SQL with dynamic schema names.
 // ========================================
 
-// USUARIOS
-model User {
-  id               String    @id @default(uuid())
-  email            String    @unique
-  passwordHash     String?
-  rut              String    @unique // RUT chileno
-  name             String?
-  phone            String?
-  address          String?
-  role             String // 'citizen' | 'inspector' | 'admin'
-  avatar           String?
-  oauthProvider    String? // 'google' | 'facebook' | null
-  oauthId          String?
-  emailVerified    Boolean   @default(false)
-  isActive         Boolean   @default(true)
-  lastLoginAt      DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  // Relaciones
-  reports          Report[]          @relation("CitizenReports")
-  assignedReports  Report[]          @relation("AssignedReports")
-  responses        Response[]
-  statusHistory    StatusHistory[]
-  medicalRecords   MedicalRecord[]
-  infractions      Infraction[]
-  vehicleLogs      VehicleLog[]
-  notifications    Notification[]
-  courtCitations   CourtCitation[]   @relation("CitizenCitations")
-  issuedCitations  CourtCitation[]   @relation("IssuedCitations")
+// Multi-tenant: lives in {tenantId} schema
+// Source: 001_initial_setup.sql
+model TenantUser {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  rut           String   @unique // Chilean national ID
+  firstName     String?  @map("first_name")
+  lastName      String?  @map("last_name")
+  phone         String?
+  address       String?
+  role          String // 'citizen' | 'inspector' | 'admin'
+  isActive      Boolean  @default(true) @map("is_active")
+  emailVerified Boolean  @default(false) @map("email_verified")
+  avatar        String?
+  oauthProvider String?  @map("oauth_provider")
+  oauthId       String?  @map("oauth_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @map("updated_at")
 
   @@index([email])
   @@index([rut])
+  @@index([role])
   @@map("users")
+  @@ignore
 }
 
-// REPORTES DE CIUDADANOS
-model Report {
-  id              String   @id @default(uuid())
-  citizenId       String
-  title           String
-  description     String
-  category        String // 'security' | 'infrastructure' | 'noise' | 'lighting' | 'other'
-  priority        String   @default("medium") // 'low' | 'medium' | 'high' | 'urgent'
-  status          String   @default("submitted") // 'draft' | 'submitted' | 'reviewing' | 'in_progress' | 'resolved' | 'rejected' | 'archived'
-  latitude        Float
-  longitude       Float
-  address         String?
-  assignedToId    String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Relaciones
-  citizen         User             @relation("CitizenReports", fields: [citizenId], references: [id])
-  assignedTo      User?            @relation("AssignedReports", fields: [assignedToId], references: [id])
-  attachments     Attachment[]
-  statusHistory   StatusHistory[]
-  responses       Response[]
-
-  @@index([citizenId])
-  @@index([status])
-  @@index([assignedToId])
-  @@index([createdAt])
-  @@map("reports")
-}
-
-// ADJUNTOS (Fotos/Videos)
-model Attachment {
-  id         String   @id @default(uuid())
-  reportId   String
-  fileUrl    String
-  fileType   String // 'image' | 'video'
-  fileName   String
-  fileSize   Int?
-  uploadedAt DateTime @default(now())
-
-  // Relaciones
-  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
-
-  @@map("attachments")
-}
-
-// HISTORIAL DE ESTADOS
-model StatusHistory {
-  id          String   @id @default(uuid())
-  reportId    String
-  status      String
-  comment     String?
-  changedById String?
-  createdAt   DateTime @default(now())
-
-  // Relaciones
-  report     Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  changedBy  User?  @relation(fields: [changedById], references: [id])
-
-  @@map("status_history")
-}
-
-// RESPUESTAS DE INSPECTORES/ADMINS
-model Response {
-  id          String   @id @default(uuid())
-  reportId    String
-  responderId String
-  message     String
-  isPublic    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-
-  // Relaciones
-  report    Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  responder User   @relation(fields: [responderId], references: [id])
-
-  @@map("responses")
-}
-
-// REGISTRO MÉDICO DEL HOGAR
-model MedicalRecord {
-  id                    String   @id @default(uuid())
-  userId                String
-  householdMemberName   String
-  relationship          String? // 'self' | 'spouse' | 'child' | 'parent' | 'other'
-  medicalCondition      String
-  medications           String?
-  emergencyContactName  String?
-  emergencyContactPhone String?
-  notes                 String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  // Relaciones
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("medical_records")
-}
-
-// INFRACCIONES (MULTAS)
-model Infraction {
-  id               String    @id @default(uuid())
-  citationNumber   String    @unique
-  inspectorId      String
-  citizenRut       String
-  citizenName      String
-  infractionType   String
-  infractionCode   String?
-  description      String
-  amount           Float
-  latitude         Float?
-  longitude        Float?
-  address          String?
-  vehiclePlate     String?
-  paymentStatus    String    @default("pending") // 'pending' | 'paid' | 'overdue'
-  paymentDueDate   DateTime
-  paidAt           DateTime?
-  inspectorSignature String? // URL o Base64
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  // Relaciones
-  inspector       User               @relation(fields: [inspectorId], references: [id])
-  evidence        InfractionEvidence[]
-  courtCitations  CourtCitation[]
-
-  @@index([citizenRut])
-  @@index([paymentStatus])
-  @@index([inspectorId])
-  @@map("infractions")
-}
-
-// EVIDENCIA DE INFRACCIONES
-model InfractionEvidence {
-  id           String   @id @default(uuid())
-  infractionId String
-  fileUrl      String
-  fileType     String // 'image' | 'video'
-  uploadedAt   DateTime @default(now())
-
-  // Relaciones
-  infraction Infraction @relation(fields: [infractionId], references: [id], onDelete: Cascade)
-
-  @@map("infraction_evidence")
-}
-
-// CITACIONES Y ADVERTENCIAS MUNICIPALES
-model CourtCitation {
-  id                 String    @id @default(uuid())
-  citationNumber     String    @unique
-  citationType       String    @default("citacion") @map("citation_type") // 'advertencia' | 'citacion'
-  targetType         String    @default("persona") @map("target_type") // 'persona' | 'domicilio' | 'vehiculo' | 'comercio' | 'otro'
-  targetName         String?   @map("target_name")
-  targetRut          String?   @map("target_rut")
-  targetAddress      String?   @map("target_address")
-  targetPhone        String?   @map("target_phone")
-  targetPlate        String?   @map("target_plate")
-  locationAddress    String?   @map("location_address")
-  latitude           Float?
-  longitude          Float?
-  reason             String
-  notes              String?
-  photos             String?   // JSON array of photo URLs
-  infractionId       String?   @map("infraction_id")
-  userId             String?   @map("user_id") // ciudadano afectado
-  issuedBy           String?   @map("issued_by") // inspector que emite
-  courtName          String?   @map("court_name")
-  hearingDate        DateTime? @map("hearing_date")
-  address            String?   // dirección del juzgado o lugar de comparecencia
-  notificationMethod String?   @map("notification_method") // 'personal' | 'carta' | 'email' | 'telefono'
-  status             String    @default("pendiente") // 'pendiente' | 'notificado' | 'asistio' | 'no_asistio' | 'cancelado'
-  notifiedAt         DateTime? @map("notified_at")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
-
-  // Relaciones
-  infraction Infraction? @relation(fields: [infractionId], references: [id])
-  citizen    User?       @relation("CitizenCitations", fields: [userId], references: [id])
-  issuer     User?       @relation("IssuedCitations", fields: [issuedBy], references: [id])
-
-  @@index([targetRut])
-  @@index([hearingDate])
-  @@index([status])
-  @@index([issuedBy])
-  @@index([citationType])
-  @@map("court_citations")
-}
-
-// VEHÍCULOS MUNICIPALES
-model Vehicle {
-  id          String       @id @default(uuid())
-  plate       String       @unique
-  brand       String
-  model       String
-  year        Int
-  vehicleType String
-  status      String       @default("available") // 'available' | 'in_use' | 'maintenance' | 'retired'
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  // Relaciones
-  logs VehicleLog[]
-
-  @@map("vehicles")
-}
-
-// LOGS DE VEHÍCULOS
-model VehicleLog {
-  id            String    @id @default(uuid())
-  vehicleId     String
-  inspectorId   String
-  actionType    String // 'checkout' | 'checkin' | 'maintenance' | 'fuel'
-  odometerStart Int?
-  odometerEnd   Int?
-  fuelLevel     Float?
-  notes         String?
-  startedAt     DateTime
-  endedAt       DateTime?
-  createdAt     DateTime  @default(now())
-
-  // Relaciones
-  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
-  inspector User    @relation(fields: [inspectorId], references: [id])
-
-  @@map("vehicle_logs")
-}
-
-// NOTIFICACIONES
-model Notification {
-  id        String   @id @default(uuid())
-  userId    String
-  title     String
-  body      String
-  type      String // 'report_update' | 'assignment' | 'citation' | 'payment' | 'general'
-  data      Json?
-  read      Boolean  @default(false)
-  sentAt    DateTime @default(now())
-
-  // Relaciones
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, read])
-  @@map("notifications")
-}
-
-// TOKENS DE REFRESH (Redis alternativo)
-model RefreshToken {
-  id        String   @id @default(uuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+// Multi-tenant: lives in {tenantId} schema
+// Source: 001_initial_setup.sql
+model TenantReport {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id") // FK -> users.id
+  type        String // 'denuncia' | 'sugerencia' | 'emergencia' | 'infraestructura' | 'otro'
+  title       String
+  description String
+  address     String?
+  latitude    Decimal?  @db.Decimal(10, 8)
+  longitude   Decimal?  @db.Decimal(11, 8)
+  priority    String    @default("media") // 'baja' | 'media' | 'alta' | 'urgente'
+  status      String    @default("pendiente") // 'pendiente' | 'en_proceso' | 'resuelto' | 'rechazado'
+  assignedTo  String?   @map("assigned_to") // FK -> users.id
+  resolution  String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @map("updated_at")
+  resolvedAt  DateTime? @map("resolved_at")
 
   @@index([userId])
-  @@index([token])
-  @@map("refresh_tokens")
+  @@index([status])
+  @@index([type])
+  @@index([createdAt(sort: Desc)])
+  @@map("reports")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 001_initial_setup.sql
+model TenantInfraction {
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id") // FK -> users.id (citizen)
+  type             String // 'trafico' | 'ruido' | 'basura' | 'construccion' | 'otro'
+  description      String
+  address          String
+  latitude         Decimal?  @db.Decimal(10, 8)
+  longitude        Decimal?  @db.Decimal(11, 8)
+  amount           Decimal   @db.Decimal(12, 2)
+  vehiclePlate     String?   @map("vehicle_plate")
+  status           String    @default("pendiente") // 'pendiente' | 'pagada' | 'anulada'
+  paymentMethod    String?   @map("payment_method") // 'efectivo' | 'transferencia' | 'tarjeta' | 'webpay'
+  paymentReference String?   @map("payment_reference")
+  notes            String?
+  issuedBy         String    @map("issued_by") // FK -> users.id (inspector)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @default(now()) @map("updated_at")
+  paidAt           DateTime? @map("paid_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([vehiclePlate])
+  @@index([createdAt(sort: Desc)])
+  @@map("infractions")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 001_initial_setup.sql
+model TenantCourtCitation {
+  id                 String    @id @default(uuid())
+  userId             String    @map("user_id") // FK -> users.id
+  infractionId       String?   @map("infraction_id") // FK -> infractions.id
+  citationNumber     String    @unique @map("citation_number")
+  courtName          String    @map("court_name")
+  hearingDate        DateTime  @map("hearing_date")
+  address            String
+  reason             String
+  status             String    @default("pendiente") // 'pendiente' | 'notificado' | 'asistio' | 'no_asistio' | 'cancelado'
+  notificationMethod String?   @map("notification_method") // 'email' | 'sms' | 'carta' | 'en_persona'
+  notes              String?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @default(now()) @map("updated_at")
+  notifiedAt         DateTime? @map("notified_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([hearingDate])
+  @@map("court_citations")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 001_initial_setup.sql
+model TenantMedicalRecord {
+  id                    String   @id @default(uuid())
+  householdHeadId       String   @map("household_head_id") // FK -> users.id
+  address               String
+  familyMembers         Json     @map("family_members") // JSONB
+  chronicConditions     Json?    @map("chronic_conditions") // JSONB
+  allergies             Json? // JSONB
+  medications           Json? // JSONB
+  emergencyContactName  String?  @map("emergency_contact_name")
+  emergencyContactPhone String?  @map("emergency_contact_phone")
+  notes                 String?
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @default(now()) @map("updated_at")
+
+  @@index([householdHeadId])
+  @@map("medical_records")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 001_initial_setup.sql
+model TenantVehicle {
+  id          String   @id @default(uuid())
+  ownerId     String   @map("owner_id") // FK -> users.id
+  plate       String   @unique
+  brand       String?
+  model       String?
+  year        Int?
+  color       String?
+  vehicleType String?  @map("vehicle_type") // 'auto' | 'moto' | 'camion' | 'camioneta' | 'bus' | 'otro'
+  vin         String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  @@index([ownerId])
+  @@index([plate])
+  @@map("vehicles")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 001_initial_setup.sql
+model TenantFile {
+  id               String   @id @default(uuid())
+  entityType       String   @map("entity_type") // 'report' | 'infraction' | 'court_citation' | 'medical_record' | 'user' | 'vehicle_log'
+  entityId         String   @map("entity_id")
+  filename         String
+  originalFilename String   @map("original_filename")
+  mimeType         String   @map("mime_type")
+  sizeBytes        BigInt   @map("size_bytes")
+  storagePath      String   @map("storage_path")
+  uploadedBy       String?  @map("uploaded_by") // FK -> users.id
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@map("files")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 001_initial_setup.sql, updated by 004_panic_alerts.sql
+model TenantNotification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id") // FK -> users.id
+  title     String
+  message   String
+  type      String // 'report' | 'infraction' | 'citation' | 'general' | 'urgent' | 'panic'
+  isRead    Boolean  @default(false) @map("is_read")
+  metadata  Json? // JSONB
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt(sort: Desc)])
+  @@map("notifications")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 001_initial_setup.sql
+model TenantAuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id") // FK -> users.id
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  oldValues  Json?    @map("old_values") // JSONB
+  newValues  Json?    @map("new_values") // JSONB
+  ipAddress  String?  @map("ip_address") // INET
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_log")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 002_vehicle_logs.sql, columns added by 006_vehicle_gps_points.sql
+model TenantVehicleLog {
+  id              String    @id @default(uuid())
+  vehicleId       String    @map("vehicle_id") // FK -> vehicles.id
+  driverId        String    @map("driver_id") // FK -> users.id
+  driverName      String    @map("driver_name")
+  usageType       String    @map("usage_type") // 'official' | 'emergency' | 'maintenance' | 'transfer' | 'other'
+  purpose         String?
+  startKm         Decimal   @map("start_km") @db.Decimal(10, 2)
+  endKm           Decimal?  @map("end_km") @db.Decimal(10, 2)
+  startTime       DateTime  @default(now()) @map("start_time")
+  endTime         DateTime? @map("end_time")
+  observations    String?
+  status          String    @default("active") // 'active' | 'completed' | 'cancelled'
+  // Columns added by migration 006
+  maxSpeed        Decimal?  @map("max_speed") @db.Decimal(8, 2)
+  avgSpeed        Decimal?  @map("avg_speed") @db.Decimal(8, 2)
+  totalDistanceKm Decimal?  @map("total_distance_km") @db.Decimal(10, 2)
+  route           Json? // JSONB - route points
+  stops           Json? // JSONB - stop points
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @map("updated_at")
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([status])
+  @@index([startTime(sort: Desc)])
+  @@map("vehicle_logs")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 002_vehicle_logs.sql
+model TenantVehicleLogAttachment {
+  id             String   @id @default(uuid())
+  logId          String   @map("log_id") // FK -> vehicle_logs.id
+  fileId         String   @map("file_id") // FK -> files.id
+  attachmentType String   @map("attachment_type") // 'start_km' | 'end_km' | 'fuel' | 'damage' | 'other'
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([logId])
+  @@map("vehicle_log_attachments")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 004_panic_alerts.sql, constraint fixed by 005_fix_panic_status_constraint.sql
+model TenantPanicAlert {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id") // FK -> users.id
+  latitude     Decimal   @db.Decimal(10, 8)
+  longitude    Decimal   @db.Decimal(11, 8)
+  address      String?
+  message      String?   @default("Alerta de emergencia")
+  contactPhone String?   @map("contact_phone")
+  status       String    @default("active") // 'active' | 'responding' | 'resolved' | 'cancelled' | 'dismissed'
+  responderId  String?   @map("responder_id") // FK -> users.id
+  respondedAt  DateTime? @map("responded_at")
+  resolvedAt   DateTime? @map("resolved_at")
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@index([responderId])
+  @@map("panic_alerts")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 006_vehicle_gps_points.sql
+model TenantVehicleGpsPoint {
+  id           String   @id @default(uuid())
+  vehicleId    String   @map("vehicle_id") // FK -> vehicles.id
+  vehicleLogId String?  @map("vehicle_log_id") // FK -> vehicle_logs.id
+  inspectorId  String   @map("inspector_id") // FK -> users.id
+  latitude     Decimal  @db.Decimal(10, 8)
+  longitude    Decimal  @db.Decimal(11, 8)
+  altitude     Decimal? @db.Decimal(10, 2)
+  speed        Decimal? @db.Decimal(8, 2) // km/h
+  heading      Decimal? @db.Decimal(5, 2) // degrees 0-360
+  accuracy     Decimal? @db.Decimal(8, 2) // meters
+  recordedAt   DateTime @default(now()) @map("recorded_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([vehicleId])
+  @@index([vehicleLogId])
+  @@index([inspectorId])
+  @@index([recordedAt(sort: Desc)])
+  @@index([latitude, longitude])
+  @@map("vehicle_gps_points")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 006_vehicle_gps_points.sql
+model TenantGeofence {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  type         String // 'circle' | 'polygon'
+  centerLat    Decimal? @map("center_lat") @db.Decimal(10, 8)
+  centerLng    Decimal? @map("center_lng") @db.Decimal(11, 8)
+  radius       Decimal? @db.Decimal(10, 2) // meters, for circle type
+  polygon      Json? // JSONB, for polygon type
+  isActive     Boolean  @default(true) @map("is_active")
+  alertOnEnter Boolean  @default(true) @map("alert_on_enter")
+  alertOnExit  Boolean  @default(true) @map("alert_on_exit")
+  createdBy    String?  @map("created_by") // FK -> users.id
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @map("updated_at")
+
+  @@index([isActive])
+  @@map("geofences")
+  @@ignore
+}
+
+// Multi-tenant: lives in {tenantId} schema
+// Source: 006_vehicle_gps_points.sql
+model TenantGeofenceEvent {
+  id          String   @id @default(uuid())
+  geofenceId  String   @map("geofence_id") // FK -> geofences.id
+  vehicleId   String   @map("vehicle_id") // FK -> vehicles.id
+  inspectorId String   @map("inspector_id") // FK -> users.id
+  eventType   String   @map("event_type") // 'enter' | 'exit'
+  latitude    Decimal  @db.Decimal(10, 8)
+  longitude   Decimal  @db.Decimal(11, 8)
+  recordedAt  DateTime @default(now()) @map("recorded_at")
+
+  @@index([geofenceId])
+  @@index([vehicleId])
+  @@index([recordedAt(sort: Desc)])
+  @@map("geofence_events")
+  @@ignore
 }

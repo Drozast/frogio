@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { ReportsService } from './reports.service.js';
 import type { AuthRequest } from '../../middleware/auth.middleware.js';
 import type { CreateReportDto, UpdateReportDto } from './reports.types.js';
+import { parsePagination, buildPaginatedResponse } from '../../middleware/pagination.middleware.js';
 
 const reportsService = new ReportsService();
 
@@ -25,17 +26,18 @@ export class ReportsController {
     try {
       const tenantId = req.user!.tenantId;
       const { status, type } = req.query;
+      const pagination = parsePagination(req);
 
       // Citizens can only see their own reports
       const userId = req.user!.role === 'citizen' ? req.user!.userId : undefined;
 
-      const reports = await reportsService.findAll(tenantId, {
+      const result = await reportsService.findAll(tenantId, {
         status: status as string,
         type: type as string,
         userId,
-      });
+      }, pagination.limit, pagination.offset);
 
-      res.json(reports);
+      res.json(buildPaginatedResponse(result.data, result.total, pagination));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al obtener reportes';
       res.status(400).json({ error: message });

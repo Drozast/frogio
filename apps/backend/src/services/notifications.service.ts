@@ -64,17 +64,27 @@ export class NotificationsService {
     return notification;
   }
 
-  async getUserNotifications(userId: string, tenantId: string, limit: number = 50) {
-    const notifications = await prisma.$queryRawUnsafe<any[]>(
+  async getUserNotifications(userId: string, tenantId: string, limit: number = 50, offset: number = 0) {
+    // Count query
+    const [countResult] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT COUNT(*) as total FROM "${tenantId}".notifications
+       WHERE user_id = $1::uuid`,
+      userId
+    );
+    const total = parseInt(countResult?.total || '0');
+
+    // Data query with pagination
+    const data = await prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM "${tenantId}".notifications
        WHERE user_id = $1::uuid
        ORDER BY created_at DESC
-       LIMIT $2`,
+       LIMIT $2 OFFSET $3`,
       userId,
-      limit
+      limit,
+      offset
     );
 
-    return notifications;
+    return { data, total };
   }
 
   async markAsRead(notificationId: string, tenantId: string) {

@@ -1,19 +1,20 @@
 import { Router } from 'express';
 import { AuthController } from './auth.controller.js';
 import { authMiddleware, type AuthRequest } from '../../middleware/auth.middleware.js';
+import { authRateLimit, passwordResetRateLimit } from '../../middleware/rate-limit.middleware.js';
 
 const router = Router();
 const authController = new AuthController();
 
-// Public routes
-router.post('/register', (req, res) => authController.register(req, res));
-router.post('/login', (req, res) => authController.login(req, res));
+// Public routes (rate limited)
+router.post('/register', authRateLimit, (req, res) => authController.register(req, res));
+router.post('/login', authRateLimit, (req, res) => authController.login(req, res));
 router.post('/refresh', (req, res) => authController.refreshToken(req, res));
 router.post('/logout', (req, res) => authController.logout(req, res));
 
-// Password recovery (public)
-router.post('/forgot-password', (req, res) => authController.forgotPassword(req, res));
-router.post('/reset-password', (req, res) => authController.resetPassword(req, res));
+// Password recovery (stricter rate limit)
+router.post('/forgot-password', passwordResetRateLimit, (req, res) => authController.forgotPassword(req, res));
+router.post('/reset-password', passwordResetRateLimit, (req, res) => authController.resetPassword(req, res));
 
 // Protected routes
 router.get('/me', authMiddleware, (req, res) => authController.me(req as AuthRequest, res));

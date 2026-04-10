@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { NotificationsService } from '../../services/notifications.service.js';
 import type { AuthRequest } from '../../middleware/auth.middleware.js';
+import { parsePagination, buildPaginatedResponse } from '../../middleware/pagination.middleware.js';
 
 const notificationsService = new NotificationsService();
 
@@ -9,11 +10,11 @@ export class NotificationsController {
     try {
       const userId = req.user!.userId;
       const tenantId = req.user!.tenantId;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const pagination = parsePagination(req);
 
-      const notifications = await notificationsService.getUserNotifications(userId, tenantId, limit);
+      const result = await notificationsService.getUserNotifications(userId, tenantId, pagination.limit, pagination.offset);
 
-      res.json(notifications);
+      res.json(buildPaginatedResponse(result.data, result.total, pagination));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al obtener notificaciones';
       res.status(400).json({ error: message });

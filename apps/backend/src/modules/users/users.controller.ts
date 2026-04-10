@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { UsersService } from './users.service.js';
 import type { AuthRequest } from '../../middleware/auth.middleware.js';
 import type { CreateUserDto, UpdateUserDto } from './users.types.js';
+import { parsePagination, buildPaginatedResponse } from '../../middleware/pagination.middleware.js';
 
 const usersService = new UsersService();
 
@@ -24,14 +25,15 @@ export class UsersController {
     try {
       const tenantId = req.user!.tenantId;
       const { role, isActive, search } = req.query;
+      const pagination = parsePagination(req);
 
-      const users = await usersService.findAll(tenantId, {
+      const result = await usersService.findAll(tenantId, {
         role: role as string,
         isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
         search: search as string,
-      });
+      }, pagination.limit, pagination.offset);
 
-      res.json(users);
+      res.json(buildPaginatedResponse(result.data, result.total, pagination));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al obtener usuarios';
       res.status(400).json({ error: message });

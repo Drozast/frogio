@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { GeofencesService } from './geofences.service.js';
 import { CreateGeofenceDto, UpdateGeofenceDto } from './geofences.types.js';
+import { logger } from '../../config/logger.js';
 
 interface AuthRequest extends Request {
   user?: {
@@ -39,7 +40,7 @@ export class GeofencesController {
 
       res.status(201).json(geofence);
     } catch (error) {
-      console.error('Error creating geofence:', error);
+      logger.error(`Error creating geofence: ${error instanceof Error ? error.message : error}`);
       const message = error instanceof Error ? error.message : 'Error al crear geofence';
       res.status(500).json({ error: message });
     }
@@ -55,7 +56,7 @@ export class GeofencesController {
 
       res.json(geofences);
     } catch (error) {
-      console.error('Error listing geofences:', error);
+      logger.error(`Error listing geofences: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al listar geofences' });
     }
   }
@@ -75,7 +76,7 @@ export class GeofencesController {
 
       res.json(geofence);
     } catch (error) {
-      console.error('Error getting geofence:', error);
+      logger.error(`Error getting geofence: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al obtener geofence' });
     }
   }
@@ -102,7 +103,7 @@ export class GeofencesController {
 
       res.json(geofence);
     } catch (error) {
-      console.error('Error updating geofence:', error);
+      logger.error(`Error updating geofence: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al actualizar geofence' });
     }
   }
@@ -128,7 +129,7 @@ export class GeofencesController {
 
       res.json({ success: true });
     } catch (error) {
-      console.error('Error deleting geofence:', error);
+      logger.error(`Error deleting geofence: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al eliminar geofence' });
     }
   }
@@ -143,7 +144,7 @@ export class GeofencesController {
 
       res.json(events);
     } catch (error) {
-      console.error('Error getting recent events:', error);
+      logger.error(`Error getting recent events: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al obtener eventos recientes' });
     }
   }
@@ -159,7 +160,7 @@ export class GeofencesController {
 
       res.json(events);
     } catch (error) {
-      console.error('Error getting geofence events:', error);
+      logger.error(`Error getting geofence events: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al obtener eventos del geofence' });
     }
   }
@@ -179,7 +180,7 @@ export class GeofencesController {
 
       res.json(results);
     } catch (error) {
-      console.error('Error checking point:', error);
+      logger.error(`Error checking point: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al verificar punto' });
     }
   }

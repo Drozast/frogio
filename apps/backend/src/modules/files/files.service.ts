@@ -63,7 +63,7 @@ export class FilesService {
 
     // Devolver URL pública que pasa por la API (proxy)
     // Esta URL es accesible desde cualquier cliente a través de Cloudflare
-    const baseUrl = env.API_URL || 'https://api-frogio.drozast.xyz';
+    const baseUrl = env.API_URL || 'https://api-frogio.supertools.cl';
     return `${baseUrl}/api/files/serve/${tenantId}/${fileId}`;
   }
 

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AuthService } from './auth.service.js';
 import type { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto, UpdateProfileDto } from './auth.types.js';
 import type { AuthRequest } from '../../middleware/auth.middleware.js';
+import { logger } from '../../config/logger.js';
 
 const authService = new AuthService();
 
@@ -27,14 +28,14 @@ export class AuthController {
 
   async login(req: Request, res: Response): Promise<void> {
     try {
-      console.log('🎯 Backend received login request');
-      console.log('📦 Raw body type:', typeof req.body);
-      console.log('📦 Raw body:', req.body);
+      logger.info('Backend received login request');
+      logger.info(`Raw body type: ${typeof req.body}`);
+      logger.info(`Raw body: ${JSON.stringify(req.body)}`);
 
       const data: LoginDto = req.body;
       const tenantId = req.headers['x-tenant-id'] as string;
 
-      console.log('🔑 Parsed data:', { email: data.email, password: data.password?.substring(0, 8) + '...', tenantId });
+      logger.info(`Parsed data: ${JSON.stringify({ email: data.email, tenantId })}`);
 
       if (!tenantId) {
         res.status(400).json({ error: 'Tenant ID requerido en headers' });

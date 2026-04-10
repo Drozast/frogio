@@ -38,15 +38,15 @@ export class GeofencesService {
 
     const query = `
       INSERT INTO "${tenantId}".geofences
-        (name, description, geofence_type, center_lat, center_lng, radius_meters, polygon_coordinates, is_active, alert_on_enter, alert_on_exit)
+        (name, description, type, center_lat, center_lng, radius, polygon, is_active, alert_on_enter, alert_on_exit)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING
         id, name, description,
-        geofence_type as "geofenceType",
+        type as "geofenceType",
         center_lat as "centerLat",
         center_lng as "centerLng",
-        radius_meters as "radiusMeters",
-        polygon_coordinates as "polygonCoordinates",
+        radius as "radiusMeters",
+        polygon as "polygonCoordinates",
         is_active as "isActive",
         alert_on_enter as "alertOnEnter",
         alert_on_exit as "alertOnExit",
@@ -78,11 +78,11 @@ export class GeofencesService {
     const query = `
       SELECT
         id, name, description,
-        geofence_type as "geofenceType",
+        type as "geofenceType",
         center_lat as "centerLat",
         center_lng as "centerLng",
-        radius_meters as "radiusMeters",
-        polygon_coordinates as "polygonCoordinates",
+        radius as "radiusMeters",
+        polygon as "polygonCoordinates",
         is_active as "isActive",
         alert_on_enter as "alertOnEnter",
         alert_on_exit as "alertOnExit",
@@ -101,11 +101,11 @@ export class GeofencesService {
     const query = `
       SELECT
         id, name, description,
-        geofence_type as "geofenceType",
+        type as "geofenceType",
         center_lat as "centerLat",
         center_lng as "centerLng",
-        radius_meters as "radiusMeters",
-        polygon_coordinates as "polygonCoordinates",
+        radius as "radiusMeters",
+        polygon as "polygonCoordinates",
         is_active as "isActive",
         alert_on_enter as "alertOnEnter",
         alert_on_exit as "alertOnExit",
@@ -137,7 +137,7 @@ export class GeofencesService {
       values.push(data.description);
     }
     if (data.geofenceType !== undefined) {
-      updates.push(`geofence_type = $${paramIndex++}`);
+      updates.push(`type = $${paramIndex++}`);
       values.push(data.geofenceType);
     }
     if (data.centerLat !== undefined) {
@@ -149,11 +149,11 @@ export class GeofencesService {
       values.push(data.centerLng);
     }
     if (data.radiusMeters !== undefined) {
-      updates.push(`radius_meters = $${paramIndex++}`);
+      updates.push(`radius = $${paramIndex++}`);
       values.push(data.radiusMeters);
     }
     if (data.polygonCoordinates !== undefined) {
-      updates.push(`polygon_coordinates = $${paramIndex++}`);
+      updates.push(`polygon = $${paramIndex++}`);
       values.push(JSON.stringify(data.polygonCoordinates));
     }
     if (data.isActive !== undefined) {
@@ -182,11 +182,11 @@ export class GeofencesService {
       WHERE id = $${paramIndex}::uuid
       RETURNING
         id, name, description,
-        geofence_type as "geofenceType",
+        type as "geofenceType",
         center_lat as "centerLat",
         center_lng as "centerLng",
-        radius_meters as "radiusMeters",
-        polygon_coordinates as "polygonCoordinates",
+        radius as "radiusMeters",
+        polygon as "polygonCoordinates",
         is_active as "isActive",
         alert_on_enter as "alertOnEnter",
         alert_on_exit as "alertOnExit",

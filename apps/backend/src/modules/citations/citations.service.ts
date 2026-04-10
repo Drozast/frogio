@@ -109,7 +109,7 @@ export class CitationsService {
         location_address, latitude, longitude, citation_number, reason, notes, photos,
         user_id, infraction_id, court_name, hearing_date, address, notification_method,
         status, issued_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::uuid, NOW(), NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::timestamptz, $19, $20, $21, $22::uuid, NOW(), NOW())
        RETURNING *`,
       data.citationType || 'citacion',
       data.targetType || 'persona',
@@ -138,12 +138,8 @@ export class CitationsService {
     return citation;
   }
 
-  async findAll(tenantId: string, filters?: CitationFilters): Promise<Citation[]> {
-    let query = `SELECT cc.*,
-                 issuer.first_name as issuer_first_name, issuer.last_name as issuer_last_name,
-                 u.first_name as user_first_name, u.last_name as user_last_name, u.email as user_email, u.phone as user_phone, u.rut as user_rut,
-                 i.description as infraction_description, i.amount as infraction_amount
-                 FROM "${tenantId}".court_citations cc
+  async findAll(tenantId: string, filters?: CitationFilters, limit: number = 50, offset: number = 0): Promise<{ data: Citation[]; total: number }> {
+    let baseWhere = `FROM "${tenantId}".court_citations cc
                  LEFT JOIN "${tenantId}".users issuer ON cc.issued_by = issuer.id
                  LEFT JOIN "${tenantId}".users u ON cc.user_id = u.id
                  LEFT JOIN "${tenantId}".infractions i ON cc.infraction_id = i.id
@@ -153,37 +149,37 @@ export class CitationsService {
     let paramIndex = 1;
 
     if (filters?.status) {
-      query += ` AND cc.status = $${paramIndex}`;
+      baseWhere += ` AND cc.status = $${paramIndex}`;
       params.push(filters.status);
       paramIndex++;
     }
 
     if (filters?.citationType) {
-      query += ` AND cc.citation_type = $${paramIndex}`;
+      baseWhere += ` AND cc.citation_type = $${paramIndex}`;
       params.push(filters.citationType);
       paramIndex++;
     }
 
     if (filters?.targetType) {
-      query += ` AND cc.target_type = $${paramIndex}`;
+      baseWhere += ` AND cc.target_type = $${paramIndex}`;
       params.push(filters.targetType);
       paramIndex++;
     }
 
     if (filters?.userId) {
-      query += ` AND cc.user_id = $${paramIndex}`;
+      baseWhere += ` AND cc.user_id = $${paramIndex}`;
       params.push(filters.userId);
       paramIndex++;
     }
 
     if (filters?.issuedBy) {
-      query += ` AND cc.issued_by = $${paramIndex}`;
+      baseWhere += ` AND cc.issued_by = $${paramIndex}`;
       params.push(filters.issuedBy);
       paramIndex++;
     }
 
     if (filters?.search) {
-      query += ` AND (
+      baseWhere += ` AND (
         cc.target_name ILIKE $${paramIndex} OR
         cc.target_rut ILIKE $${paramIndex} OR
         cc.target_plate ILIKE $${paramIndex} OR
@@ -196,21 +192,32 @@ export class CitationsService {
     }
 
     if (filters?.fromDate) {
-      query += ` AND cc.created_at >= $${paramIndex}`;
+      baseWhere += ` AND cc.created_at >= $${paramIndex}`;
       params.push(filters.fromDate);
       paramIndex++;
     }
 
     if (filters?.toDate) {
-      query += ` AND cc.created_at <= $${paramIndex}`;
+      baseWhere += ` AND cc.created_at <= $${paramIndex}`;
       params.push(filters.toDate);
       paramIndex++;
     }
 
-    query += ` ORDER BY cc.created_at DESC`;
+    // Count query
+    const countQuery = `SELECT COUNT(*) as total ${baseWhere}`;
+    const [countResult] = await prisma.$queryRawUnsafe<any[]>(countQuery, ...params);
+    const total = parseInt(countResult?.total || '0');
 
-    const citations = await prisma.$queryRawUnsafe<Citation[]>(query, ...params);
-    return citations;
+    // Data query with pagination
+    const dataQuery = `SELECT cc.*,
+                 issuer.first_name as issuer_first_name, issuer.last_name as issuer_last_name,
+                 u.first_name as user_first_name, u.last_name as user_last_name, u.email as user_email, u.phone as user_phone, u.rut as user_rut,
+                 i.description as infraction_description, i.amount as infraction_amount
+                 ${baseWhere} ORDER BY cc.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    const dataParams = [...params, limit, offset];
+
+    const data = await prisma.$queryRawUnsafe<Citation[]>(dataQuery, ...dataParams);
+    return { data, total };
   }
 
   async findById(id: string, tenantId: string): Promise<Citation> {

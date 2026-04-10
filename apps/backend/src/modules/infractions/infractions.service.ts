@@ -30,11 +30,8 @@ export class InfractionsService {
     return infraction;
   }
 
-  async findAll(tenantId: string, filters?: { status?: string; userId?: string }) {
-    let query = `SELECT i.*,
-                 u.first_name as user_first_name, u.last_name as user_last_name, u.email as user_email,
-                 issuer.first_name as issuer_first_name, issuer.last_name as issuer_last_name
-                 FROM "${tenantId}".infractions i
+  async findAll(tenantId: string, filters?: { status?: string; userId?: string }, limit: number = 50, offset: number = 0) {
+    let baseWhere = `FROM "${tenantId}".infractions i
                  LEFT JOIN "${tenantId}".users u ON i.user_id = u.id
                  LEFT JOIN "${tenantId}".users issuer ON i.issued_by = issuer.id
                  WHERE 1=1`;
@@ -43,21 +40,31 @@ export class InfractionsService {
     let paramIndex = 1;
 
     if (filters?.status) {
-      query += ` AND i.status = $${paramIndex}`;
+      baseWhere += ` AND i.status = $${paramIndex}`;
       params.push(filters.status);
       paramIndex++;
     }
 
     if (filters?.userId) {
-      query += ` AND i.user_id = $${paramIndex}::uuid`;
+      baseWhere += ` AND i.user_id = $${paramIndex}::uuid`;
       params.push(filters.userId);
       paramIndex++;
     }
 
-    query += ` ORDER BY i.created_at DESC`;
+    // Count query
+    const countQuery = `SELECT COUNT(*) as total ${baseWhere}`;
+    const [countResult] = await prisma.$queryRawUnsafe<any[]>(countQuery, ...params);
+    const total = parseInt(countResult?.total || '0');
 
-    const infractions = await prisma.$queryRawUnsafe<any[]>(query, ...params);
-    return infractions;
+    // Data query with pagination
+    const dataQuery = `SELECT i.*,
+                 u.first_name as user_first_name, u.last_name as user_last_name, u.email as user_email,
+                 issuer.first_name as issuer_first_name, issuer.last_name as issuer_last_name
+                 ${baseWhere} ORDER BY i.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    const dataParams = [...params, limit, offset];
+
+    const data = await prisma.$queryRawUnsafe<any[]>(dataQuery, ...dataParams);
+    return { data, total };
   }
 
   async findById(id: string, tenantId: string) {

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { InfractionsService } from './infractions.service.js';
 import type { AuthRequest } from '../../middleware/auth.middleware.js';
 import type { CreateInfractionDto, UpdateInfractionDto } from './infractions.types.js';
+import { parsePagination, buildPaginatedResponse } from '../../middleware/pagination.middleware.js';
 
 const infractionsService = new InfractionsService();
 
@@ -25,16 +26,17 @@ export class InfractionsController {
     try {
       const tenantId = req.user!.tenantId;
       const { status } = req.query;
+      const pagination = parsePagination(req);
 
       // Citizens can only see their own infractions
       const userId = req.user!.role === 'citizen' ? req.user!.userId : undefined;
 
-      const infractions = await infractionsService.findAll(tenantId, {
+      const result = await infractionsService.findAll(tenantId, {
         status: status as string,
         userId,
-      });
+      }, pagination.limit, pagination.offset);
 
-      res.json(infractions);
+      res.json(buildPaginatedResponse(result.data, result.total, pagination));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al obtener infracciones';
       res.status(400).json({ error: message });

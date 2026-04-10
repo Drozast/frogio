@@ -153,9 +153,8 @@ export class ReportsService {
     return report;
   }
 
-  async findAll(tenantId: string, filters?: { status?: string; type?: string; userId?: string }) {
-    let query = `SELECT r.*, u.first_name, u.last_name, u.email
-                 FROM "${tenantId}".reports r
+  async findAll(tenantId: string, filters?: { status?: string; type?: string; userId?: string }, limit: number = 50, offset: number = 0) {
+    let baseWhere = `FROM "${tenantId}".reports r
                  LEFT JOIN "${tenantId}".users u ON r.user_id = u.id
                  WHERE 1=1`;
 
@@ -163,27 +162,34 @@ export class ReportsService {
     let paramIndex = 1;
 
     if (filters?.status) {
-      query += ` AND r.status = $${paramIndex}`;
+      baseWhere += ` AND r.status = $${paramIndex}`;
       params.push(filters.status);
       paramIndex++;
     }
 
     if (filters?.type) {
-      query += ` AND r.type = $${paramIndex}`;
+      baseWhere += ` AND r.type = $${paramIndex}`;
       params.push(filters.type);
       paramIndex++;
     }
 
     if (filters?.userId) {
-      query += ` AND r.user_id = $${paramIndex}::uuid`;
+      baseWhere += ` AND r.user_id = $${paramIndex}::uuid`;
       params.push(filters.userId);
       paramIndex++;
     }
 
-    query += ` ORDER BY r.created_at DESC`;
+    // Count query
+    const countQuery = `SELECT COUNT(*) as total ${baseWhere}`;
+    const [countResult] = await prisma.$queryRawUnsafe<any[]>(countQuery, ...params);
+    const total = parseInt(countResult?.total || '0');
 
-    const reports = await prisma.$queryRawUnsafe<any[]>(query, ...params);
-    return reports;
+    // Data query with pagination
+    const dataQuery = `SELECT r.*, u.first_name, u.last_name, u.email ${baseWhere} ORDER BY r.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    const dataParams = [...params, limit, offset];
+
+    const data = await prisma.$queryRawUnsafe<any[]>(dataQuery, ...dataParams);
+    return { data, total };
   }
 
   async findById(id: string, tenantId: string) {

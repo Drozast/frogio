@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { GpsTrackingService } from './gps-tracking.service.js';
 import { GpsBatchDto } from './gps-tracking.types.js';
+import { logger } from '../../config/logger.js';
 
 interface AuthRequest extends Request {
   user?: {
@@ -59,7 +60,7 @@ export class GpsTrackingController {
         vehicleLogId: result.vehicleLogId,
       });
     } catch (error) {
-      console.error('Error inserting GPS batch:', error);
+      logger.error(`Error inserting GPS batch: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al insertar puntos GPS' });
     }
   }
@@ -73,7 +74,7 @@ export class GpsTrackingController {
 
       res.json(positions);
     } catch (error) {
-      console.error('Error getting live positions:', error);
+      logger.error(`Error getting live positions: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al obtener posiciones' });
     }
   }
@@ -93,7 +94,7 @@ export class GpsTrackingController {
 
       res.json(position);
     } catch (error) {
-      console.error('Error getting vehicle position:', error);
+      logger.error(`Error getting vehicle position: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al obtener posición del vehículo' });
     }
   }
@@ -113,7 +114,7 @@ export class GpsTrackingController {
 
       res.json(route);
     } catch (error) {
-      console.error('Error getting route history:', error);
+      logger.error(`Error getting route history: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al obtener historial de ruta' });
     }
   }
@@ -138,7 +139,7 @@ export class GpsTrackingController {
 
       res.json(routes);
     } catch (error) {
-      console.error('Error getting vehicle history:', error);
+      logger.error(`Error getting vehicle history: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al obtener historial del vehículo' });
     }
   }
@@ -161,7 +162,7 @@ export class GpsTrackingController {
       const result = await this.gpsService.getActivityDays(tenantId, vehicleId, yearNum, monthNum);
       res.json(result);
     } catch (error) {
-      console.error('Error getting activity days:', error);
+      logger.error(`Error getting activity days: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al obtener días con actividad' });
     }
   }
@@ -180,7 +181,7 @@ export class GpsTrackingController {
 
       res.json(stats);
     } catch (error) {
-      console.error('Error getting GPS stats:', error);
+      logger.error(`Error getting GPS stats: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al obtener estadísticas' });
     }
   }
@@ -196,7 +197,7 @@ export class GpsTrackingController {
 
       res.json({ success: true, deleted });
     } catch (error) {
-      console.error('Error cleaning up GPS points:', error);
+      logger.error(`Error cleaning up GPS points: ${error instanceof Error ? error.message : error}`);
       res.status(500).json({ error: 'Error al limpiar puntos GPS' });
     }
   }
