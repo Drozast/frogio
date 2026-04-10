@@ -4,10 +4,7 @@ import Redis from 'ioredis';
 import { env } from '../config/env.js';
 
 // Redis client compartido para rate limiting
-const redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  enableOfflineQueue: false,
-  lazyConnect: true,
-});
+const redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
 const makeRedisStore = (prefix: string) =>
   new RedisStore({
