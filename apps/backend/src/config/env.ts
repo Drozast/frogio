@@ -53,9 +53,6 @@ const envSchema = z.object({
   // CORS
   CORS_ORIGIN: z.string(),
 
-  // Rate Limiting
-  RATE_LIMIT_WINDOW_MS: z.string().default('900000'),
-  RATE_LIMIT_MAX_REQUESTS: z.string().default('100'),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -72,8 +69,6 @@ export const env = {
   MINIO_USE_SSL: parsed.data.MINIO_USE_SSL === 'true',
   SMTP_PORT: parsed.data.SMTP_PORT ? parseInt(parsed.data.SMTP_PORT) : 587,
   SMTP_SECURE: parsed.data.SMTP_SECURE === 'true',
-  RATE_LIMIT_WINDOW_MS: parseInt(parsed.data.RATE_LIMIT_WINDOW_MS),
-  RATE_LIMIT_MAX_REQUESTS: parseInt(parsed.data.RATE_LIMIT_MAX_REQUESTS),
   CORS_ORIGINS: parsed.data.CORS_ORIGIN.split(','),
   isDevelopment: parsed.data.NODE_ENV === 'development',
   isProduction: parsed.data.NODE_ENV === 'production',

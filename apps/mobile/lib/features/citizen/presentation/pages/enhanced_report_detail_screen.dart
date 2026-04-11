@@ -6,8 +6,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:frogio_santa_juana/core/services/maps_service.dart';
 
-import '../../../../core/config/api_config.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
 import '../../domain/entities/enhanced_report_entity.dart';
@@ -75,6 +75,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
           }
         },
         child: Scaffold(
+          backgroundColor: const Color(0xFFF8FAF8),
           appBar: _buildAppBar(),
           body: BlocBuilder<ReportBloc, ReportState>(
             builder: (context, state) {
@@ -94,13 +95,16 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
     );
   }
 
-  AppBar _buildAppBar() {
+  PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      title: const Text('Detalle de Denuncia'),
+      backgroundColor: AppTheme.surfaceWhite,
+      foregroundColor: AppTheme.textPrimary,
       elevation: 0,
+      title: const Text('Detalle de Denuncia'),
+
       actions: [
         IconButton(
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(Icons.refresh, color: AppTheme.primary),
           onPressed: _loadReportDetails,
         ),
         BlocBuilder<ReportBloc, ReportState>(
@@ -108,12 +112,13 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
             if (state is ReportLoaded) {
               return PopupMenuButton<String>(
                 onSelected: (value) => _handleMenuAction(value, state.report),
+                color: AppTheme.surfaceWhite,
                 itemBuilder: (context) => [
                   const PopupMenuItem(
                     value: 'share',
                     child: Row(
                       children: [
-                        Icon(Icons.share),
+                        Icon(Icons.share, color: AppTheme.primary),
                         SizedBox(width: 8),
                         Text('Compartir'),
                       ],
@@ -123,7 +128,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                     value: 'directions',
                     child: Row(
                       children: [
-                        Icon(Icons.directions),
+                        Icon(Icons.directions, color: AppTheme.primary),
                         SizedBox(width: 8),
                         Text('Cómo llegar'),
                       ],
@@ -146,16 +151,20 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
         _buildReportHeader(report),
 
         // Tabs
-        TabBar(
-          controller: _tabController,
-          labelColor: AppTheme.primaryColor,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: AppTheme.primaryColor,
-          tabs: const [
-            Tab(icon: Icon(Icons.info), text: 'Detalles'),
-            Tab(icon: Icon(Icons.forum), text: 'Respuestas'),
-            Tab(icon: Icon(Icons.track_changes), text: 'Seguimiento'),
-          ],
+        Container(
+          color: AppTheme.surfaceWhite,
+          child: TabBar(
+            controller: _tabController,
+            labelColor: AppTheme.primary,
+            unselectedLabelColor: AppTheme.textSecondary,
+            indicatorColor: AppTheme.primary,
+            indicatorWeight: 2,
+            tabs: const [
+              Tab(icon: Icon(Icons.info), text: 'Detalles'),
+              Tab(icon: Icon(Icons.forum), text: 'Respuestas'),
+              Tab(icon: Icon(Icons.track_changes), text: 'Seguimiento'),
+            ],
+          ),
         ),
 
         // Tab content
@@ -174,17 +183,15 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
   }
 
   Widget _buildReportHeader(ReportEntity report) {
+    final statusColor = _getStatusColor(report.status);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppTheme.surfaceWhite,
+        boxShadow: [BoxShadow(color: statusColor.withValues(alpha: 0.15), blurRadius: 8)],
+        border: Border(
+          bottom: BorderSide(color: statusColor.withValues(alpha: 0.35), width: 1.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,6 +204,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
               ),
@@ -212,17 +220,17 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                 Expanded(
                   child: Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.location_on,
                         size: 16,
-                        color: Colors.grey.shade600,
+                        color: AppTheme.textSecondary,
                       ),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
                           report.location.address!,
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
+                          style: const TextStyle(
+                            color: AppTheme.textSecondary,
                             fontSize: 12,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -236,24 +244,24 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
           const SizedBox(height: 8),
           Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.access_time,
                 size: 16,
-                color: Colors.grey.shade600,
+                color: AppTheme.textSecondary,
               ),
               const SizedBox(width: 4),
               Text(
                 'Creada: ${DateFormat('dd/MM/yyyy HH:mm').format(report.createdAt)}',
-                style: TextStyle(
-                  color: Colors.grey.shade600,
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
                   fontSize: 12,
                 ),
               ),
               const Spacer(),
               Text(
                 'ID: ${report.id.length > 8 ? report.id.substring(0, 8) : report.id}',
-                style: TextStyle(
-                  color: Colors.grey.shade600,
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
                   fontSize: 12,
                 ),
               ),
@@ -349,222 +357,249 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Tracker visual de progreso
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        isEmergency ? Icons.sos_rounded : Icons.track_changes,
-                        color: isEmergency ? Colors.red : AppTheme.primaryColor,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isEmergency ? 'Seguimiento de Emergencia' : 'Estado Actual',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  if (isRejected)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.errorColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.errorColor.withValues(alpha: 0.3)),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.cancel, color: AppTheme.errorColor),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Este reporte ha sido rechazado',
-                              style: TextStyle(color: AppTheme.errorColor, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else if (isEmergency)
-                    _buildEmergencyProgressTracker(report)
-                  else
-                    _buildNormalProgressTracker(report),
-                ],
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceWhite,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: (isEmergency ? AppTheme.emergency : AppTheme.primary).withValues(alpha: 0.2),
               ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      isEmergency ? Icons.sos_rounded : Icons.track_changes,
+                      color: isEmergency ? AppTheme.emergency : AppTheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isEmergency ? 'Seguimiento de Emergencia' : 'Estado Actual',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                if (isRejected)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.emergency.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.emergency.withValues(alpha: 0.35)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.cancel, color: AppTheme.emergency),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Este reporte ha sido rechazado',
+                            style: TextStyle(color: AppTheme.emergency, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (isEmergency)
+                  _buildEmergencyProgressTracker(report)
+                else
+                  _buildNormalProgressTracker(report),
+              ],
             ),
           ),
 
           const SizedBox(height: 16),
 
           // Timeline de historial
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.history, color: AppTheme.primaryColor),
-                      SizedBox(width: 8),
-                      Text(
-                        'Historial de Cambios',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceWhite,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.primary.withValues(alpha: 0.15)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.history, color: AppTheme.primary),
+                    SizedBox(width: 8),
+                    Text(
+                      'Historial de Cambios',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (historyItems.isEmpty)
-                    const Text(
-                      'Sin historial de cambios',
-                      style: TextStyle(color: Colors.grey),
-                    )
-                  else
-                    ...historyItems.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final historyItem = entry.value;
-                      final isLastItem = index == historyItems.length - 1;
-                      final color = _getStatusColor(historyItem.status);
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (historyItems.isEmpty)
+                  const Text(
+                    'Sin historial de cambios',
+                    style: TextStyle(color: AppTheme.textSecondary),
+                  )
+                else
+                  ...historyItems.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final historyItem = entry.value;
+                    final isLastItem = index == historyItems.length - 1;
+                    final color = _getStatusColor(historyItem.status);
 
-                      return IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Timeline visual
-                            Column(
-                              children: [
-                                Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: BoxDecoration(
-                                    color: isLastItem ? color : color.withValues(alpha: 0.3),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: color,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: isLastItem
-                                      ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    return IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Timeline visual — colored left border indicator
+                          Column(
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: isLastItem
+                                      ? color.withValues(alpha: 0.2)
+                                      : const Color(0xFFF0F7F0),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: color, width: 2),
+                                  boxShadow: isLastItem
+                                      ? [BoxShadow(color: color.withValues(alpha: 0.20), blurRadius: 14, spreadRadius: 3)]
                                       : null,
                                 ),
-                                if (!isLastItem)
-                                  Expanded(
-                                    child: Container(
-                                      width: 2,
-                                      margin: const EdgeInsets.symmetric(vertical: 4),
-                                      color: color.withValues(alpha: 0.3),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(width: 12),
-                            // Contenido
-                            Expanded(
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 16),
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: isLastItem ? color.withValues(alpha: 0.1) : Colors.grey.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: isLastItem ? color.withValues(alpha: 0.3) : Colors.grey.shade200,
+                                child: isLastItem
+                                    ? Icon(Icons.check, size: 14, color: color)
+                                    : null,
+                              ),
+                              if (!isLastItem)
+                                Expanded(
+                                  child: Container(
+                                    width: 2,
+                                    margin: const EdgeInsets.symmetric(vertical: 4),
+                                    color: color.withValues(alpha: 0.25),
                                   ),
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          _getStatusIcon(historyItem.status),
-                                          size: 16,
-                                          color: color,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            historyItem.status.displayName,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: isLastItem ? color : Colors.black87,
-                                            ),
+                            ],
+                          ),
+                          const SizedBox(width: 12),
+                          // Contenido — dark card with colored left border
+                          Expanded(
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0F7F0),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border(
+                                  left: BorderSide(color: color, width: 3),
+                                  top: BorderSide(color: color.withValues(alpha: 0.15)),
+                                  right: BorderSide(color: color.withValues(alpha: 0.15)),
+                                  bottom: BorderSide(color: color.withValues(alpha: 0.15)),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        _getStatusIcon(historyItem.status),
+                                        size: 16,
+                                        color: color,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          historyItem.status.displayName,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: isLastItem ? color : AppTheme.textPrimary,
                                           ),
-                                        ),
-                                        if (isLastItem)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: color,
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: const Text(
-                                              'Actual',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      DateFormat('dd/MM/yyyy HH:mm').format(historyItem.timestamp),
-                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                    ),
-                                    if (historyItem.comment != null && historyItem.comment!.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Icon(Icons.comment, size: 14, color: Colors.grey),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                historyItem.comment!,
-                                                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                                              ),
-                                            ),
-                                          ],
                                         ),
                                       ),
+                                      if (isLastItem)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: color.withValues(alpha: 0.18),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: color.withValues(alpha: 0.5)),
+                                          ),
+                                          child: Text(
+                                            'Actual',
+                                            style: TextStyle(
+                                              color: color,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
                                     ],
-                                    if (historyItem.userName != null) ...[
-                                      const SizedBox(height: 4),
-                                      Row(
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    DateFormat('dd/MM/yyyy HH:mm').format(historyItem.timestamp),
+                                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                  ),
+                                  if (historyItem.comment != null && historyItem.comment!.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.surface,
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: color.withValues(alpha: 0.15)),
+                                      ),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          const Icon(Icons.person, size: 12, color: Colors.grey),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            historyItem.userName!,
-                                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                          const Icon(Icons.comment, size: 14, color: AppTheme.textSecondary),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              historyItem.comment!,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontStyle: FontStyle.italic,
+                                                color: AppTheme.textPrimary,
+                                              ),
+                                            ),
                                           ),
                                         ],
                                       ),
-                                    ],
+                                    ),
                                   ],
-                                ),
+                                  if (historyItem.userName != null) ...[
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.person, size: 12, color: AppTheme.textSecondary),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          historyItem.userName!,
+                                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      );
-                    }),
-                ],
-              ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
             ),
           ),
         ],
@@ -602,9 +637,9 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
+        color: const Color(0xFFF0F7F0),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.red.shade200),
+        border: Border.all(color: AppTheme.emergency.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -627,24 +662,19 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                         height: isCurrent ? 44 : 36,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isCompleted ? Colors.red.shade600 : Colors.grey.shade300,
-                          border: isCurrent
-                              ? Border.all(color: Colors.red.shade800, width: 3)
-                              : null,
-                          boxShadow: isCurrent
-                              ? [
-                                  BoxShadow(
-                                    color: Colors.red.withValues(alpha: 0.4),
-                                    blurRadius: 8,
-                                    spreadRadius: 2,
-                                  ),
-                                ]
-                              : null,
+                          color: isCompleted
+                              ? AppTheme.emergency.withValues(alpha: 0.18)
+                              : Colors.white,
+                          border: Border.all(
+                            color: isCompleted ? AppTheme.emergency : AppTheme.border,
+                            width: isCurrent ? 2.5 : 1.5,
+                          ),
+                          boxShadow: isCurrent ? [BoxShadow(color: AppTheme.emergency.withValues(alpha: 0.25), blurRadius: 12, spreadRadius: 2)] : null,
                         ),
                         child: Icon(
                           step['icon'] as IconData,
                           size: isCurrent ? 22 : 18,
-                          color: isCompleted ? Colors.white : Colors.grey.shade500,
+                          color: isCompleted ? AppTheme.emergency : AppTheme.textTertiary,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -653,7 +683,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                          color: isCompleted ? Colors.red.shade700 : Colors.grey.shade500,
+                          color: isCompleted ? AppTheme.emergency : AppTheme.textTertiary,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -667,8 +697,8 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                     margin: const EdgeInsets.only(bottom: 20),
                     decoration: BoxDecoration(
                       color: index < currentStep
-                          ? Colors.red.shade600
-                          : Colors.grey.shade300,
+                          ? AppTheme.emergency.withValues(alpha: 0.6)
+                          : AppTheme.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -698,7 +728,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
         final isCompleted = currentStatusIndex >= index;
         final isCurrent = currentStatusIndex == index;
         final isLast = index == statusOrder.length - 1;
-        final color = isCompleted ? _getStatusColor(status) : Colors.grey.shade300;
+        final color = isCompleted ? _getStatusColor(status) : AppTheme.textTertiary;
 
         return Expanded(
           child: Row(
@@ -712,26 +742,20 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                       width: isCurrent ? 40 : 32,
                       height: isCurrent ? 40 : 32,
                       decoration: BoxDecoration(
-                        color: isCompleted ? color : Colors.white,
+                        color: isCompleted
+                            ? color.withValues(alpha: 0.18)
+                            : Colors.white,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: color,
-                          width: isCurrent ? 3 : 2,
+                          color: isCompleted ? color : AppTheme.border,
+                          width: isCurrent ? 2.5 : 1.5,
                         ),
-                        boxShadow: isCurrent
-                            ? [
-                                BoxShadow(
-                                  color: color.withValues(alpha: 0.4),
-                                  blurRadius: 8,
-                                  spreadRadius: 2,
-                                ),
-                              ]
-                            : null,
+                        boxShadow: isCurrent ? [BoxShadow(color: color.withValues(alpha: 0.20), blurRadius: 10, spreadRadius: 2)] : null,
                       ),
                       child: Icon(
                         _getStatusIcon(status),
                         size: isCurrent ? 20 : 16,
-                        color: isCompleted ? Colors.white : Colors.grey.shade400,
+                        color: isCompleted ? color : AppTheme.textTertiary,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -741,7 +765,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                        color: isCompleted ? color : Colors.grey,
+                        color: isCompleted ? color : AppTheme.textTertiary,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -756,8 +780,8 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                     margin: const EdgeInsets.only(bottom: 24),
                     decoration: BoxDecoration(
                       color: currentStatusIndex > index
-                          ? _getStatusColor(statusOrder[index + 1])
-                          : Colors.grey.shade300,
+                          ? _getStatusColor(statusOrder[index + 1]).withValues(alpha: 0.6)
+                          : AppTheme.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -816,30 +840,34 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
   }
 
   Widget _buildSection(String title, IconData icon, Widget content) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: AppTheme.primaryColor),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppTheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            content,
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          content,
+        ],
       ),
     );
   }
@@ -864,7 +892,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
               margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -872,15 +900,15 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                   images[index].url,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Container(
-                    color: Colors.grey.shade200,
-                    child: const Icon(Icons.error),
+                    color: const Color(0xFFF0F7F0),
+                    child: const Icon(Icons.error, color: AppTheme.emergency),
                   ),
                   loadingBuilder: (context, child, loadingProgress) {
                     if (loadingProgress == null) return child;
                     return Container(
-                      color: Colors.grey.shade200,
+                      color: const Color(0xFFF0F7F0),
                       child: const Center(
-                        child: CircularProgressIndicator(),
+                        child: CircularProgressIndicator(color: AppTheme.primary),
                       ),
                     );
                   },
@@ -912,7 +940,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
           Text(
             'Coordenadas: ${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}',
             style: const TextStyle(
-              color: Colors.grey,
+              color: AppTheme.textSecondary,
               fontSize: 12,
             ),
           ),
@@ -925,7 +953,7 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
               height: 200,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
               ),
               clipBehavior: Clip.antiAlias,
               child: Stack(
@@ -941,7 +969,8 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
+                        urlTemplate: MapsService.tileServerUrl,
+                  tileProvider: MapsService.tileProvider,
                         userAgentPackageName: 'com.frogio.santajuana',
                       ),
                       MarkerLayer(
@@ -967,17 +996,18 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
+                        color: Colors.white.withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4)),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.fullscreen, size: 16, color: AppTheme.primaryColor),
+                          Icon(Icons.fullscreen, size: 16, color: AppTheme.primary),
                           SizedBox(width: 4),
                           Text(
                             'Ampliar',
-                            style: TextStyle(fontSize: 12, color: AppTheme.primaryColor),
+                            style: TextStyle(fontSize: 12, color: AppTheme.primary),
                           ),
                         ],
                       ),
@@ -1004,81 +1034,96 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
               '$label:',
               style: const TextStyle(
                 fontWeight: FontWeight.w500,
-                color: Colors.grey,
+                color: AppTheme.textSecondary,
               ),
             ),
           ),
-          Expanded(child: Text(value)),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: AppTheme.textPrimary),
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildResponseCard(ReportResponse response) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: AppTheme.primaryColor,
-                  child: Text(
-                    response.responderName.isNotEmpty
-                        ? response.responderName.substring(0, 1).toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+                child: Text(
+                  response.responderName.isNotEmpty
+                      ? response.responderName.substring(0, 1).toUpperCase()
+                      : '?',
+                  style: const TextStyle(
+                    color: AppTheme.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      response.responderName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      DateFormat('dd/MM/yyyy HH:mm').format(response.createdAt),
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!response.isPublic)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                  ),
+                  child: const Text(
+                    'Privado',
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        response.responderName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        DateFormat('dd/MM/yyyy HH:mm').format(response.createdAt),
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!response.isPublic)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      'Privado',
-                      style: TextStyle(
-                        color: Colors.orange,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(response.message),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            response.message,
+            style: const TextStyle(color: AppTheme.textSecondary),
+          ),
+        ],
       ),
     );
   }
@@ -1091,20 +1136,20 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
           Icon(
             Icons.forum_outlined,
             size: 64,
-            color: Colors.grey,
+            color: AppTheme.textTertiary,
           ),
           SizedBox(height: 16),
           Text(
             'Sin respuestas aún',
             style: TextStyle(
               fontSize: 18,
-              color: Colors.grey,
+              color: AppTheme.textSecondary,
             ),
           ),
           SizedBox(height: 8),
           Text(
             'Las respuestas del municipio aparecerán aquí',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: AppTheme.textSecondary),
           ),
         ],
       ),
@@ -1119,18 +1164,28 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
           const Icon(
             Icons.error_outline,
             size: 64,
-            color: AppTheme.errorColor,
+            color: AppTheme.emergency,
           ),
           const SizedBox(height: 16),
           Text(
             'Error: $message',
-            style: const TextStyle(fontSize: 16),
+            style: const TextStyle(fontSize: 16, color: AppTheme.textPrimary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _loadReportDetails,
-            child: const Text('Reintentar'),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [BoxShadow(color: AppTheme.primary.withValues(alpha: 0.20), blurRadius: 12, spreadRadius: 2)],
+            ),
+            child: ElevatedButton(
+              onPressed: _loadReportDetails,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.black87,
+              ),
+              child: const Text('Reintentar'),
+            ),
           ),
         ],
       ),
@@ -1143,9 +1198,10 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color, width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.6), width: 1),
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.12), blurRadius: 8)],
       ),
       child: Text(
         status.displayName,
@@ -1162,13 +1218,14 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withValues(alpha: 0.2),
+        color: AppTheme.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
       ),
       child: Text(
         category,
         style: const TextStyle(
-          color: AppTheme.primaryColor,
+          color: AppTheme.primary,
           fontSize: 12,
           fontWeight: FontWeight.bold,
         ),
@@ -1191,11 +1248,11 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
       case ReportStatus.rejected:
         return AppTheme.errorColor;
       case ReportStatus.archived:
-        return Colors.grey.shade600;
+        return const Color(0xFF556677);
       case ReportStatus.duplicate:
         return Colors.amber;
       case ReportStatus.cancelled:
-        return Colors.grey.shade500;
+        return AppTheme.textSecondary;
     }
   }
 
@@ -1252,32 +1309,37 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
     showDialog(
       context: context,
       builder: (context) => Dialog(
+        backgroundColor: Colors.white,
         insetPadding: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.3)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
-                color: AppTheme.primaryColor,
+                color: AppTheme.surfaceWhite,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.location_on, color: Colors.white),
+                  const Icon(Icons.location_on, color: AppTheme.primary),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
                       'Ubicación del Reporte',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
+                    icon: const Icon(Icons.close, color: AppTheme.textSecondary),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -1287,10 +1349,10 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
-                color: Colors.grey.shade100,
+                color: AppTheme.surface,
                 child: Text(
                   address,
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
                 ),
               ),
             SizedBox(
@@ -1326,7 +1388,7 @@ class _PhotoViewerScreen extends StatelessWidget {
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) => const Icon(
               Icons.error,
-              color: Colors.white,
+              color: AppTheme.emergency,
               size: 64,
             ),
           ),
@@ -1366,7 +1428,8 @@ class _FullscreenMapWidgetState extends State<_FullscreenMapWidget> {
           ),
           children: [
             TileLayer(
-              urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
+              urlTemplate: MapsService.tileServerUrl,
+                  tileProvider: MapsService.tileProvider,
               userAgentPackageName: 'com.frogio.santajuana',
             ),
             MarkerLayer(
@@ -1377,7 +1440,7 @@ class _FullscreenMapWidgetState extends State<_FullscreenMapWidget> {
                   height: 50,
                   child: const Icon(
                     Icons.location_on,
-                    color: AppTheme.primaryColor,
+                    color: AppTheme.primary,
                     size: 50,
                   ),
                 ),
@@ -1399,7 +1462,7 @@ class _FullscreenMapWidgetState extends State<_FullscreenMapWidget> {
                   final currentZoom = _mapController.camera.zoom;
                   _mapController.move(_mapController.camera.center, currentZoom + 1);
                 },
-                child: const Icon(Icons.add, color: AppTheme.primaryColor),
+                child: const Icon(Icons.add, color: AppTheme.primary),
               ),
               const SizedBox(height: 8),
               FloatingActionButton(
@@ -1410,7 +1473,7 @@ class _FullscreenMapWidgetState extends State<_FullscreenMapWidget> {
                   final currentZoom = _mapController.camera.zoom;
                   _mapController.move(_mapController.camera.center, currentZoom - 1);
                 },
-                child: const Icon(Icons.remove, color: AppTheme.primaryColor),
+                child: const Icon(Icons.remove, color: AppTheme.primary),
               ),
             ],
           ),
