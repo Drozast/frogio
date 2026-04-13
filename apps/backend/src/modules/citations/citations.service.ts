@@ -108,8 +108,8 @@ export class CitationsService {
        (citation_type, target_type, target_name, target_rut, target_address, target_phone, target_plate,
         location_address, latitude, longitude, citation_number, reason, notes, photos,
         user_id, infraction_id, court_name, hearing_date, address, notification_method,
-        status, issued_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::timestamptz, $19, $20, $21, $22::uuid, NOW(), NOW())
+        report_id, status, issued_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::timestamptz, $19, $20, $21::uuid, $22, $23::uuid, NOW(), NOW())
        RETURNING *`,
       data.citationType || 'citacion',
       data.targetType || 'persona',
@@ -131,7 +131,8 @@ export class CitationsService {
       data.hearingDate || null,
       data.address || null,
       data.notificationMethod || null,
-      'pendiente',
+      data.reportId || null,
+      (data.citationType || 'citacion') === 'advertencia' ? 'emitida' : 'pendiente',
       issuedBy
     );
 
@@ -175,6 +176,12 @@ export class CitationsService {
     if (filters?.issuedBy) {
       baseWhere += ` AND cc.issued_by = $${paramIndex}`;
       params.push(filters.issuedBy);
+      paramIndex++;
+    }
+
+    if (filters?.reportId) {
+      baseWhere += ` AND cc.report_id = $${paramIndex}::uuid`;
+      params.push(filters.reportId);
       paramIndex++;
     }
 
