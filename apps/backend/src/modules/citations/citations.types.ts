@@ -1,7 +1,7 @@
 export type CitationType = 'advertencia' | 'citacion';
 export type TargetType = 'persona' | 'domicilio' | 'vehiculo' | 'comercio' | 'otro';
 export type NotificationMethod = 'email' | 'sms' | 'carta' | 'en_persona';
-export type CitationStatus = 'pendiente' | 'notificado' | 'asistio' | 'no_asistio' | 'cancelado';
+export type CitationStatus = 'pendiente' | 'emitida' | 'notificado' | 'asistio' | 'no_asistio' | 'cancelado';
 
 export interface CreateCitationDto {
   // Tipo de citación
@@ -35,6 +35,9 @@ export interface CreateCitationDto {
   hearingDate?: Date | string;
   address?: string;
   notificationMethod?: NotificationMethod;
+
+  // Vinculación a denuncia (opcional)
+  reportId?: string;
 }
 
 export interface UpdateCitationDto {
@@ -88,6 +91,9 @@ export interface Citation {
   hearing_date: Date | null;
   address: string | null;
 
+  // Linked report
+  report_id: string | null;
+
   // Joined fields
   issuer_first_name?: string;
   issuer_last_name?: string;
@@ -104,6 +110,7 @@ export interface CitationFilters {
   targetType?: TargetType;
   userId?: string;
   issuedBy?: string;
+  reportId?: string;
   search?: string;
   fromDate?: string;
   toDate?: string;
