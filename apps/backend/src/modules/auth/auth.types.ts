@@ -24,10 +24,12 @@ export interface AuthResponse {
     rut: string;
     firstName?: string;
     lastName?: string;
-    phone?: string | null;
+    phoneNumber?: string | null;
+    address?: string | null;
     name?: string | null;
     role: string;
     isActive: boolean;
+    profileImageUrl?: string | null;
   };
 }
 

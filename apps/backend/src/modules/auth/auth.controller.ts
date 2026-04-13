@@ -51,6 +51,50 @@ export class AuthController {
     }
   }
 
+  async appleSignIn(req: Request, res: Response): Promise<void> {
+    try {
+      const { identityToken } = req.body;
+      const tenantId = req.headers['x-tenant-id'] as string;
+
+      if (!tenantId) {
+        res.status(400).json({ error: 'Tenant ID requerido en headers' });
+        return;
+      }
+      if (!identityToken) {
+        res.status(400).json({ error: 'identityToken requerido' });
+        return;
+      }
+
+      const result = await authService.signInWithApple(identityToken, tenantId);
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al iniciar sesión con Apple';
+      res.status(401).json({ error: message });
+    }
+  }
+
+  async googleSignIn(req: Request, res: Response): Promise<void> {
+    try {
+      const { idToken } = req.body;
+      const tenantId = req.headers['x-tenant-id'] as string;
+
+      if (!tenantId) {
+        res.status(400).json({ error: 'Tenant ID requerido en headers' });
+        return;
+      }
+      if (!idToken) {
+        res.status(400).json({ error: 'idToken requerido' });
+        return;
+      }
+
+      const result = await authService.signInWithGoogle(idToken, tenantId);
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al iniciar sesión con Google';
+      res.status(401).json({ error: message });
+    }
+  }
+
   async refreshToken(req: Request, res: Response): Promise<void> {
     try {
       const { refreshToken } = req.body;

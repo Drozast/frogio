@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import prisma from '../../config/database.js';
 import redis from '../../config/redis.js';
 import { env } from '../../config/env.js';
@@ -7,11 +8,15 @@ import { logger } from '../../config/logger.js';
 import { emailService } from '../../services/email.service.js';
 import type { RegisterDto, LoginDto, AuthResponse, ForgotPasswordDto, ResetPasswordDto, UpdateProfileDto, UserProfile } from './auth.types.js';
 
+const GOOGLE_WEB_CLIENT_ID = '789201430048-0npsmn7uvi9e066i7qk2hvp0nrftfat6.apps.googleusercontent.com';
+const GOOGLE_IOS_CLIENT_ID = '789201430048-epbsjo2ek3i1j115k7vjie6tu6c3jhrv.apps.googleusercontent.com';
+
 export class AuthService {
   private readonly JWT_SECRET = env.JWT_SECRET;
   private readonly JWT_REFRESH_SECRET = env.JWT_REFRESH_SECRET;
   private readonly JWT_EXPIRES_IN = env.JWT_EXPIRES_IN;
   private readonly JWT_REFRESH_EXPIRES_IN = env.JWT_REFRESH_EXPIRES_IN;
+  private readonly googleClient = new OAuth2Client();
 
   async register(data: RegisterDto, tenantId: string): Promise<AuthResponse> {
     // Validate RUT format (basic Chilean RUT validation)
@@ -37,7 +42,7 @@ export class AuthService {
     const [user] = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO "${tenantId}".users (email, password_hash, rut, first_name, last_name, phone, role, is_active, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-       RETURNING id, email, rut, first_name, last_name, phone, role, is_active, created_at`,
+       RETURNING id, email, rut, first_name, last_name, phone, address, role, is_active, created_at`,
       data.email,
       hashedPassword,
       data.rut,
@@ -58,7 +63,8 @@ export class AuthService {
         rut: user.rut,
         firstName: user.first_name,
         lastName: user.last_name,
-        phone: user.phone,
+        phoneNumber: user.phone,
+        address: user.address || null,
         role: user.role,
         isActive: user.is_active,
       },
@@ -69,7 +75,7 @@ export class AuthService {
   async login(data: LoginDto, tenantId: string): Promise<AuthResponse> {
     // Find user by email
     const [user] = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, email, password_hash, rut, first_name, last_name, phone, role, is_active
+      `SELECT id, email, password_hash, rut, first_name, last_name, phone, address, role, is_active, profile_image_url
        FROM "${tenantId}".users
        WHERE email = $1 LIMIT 1`,
       data.email
@@ -100,9 +106,11 @@ export class AuthService {
         rut: user.rut,
         firstName: user.first_name,
         lastName: user.last_name,
-        phone: user.phone,
+        phoneNumber: user.phone,
+        address: user.address || null,
         role: user.role,
         isActive: user.is_active,
+        profileImageUrl: user.profile_image_url || null,
       },
       ...tokens,
     };
@@ -131,6 +139,198 @@ export class AuthService {
     } catch (error) {
       throw new Error('Refresh token inválido o expirado');
     }
+  }
+
+  async signInWithApple(identityToken: string, tenantId: string): Promise<AuthResponse> {
+    // Decode Apple's identity token (JWT) — issued by Apple, safe to decode payload
+    const decoded = jwt.decode(identityToken) as {
+      sub?: string;  // Apple user ID (stable, unique per app)
+      email?: string;
+      email_verified?: string | boolean;
+      iss?: string;
+      aud?: string;
+    } | null;
+
+    if (!decoded || !decoded.sub) {
+      throw new Error('Token de Apple inválido');
+    }
+
+    const appleUserId = decoded.sub;
+    const appleEmail = decoded.email;
+    const appleRutKey = `APPLE_${appleUserId}`;
+
+    // 1. Try to find user by Apple ID (stored as rut with APPLE_ prefix)
+    let users = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, email, rut, first_name, last_name, phone, address, role, is_active, profile_image_url
+       FROM "${tenantId}".users WHERE rut = $1 LIMIT 1`,
+      appleRutKey
+    );
+
+    // 2. If not found by Apple ID, try by email (first-time login)
+    if (users.length === 0 && appleEmail) {
+      users = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT id, email, rut, first_name, last_name, phone, address, role, is_active, profile_image_url
+         FROM "${tenantId}".users WHERE email = $1 LIMIT 1`,
+        appleEmail
+      );
+    }
+
+    let user: any;
+
+    if (users.length > 0) {
+      user = users[0];
+      // Only set Apple ID key if user has no real RUT (null, empty, or already an APPLE_ key)
+      if (!user.rut || user.rut.trim() === '' || user.rut.startsWith('APPLE_')) {
+        if (user.rut !== appleRutKey) {
+          await prisma.$queryRawUnsafe(
+            `UPDATE "${tenantId}".users SET rut = $1, updated_at = NOW() WHERE id = $2::uuid`,
+            appleRutKey,
+            user.id
+          );
+        }
+      }
+    } else {
+      // Create new social user
+      const emailToUse = appleEmail || `${appleUserId}@apple.privaterelay.appleid.com`;
+      const [newUser] = await prisma.$queryRawUnsafe<any[]>(
+        `INSERT INTO "${tenantId}".users
+           (email, password_hash, rut, first_name, last_name, phone, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+         RETURNING id, email, rut, first_name, last_name, phone, address, role, is_active`,
+        emailToUse,
+        'SOCIAL_APPLE',  // No password — social login only
+        appleRutKey,
+        'Usuario',
+        'Apple',
+        null,
+        'citizen',
+        true
+      );
+      user = newUser;
+    }
+
+    if (!user.is_active) {
+      throw new Error('Usuario inactivo. Contacte al administrador.');
+    }
+
+    const tokens = await this.generateTokens(user.id, user.email, user.role, tenantId);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        rut: user.rut,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        phoneNumber: user.phone,
+        address: user.address || null,
+        role: user.role,
+        isActive: user.is_active,
+        profileImageUrl: user.profile_image_url || null,
+      },
+      ...tokens,
+    };
+  }
+
+  async signInWithGoogle(idToken: string, tenantId: string): Promise<AuthResponse> {
+    // Verify Google ID token using google-auth-library
+    let payload;
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: [GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID],
+      });
+      payload = ticket.getPayload();
+    } catch (err) {
+      logger.error('Google token verification failed', err);
+      throw new Error('Token de Google inválido');
+    }
+
+    if (!payload || !payload.sub) {
+      throw new Error('Token de Google inválido');
+    }
+
+    const googleUserId = payload.sub;
+    const googleEmail = payload.email;
+    const googleName = payload.name || '';
+    const googleRutKey = `GOOGLE_${googleUserId}`;
+
+    // Parse first/last name from Google's full name
+    const nameParts = googleName.split(' ');
+    const firstName = nameParts[0] || 'Usuario';
+    const lastName = nameParts.slice(1).join(' ') || 'Google';
+
+    // 1. Try to find user by Google ID (stored as rut with GOOGLE_ prefix)
+    let users = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, email, rut, first_name, last_name, phone, address, role, is_active, profile_image_url
+       FROM "${tenantId}".users WHERE rut = $1 LIMIT 1`,
+      googleRutKey
+    );
+
+    // 2. If not found by Google ID, try by email (first-time login)
+    if (users.length === 0 && googleEmail) {
+      users = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT id, email, rut, first_name, last_name, phone, address, role, is_active, profile_image_url
+         FROM "${tenantId}".users WHERE email = $1 LIMIT 1`,
+        googleEmail
+      );
+    }
+
+    let user: any;
+
+    if (users.length > 0) {
+      user = users[0];
+      // Only set Google ID key if user has no real RUT (null, empty, or already a GOOGLE_ key)
+      if (!user.rut || user.rut.trim() === '' || user.rut.startsWith('GOOGLE_')) {
+        if (user.rut !== googleRutKey) {
+          await prisma.$queryRawUnsafe(
+            `UPDATE "${tenantId}".users SET rut = $1, updated_at = NOW() WHERE id = $2::uuid`,
+            googleRutKey,
+            user.id
+          );
+        }
+      }
+    } else {
+      // Create new social user
+      const emailToUse = googleEmail || `${googleUserId}@google.noreply.com`;
+      const [newUser] = await prisma.$queryRawUnsafe<any[]>(
+        `INSERT INTO "${tenantId}".users
+           (email, password_hash, rut, first_name, last_name, phone, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+         RETURNING id, email, rut, first_name, last_name, phone, address, role, is_active`,
+        emailToUse,
+        'SOCIAL_GOOGLE',  // No password — social login only
+        googleRutKey,
+        firstName,
+        lastName,
+        null,
+        'citizen',
+        true
+      );
+      user = newUser;
+    }
+
+    if (!user.is_active) {
+      throw new Error('Usuario inactivo. Contacte al administrador.');
+    }
+
+    const tokens = await this.generateTokens(user.id, user.email, user.role, tenantId);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        rut: user.rut,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        phoneNumber: user.phone,
+        address: user.address || null,
+        role: user.role,
+        isActive: user.is_active,
+        profileImageUrl: user.profile_image_url || null,
+      },
+      ...tokens,
+    };
   }
 
   async logout(refreshToken: string): Promise<void> {
