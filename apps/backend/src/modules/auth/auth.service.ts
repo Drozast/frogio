@@ -9,6 +9,7 @@ import { emailService } from '../../services/email.service.js';
 import type { RegisterDto, LoginDto, AuthResponse, ForgotPasswordDto, ResetPasswordDto, UpdateProfileDto, UserProfile } from './auth.types.js';
 
 const GOOGLE_WEB_CLIENT_ID = '789201430048-0npsmn7uvi9e066i7qk2hvp0nrftfat6.apps.googleusercontent.com';
+const GOOGLE_ANDROID_CLIENT_ID = '789201430048-rt0m539ar5h467vkiui4eo0tvei0s33v.apps.googleusercontent.com';
 const GOOGLE_IOS_CLIENT_ID = '789201430048-epbsjo2ek3i1j115k7vjie6tu6c3jhrv.apps.googleusercontent.com';
 
 export class AuthService {
@@ -238,7 +239,7 @@ export class AuthService {
     try {
       const ticket = await this.googleClient.verifyIdToken({
         idToken,
-        audience: [GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID],
+        audience: [GOOGLE_WEB_CLIENT_ID, GOOGLE_ANDROID_CLIENT_ID, GOOGLE_IOS_CLIENT_ID],
       });
       payload = ticket.getPayload();
     } catch (err) {
