@@ -20,7 +20,7 @@ export class NotificationsService {
       const [result] = await prisma.$queryRawUnsafe<any[]>(
         `INSERT INTO "${tenantId}".notifications
          (user_id, title, message, type, is_read, metadata, created_at)
-         VALUES ($1::uuid, $2, $3, $4, $5, $6, NOW())
+         VALUES ($1::uuid, $2, $3, $4, $5, $6::jsonb, NOW())
          RETURNING *`,
         userId,
         title,
