@@ -41,6 +41,9 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 # Copiar build
 COPY --from=builder /app/dist ./dist
 
+# Copiar APNs key for iOS push notifications
+COPY AuthKey_62FTDWJU7B.p8 ./AuthKey_62FTDWJU7B.p8
+
 # Crear directorio de logs
 RUN mkdir -p logs
 
