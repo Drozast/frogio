@@ -9,8 +9,8 @@ import prisma from '../config/database.js';
 const APNS_KEY_ID = '62FTDWJU7B';
 const APNS_TEAM_ID = 'P6W2TQ4XXF';
 const APNS_BUNDLE_ID = 'com.frogio.santajuana';
-const APNS_HOST = 'api.push.apple.com'; // Production
-// const APNS_HOST = 'api.sandbox.push.apple.com'; // Sandbox/Development
+// Use sandbox for development profiles, production for App Store
+const APNS_HOST = 'api.sandbox.push.apple.com';
 
 let apnsKey: string | null = null;
 let apnsToken: string | null = null;
