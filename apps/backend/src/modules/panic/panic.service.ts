@@ -63,13 +63,20 @@ export class PanicService {
       }
     }
 
-    // Send APNs push to iOS inspector devices (non-blocking)
+    // Send 3 APNs pushes to iOS inspector devices for urgency (non-blocking)
     try {
       const userName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Ciudadano';
-      sendPanicPushToInspectors(tenantId, 'ALERTA DE PANICO',
+      const pushData = { alertId: alert.id, type: 'panic', latitude: data.latitude, longitude: data.longitude };
+      const msgs = [
         `${userName} necesita ayuda!\n${data.address || 'Emergencia'}`,
-        { alertId: alert.id, type: 'panic', latitude: data.latitude, longitude: data.longitude }
-      );
+        `URGENTE: ${userName} activo SOS`,
+        `EMERGENCIA en ${data.address || 'ubicacion desconocida'}`,
+      ];
+      for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+          sendPanicPushToInspectors(tenantId, 'ALERTA DE PANICO', msgs[i], pushData);
+        }, i * 2000); // 2 seconds apart
+      }
     } catch (e) {
       logger.warn(`Could not send APNs push: ${e}`);
     }
