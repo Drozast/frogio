@@ -3,6 +3,7 @@ import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
 import type { CreatePanicAlertDto, PanicAlertFilters } from './panic.types.js';
 import { ReportsService } from '../reports/reports.service.js';
+import { sendPanicPushToInspectors } from '../../services/apns.service.js';
 
 const reportsService = new ReportsService();
 
@@ -60,6 +61,17 @@ export class PanicService {
       } catch (e) {
         logger.warn('Could not send panic notification via ntfy');
       }
+    }
+
+    // Send APNs push to iOS inspector devices (non-blocking)
+    try {
+      const userName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Ciudadano';
+      sendPanicPushToInspectors(tenantId, 'ALERTA DE PANICO',
+        `${userName} necesita ayuda!\n${data.address || 'Emergencia'}`,
+        { alertId: alert.id, type: 'panic', latitude: data.latitude, longitude: data.longitude }
+      );
+    } catch (e) {
+      logger.warn(`Could not send APNs push: ${e}`);
     }
 
     // Also create internal notification for all inspectors (non-blocking)
@@ -291,14 +303,16 @@ export class PanicService {
     return alert;
   }
 
-  async cancel(id: string, userId: string, tenantId: string) {
+  async cancel(id: string, userId: string, tenantId: string, reason?: string) {
+    const cancelReason = reason || 'Cancelado por el ciudadano';
     const [alert] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".panic_alerts
-       SET status = 'cancelled', updated_at = NOW()
+       SET status = 'cancelled', notes = $3, updated_at = NOW()
        WHERE id = $1::uuid AND user_id = $2::uuid AND status IN ('active', 'responding')
        RETURNING *`,
       id,
-      userId
+      userId,
+      cancelReason
     );
 
     if (!alert) {
@@ -327,12 +341,67 @@ export class PanicService {
         `INSERT INTO "${tenantId}".notifications (user_id, title, message, type, metadata, created_at)
          SELECT id, $1, $2, 'general', $3::jsonb, NOW()
          FROM "${tenantId}".users WHERE role IN ('inspector', 'admin')`,
-        'Alerta de pánico cancelada',
-        'El ciudadano ha cancelado su alerta de emergencia',
+        '✅ Alerta de pánico cancelada',
+        'El ciudadano ha cancelado su alerta de emergencia. Ya no requiere asistencia.',
         JSON.stringify({ alertId: id, cancelledByUser: true })
       );
     } catch (e) {
       logger.warn(`Could not notify inspectors about cancellation: ${e}`);
+    }
+
+    // Send push notification via ntfy to all inspectors/admins (non-blocking)
+    if (env.NTFY_URL) {
+      try {
+        // Get user info for the message
+        const [user] = await prisma.$queryRawUnsafe<any[]>(
+          `SELECT first_name, last_name FROM "${tenantId}".users WHERE id = $1::uuid`,
+          userId
+        );
+        const userName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'El ciudadano';
+
+        // Notify inspector who was responding (if any)
+        const cancelBody = `${userName} canceló su alerta de emergencia. Motivo: ${cancelReason}`;
+
+        if (alert.responder_id) {
+          const responderTopic = `frogio_${tenantId}_user_${alert.responder_id}`;
+          await fetch(`${env.NTFY_URL}/${responderTopic}`, {
+            method: 'POST',
+            headers: {
+              'Title': '✅ Alerta cancelada por ciudadano',
+              'Priority': 'high',
+              'Tags': 'white_check_mark',
+            },
+            body: cancelBody,
+          });
+        }
+
+        // Notify all inspectors/admins via tenant topic
+        const tenantInspectorTopic = `frogio_${tenantId}_inspector`;
+        const tenantAdminTopic = `frogio_${tenantId}_admin`;
+        await Promise.all([
+          fetch(`${env.NTFY_URL}/${tenantInspectorTopic}`, {
+            method: 'POST',
+            headers: {
+              'Title': '✅ Alerta cancelada',
+              'Priority': 'default',
+              'Tags': 'white_check_mark',
+            },
+            body: cancelBody,
+          }),
+          fetch(`${env.NTFY_URL}/${tenantAdminTopic}`, {
+            method: 'POST',
+            headers: {
+              'Title': '✅ Alerta cancelada',
+              'Priority': 'default',
+              'Tags': 'white_check_mark',
+            },
+            body: cancelBody,
+          }),
+        ]);
+        logger.info(`Cancellation notification sent for alert ${id}`);
+      } catch (e) {
+        logger.warn(`Could not send cancellation push notification: ${e}`);
+      }
     }
 
     return alert;
