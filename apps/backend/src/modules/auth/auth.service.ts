@@ -25,9 +25,12 @@ export class AuthService {
       throw new Error('RUT inválido');
     }
 
+    // Normalize email to lowercase
+    data.email = data.email.toLowerCase();
+
     // Check if user already exists
     const existingUser = await prisma.$queryRawUnsafe(
-      `SELECT id FROM "${tenantId}".users WHERE email = $1 OR rut = $2 LIMIT 1`,
+      `SELECT id FROM "${tenantId}".users WHERE LOWER(email) = $1 OR rut = $2 LIMIT 1`,
       data.email,
       data.rut
     );
@@ -74,11 +77,11 @@ export class AuthService {
   }
 
   async login(data: LoginDto, tenantId: string): Promise<AuthResponse> {
-    // Find user by email
+    // Find user by email (case-insensitive)
     const [user] = await prisma.$queryRawUnsafe<any[]>(
       `SELECT id, email, password_hash, rut, first_name, last_name, phone, address, role, is_active, profile_image_url
        FROM "${tenantId}".users
-       WHERE email = $1 LIMIT 1`,
+       WHERE LOWER(email) = LOWER($1) LIMIT 1`,
       data.email
     );
 
