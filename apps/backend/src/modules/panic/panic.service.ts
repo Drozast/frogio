@@ -174,21 +174,43 @@ export class PanicService {
       throw new Error('Alerta no encontrada');
     }
 
+    // Get all responders
+    const responders = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT pr.responded_at, u.first_name, u.last_name, u.id as user_id
+       FROM "${tenantId}".panic_responders pr
+       JOIN "${tenantId}".users u ON pr.user_id = u.id
+       WHERE pr.alert_id = $1::uuid
+       ORDER BY pr.responded_at ASC`,
+      id
+    );
+    alert.responders = responders;
+
     return alert;
   }
 
   async respond(id: string, responderId: string, tenantId: string) {
+    // Allow multiple inspectors to respond - update status and add to responders table
     const [alert] = await prisma.$queryRawUnsafe<any[]>(
       `UPDATE "${tenantId}".panic_alerts
-       SET status = 'responding', responder_id = $1::uuid, responded_at = NOW(), updated_at = NOW()
-       WHERE id = $2::uuid AND status = 'active'
+       SET status = 'responding', responder_id = COALESCE(responder_id, $1::uuid), responded_at = COALESCE(responded_at, NOW()), updated_at = NOW()
+       WHERE id = $2::uuid AND status IN ('active', 'responding')
        RETURNING *`,
       responderId,
       id
     );
 
     if (!alert) {
-      throw new Error('Alerta no encontrada o ya atendida');
+      throw new Error('Alerta no encontrada o ya cerrada');
+    }
+
+    // Register this inspector as a responder (multiple can attend)
+    try {
+      await prisma.$queryRawUnsafe(
+        `INSERT INTO "${tenantId}".panic_responders (alert_id, user_id) VALUES ($1::uuid, $2::uuid) ON CONFLICT DO NOTHING`,
+        id, responderId
+      );
+    } catch (e) {
+      logger.warn(`Could not register responder: ${e}`);
     }
 
     // Actualizar el reporte de emergencia asociado a 'en_proceso' con historial
