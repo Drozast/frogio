@@ -267,6 +267,25 @@ export class VehiclesService {
     return log;
   }
 
+  async appendTrackPoints(logId: string, points: any[], tenantId: string) {
+    // Append array of points to route_points JSONB column
+    // Each point: { lat, lng, speed, timestamp, accuracy }
+    const [log] = await prisma.$queryRawUnsafe<any[]>(
+      `UPDATE "${tenantId}".vehicle_logs
+       SET route_points = COALESCE(route_points, '[]'::jsonb) || $1::jsonb,
+           max_speed_kmh = GREATEST(COALESCE(max_speed_kmh, 0), $2),
+           updated_at = NOW()
+       WHERE id = $3::uuid AND status = 'active'
+       RETURNING *`,
+      JSON.stringify(points),
+      Math.max(...points.map(p => (p.speed || 0))),
+      logId
+    );
+
+    if (!log) throw new Error('Registro no encontrado o no activo');
+    return log;
+  }
+
   async endVehicleUsage(logId: string, data: EndVehicleUsageDto, tenantId: string) {
     // Check if log exists and is active
     const [log] = await prisma.$queryRawUnsafe<any[]>(

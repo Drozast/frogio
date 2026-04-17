@@ -143,6 +143,25 @@ export class VehiclesController {
     }
   }
 
+  async appendTrack(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { logId } = req.params;
+      const { points } = req.body;
+      const tenantId = req.user!.tenantId;
+
+      if (!Array.isArray(points) || points.length === 0) {
+        res.status(400).json({ error: 'points array required' });
+        return;
+      }
+
+      const log = await vehiclesService.appendTrackPoints(logId, points, tenantId);
+      res.json({ success: true, pointsCount: log.route_points?.length ?? 0 });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error agregando puntos';
+      res.status(400).json({ error: message });
+    }
+  }
+
   async endUsage(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { logId } = req.params;

@@ -25,6 +25,9 @@ router.post('/logs/start', roleGuard('inspector', 'admin'), (req, res) => vehicl
 // End vehicle usage (inspectors/admins)
 router.patch('/logs/:logId/end', roleGuard('inspector', 'admin'), (req, res) => vehiclesController.endUsage(req as AuthRequest, res));
 
+// Append GPS track points (inspectors/admins)
+router.post('/logs/:logId/track', roleGuard('inspector', 'admin'), (req, res) => vehiclesController.appendTrack(req as AuthRequest, res));
+
 // Cancel vehicle usage (admins only)
 router.patch('/logs/:logId/cancel', roleGuard('admin'), (req, res) => vehiclesController.cancelUsage(req as AuthRequest, res));
 
