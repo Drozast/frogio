@@ -132,7 +132,7 @@ export class CitationsService {
       data.address || null,
       data.notificationMethod || null,
       data.reportId || null,
-      (data.citationType || 'citacion') === 'advertencia' ? 'emitida' : 'pendiente',
+      'emitida',
       issuedBy
     );
 
