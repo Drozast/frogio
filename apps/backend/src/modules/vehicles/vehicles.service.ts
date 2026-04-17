@@ -42,9 +42,20 @@ export class VehiclesService {
 
   async findAll(tenantId: string, filters?: { ownerId?: string; isActive?: boolean }) {
     let query = `SELECT v.*,
-                 u.first_name as owner_first_name, u.last_name as owner_last_name, u.email as owner_email, u.phone as owner_phone, u.rut as owner_rut
+                 u.first_name as owner_first_name, u.last_name as owner_last_name, u.email as owner_email, u.phone as owner_phone, u.rut as owner_rut,
+                 active_log.id as active_log_id,
+                 active_log.driver_id as active_driver_id,
+                 active_log.driver_name as active_driver_name,
+                 active_log.start_time as active_start_time
                  FROM "${tenantId}".vehicles v
                  LEFT JOIN "${tenantId}".users u ON v.owner_id = u.id
+                 LEFT JOIN LATERAL (
+                   SELECT id, driver_id, driver_name, start_time
+                   FROM "${tenantId}".vehicle_logs
+                   WHERE vehicle_id = v.id AND status = 'active'
+                   ORDER BY start_time DESC
+                   LIMIT 1
+                 ) active_log ON true
                  WHERE 1=1`;
 
     const params: any[] = [];
@@ -249,6 +260,19 @@ export class VehiclesService {
 
     if (activeLog) {
       throw new Error('Este vehículo ya tiene un uso activo. Debe finalizarlo primero.');
+    }
+
+    // Check if this driver has another active trip
+    const [driverActive] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT vl.id, v.plate
+       FROM "${tenantId}".vehicle_logs vl
+       LEFT JOIN "${tenantId}".vehicles v ON vl.vehicle_id = v.id
+       WHERE vl.driver_id = $1::uuid AND vl.status = 'active'
+       LIMIT 1`,
+      data.driverId
+    );
+    if (driverActive) {
+      throw new Error(`Ya tienes un viaje activo con el vehículo ${driverActive.plate}. Debes finalizarlo primero.`);
     }
 
     const [log] = await prisma.$queryRawUnsafe<any[]>(
