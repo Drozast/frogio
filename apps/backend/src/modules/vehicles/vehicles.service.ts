@@ -254,7 +254,7 @@ export class VehiclesService {
     const [log] = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO "${tenantId}".vehicle_logs
        (vehicle_id, driver_id, driver_name, usage_type, purpose, start_km, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW(), NOW())
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, 'active', NOW(), NOW())
        RETURNING *`,
       data.vehicleId,
       data.driverId,
