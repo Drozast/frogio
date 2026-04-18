@@ -24,6 +24,7 @@ import tripLogsRoutes from './modules/trip-logs/trip-logs.routes.js';
 import exportsRoutes from './modules/exports/exports.routes.js';
 import gpsTrackingRoutes from './modules/gps-tracking/gps-tracking.routes.js';
 import geofencesRoutes from './modules/geofences/geofences.routes.js';
+import adminImportsRoutes from './modules/admin-imports/admin-imports.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -124,6 +125,7 @@ app.use('/api/trip-logs', tripLogsRoutes);
 app.use('/api/exports', exportsRoutes);
 app.use('/api/gps', gpsTrackingRoutes);
 app.use('/api/geofences', geofencesRoutes);
+app.use('/api/admin/imports', adminImportsRoutes);
 
 // Socket.io (notificaciones en tiempo real)
 io.on('connection', (socket) => {
