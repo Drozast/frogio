@@ -5,6 +5,17 @@ import InfractionsClient from '@/components/infractions/InfractionsClient';
 
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
+function unwrap(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === 'object') {
+    const p = payload as Record<string, unknown>;
+    if (Array.isArray(p.data)) return p.data;
+    if (Array.isArray(p.items)) return p.items;
+    if (Array.isArray(p.infractions)) return p.infractions;
+  }
+  return [];
+}
+
 async function getInfractions(token: string) {
   try {
     const response = await fetch(`${API_URL}/api/infractions`, {
@@ -16,7 +27,7 @@ async function getInfractions(token: string) {
     });
 
     if (!response.ok) return [];
-    return await response.json();
+    return unwrap(await response.json());
   } catch (error) {
     console.error('Error fetching infractions:', error);
     return [];

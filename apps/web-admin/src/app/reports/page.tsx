@@ -4,6 +4,18 @@ import AppLayout from '@/components/layout/AppLayout';
 import ReportsClient from '@/components/reports/ReportsClient';
 import { API_URL } from '@/lib/api-config';
 
+function unwrap(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === 'object') {
+    const p = payload as Record<string, unknown>;
+    if (Array.isArray(p.data)) return p.data;
+    if (Array.isArray(p.items)) return p.items;
+    if (Array.isArray(p.reports)) return p.reports;
+    if (Array.isArray(p.users)) return p.users;
+  }
+  return [];
+}
+
 async function getReports(token: string) {
   try {
     const response = await fetch(`${API_URL}/api/reports`, {
@@ -15,7 +27,7 @@ async function getReports(token: string) {
     });
 
     if (!response.ok) return [];
-    return await response.json();
+    return unwrap(await response.json());
   } catch (error) {
     console.error('Error fetching reports:', error);
     return [];
@@ -33,7 +45,7 @@ async function getInspectors(token: string) {
     });
 
     if (!response.ok) return [];
-    return await response.json();
+    return unwrap(await response.json());
   } catch (error) {
     console.error('Error fetching inspectors:', error);
     return [];

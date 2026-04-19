@@ -80,7 +80,7 @@ export default function CitationsPage() {
       const response = await fetch('/api/citations');
       if (response.ok) {
         const data = await response.json();
-        setCitations(data);
+        setCitations(Array.isArray(data) ? data : (data?.data ?? data?.citations ?? []));
         setLastUpdate(new Date());
       }
     } catch (error) {
