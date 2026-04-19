@@ -28,21 +28,24 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
 
-    // Set HTTP-only cookies
-    // secure: false porque estamos usando HTTP (no HTTPS) en producción local
+    // accessToken non-httpOnly so the client admin-api can attach it as
+    // a Bearer header. refreshToken stays httpOnly. JWT lifetime is 15min.
+    const isProd = process.env.NODE_ENV === 'production';
     const cookieStore = await cookies();
     cookieStore.set('accessToken', data.accessToken, {
-      httpOnly: true,
-      secure: false,
+      httpOnly: false,
+      secure: isProd,
       sameSite: 'lax',
       maxAge: 60 * 15, // 15 minutes
+      path: '/',
     });
 
     cookieStore.set('refreshToken', data.refreshToken, {
       httpOnly: true,
-      secure: false,
+      secure: isProd,
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
     });
 
     return NextResponse.json({ success: true, user: data.user });
