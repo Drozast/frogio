@@ -5,13 +5,14 @@ import InfractionsClient from '@/components/infractions/InfractionsClient';
 
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-function unwrap(payload: unknown): unknown[] {
-  if (Array.isArray(payload)) return payload;
+type Loose = Record<string, unknown> & { data?: unknown; items?: unknown; infractions?: unknown };
+function unwrap(payload: unknown): Loose[] {
+  if (Array.isArray(payload)) return payload as Loose[];
   if (payload && typeof payload === 'object') {
-    const p = payload as Record<string, unknown>;
-    if (Array.isArray(p.data)) return p.data;
-    if (Array.isArray(p.items)) return p.items;
-    if (Array.isArray(p.infractions)) return p.infractions;
+    const p = payload as Loose;
+    if (Array.isArray(p.data)) return p.data as Loose[];
+    if (Array.isArray(p.items)) return p.items as Loose[];
+    if (Array.isArray(p.infractions)) return p.infractions as Loose[];
   }
   return [];
 }
@@ -46,7 +47,7 @@ export default async function InfractionsPage() {
 
   return (
     <AppLayout>
-      <InfractionsClient initialInfractions={infractions} />
+      <InfractionsClient initialInfractions={infractions as unknown as Parameters<typeof InfractionsClient>[0]['initialInfractions']} />
     </AppLayout>
   );
 }

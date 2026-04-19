@@ -4,14 +4,15 @@ import AppLayout from '@/components/layout/AppLayout';
 import ReportsClient from '@/components/reports/ReportsClient';
 import { API_URL } from '@/lib/api-config';
 
-function unwrap(payload: unknown): unknown[] {
-  if (Array.isArray(payload)) return payload;
+type Loose = Record<string, unknown>;
+function unwrap(payload: unknown): Loose[] {
+  if (Array.isArray(payload)) return payload as Loose[];
   if (payload && typeof payload === 'object') {
     const p = payload as Record<string, unknown>;
-    if (Array.isArray(p.data)) return p.data;
-    if (Array.isArray(p.items)) return p.items;
-    if (Array.isArray(p.reports)) return p.reports;
-    if (Array.isArray(p.users)) return p.users;
+    if (Array.isArray(p.data)) return p.data as Loose[];
+    if (Array.isArray(p.items)) return p.items as Loose[];
+    if (Array.isArray(p.reports)) return p.reports as Loose[];
+    if (Array.isArray(p.users)) return p.users as Loose[];
   }
   return [];
 }
@@ -67,7 +68,10 @@ export default async function ReportsPage() {
 
   return (
     <AppLayout>
-      <ReportsClient initialReports={reports} initialInspectors={inspectors} />
+      <ReportsClient
+        initialReports={reports as unknown as Parameters<typeof ReportsClient>[0]['initialReports']}
+        initialInspectors={inspectors as unknown as Parameters<typeof ReportsClient>[0]['initialInspectors']}
+      />
     </AppLayout>
   );
 }
