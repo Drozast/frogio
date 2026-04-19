@@ -115,13 +115,16 @@ services:
     build:
       context: ./apps/web-admin
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${API_URL:-https://api-frogio.supertools.cl}
+        NEXT_PUBLIC_TENANT_ID: ${TENANT_ID:-santa_juana}
     container_name: frogio-web-admin
     restart: unless-stopped
     depends_on:
       - backend
     environment:
       NODE_ENV: ${NODE_ENV:-production}
-      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:3000}
+      NEXT_PUBLIC_API_URL: ${API_URL:-https://api-frogio.supertools.cl}
       # Internal URL for SSR (bypasses Cloudflare)
       INTERNAL_API_URL: http://backend:3000
     ports:
@@ -153,7 +156,7 @@ services:
     volumes:
       - uptime_data:/app/data
     ports:
-      - "3002:3001"
+      - "3004:3001"
     networks:
       - frogio_network
 
