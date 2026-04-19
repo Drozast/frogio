@@ -11,7 +11,9 @@ export function setAuthCookies(accessToken: string, refreshToken: string) {
   const cookieStore = cookies();
 
   cookieStore.set('accessToken', accessToken, {
-    httpOnly: true,
+    // Non-httpOnly so client-side admin-api can attach as Bearer header.
+    // Refresh token remains httpOnly. JWT is short-lived (15min).
+    httpOnly: false,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 60 * 15, // 15 minutes
