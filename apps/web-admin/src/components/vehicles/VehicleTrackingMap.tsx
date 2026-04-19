@@ -37,7 +37,7 @@ export default function VehicleTrackingMap() {
       zoom: 13,
     });
 
-    L.tileLayer('https://maps.drozast.xyz/styles/osm-bright/{z}/{x}/{y}.png', {
+    L.tileLayer('https://maps.supertools.cl/styles/osm-bright/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Tiles: FROGIO',
     }).addTo(map);
 
@@ -103,6 +103,7 @@ export default function VehicleTrackingMap() {
         map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicles]);
 
   function createVehicleMarker(position: VehiclePosition): L.Marker {

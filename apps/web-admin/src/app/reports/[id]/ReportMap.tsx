@@ -27,7 +27,7 @@ export default function ReportMap({ latitude, longitude }: ReportMapProps) {
       zoomControl: true,
     });
 
-    L.tileLayer('https://maps.drozast.xyz/styles/osm-bright/{z}/{x}/{y}.png', {
+    L.tileLayer('https://maps.supertools.cl/styles/osm-bright/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Tiles: FROGIO',
     }).addTo(map);
 

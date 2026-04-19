@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import AppLayout from '@/components/layout/AppLayout';
@@ -644,10 +645,13 @@ export default function NewCitationPage() {
                 <div className="grid grid-cols-3 gap-4">
                   {previewPhotos.map((photo, index) => (
                     <div key={index} className="relative group">
-                      <img
+                      <Image
                         src={photo}
                         alt={`Foto ${index + 1}`}
                         className="w-full h-24 object-cover rounded-lg"
+                        width={200}
+                        height={96}
+                        unoptimized
                       />
                       <button
                         type="button"

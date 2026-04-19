@@ -52,6 +52,7 @@ export default function FleetStatsPage() {
 
   useEffect(() => {
     fetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateRange]);
 
   async function fetchStats() {

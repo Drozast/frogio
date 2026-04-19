@@ -123,6 +123,7 @@ export default function SOSAlertProvider({ children }: { children: React.ReactNo
     return () => {
       clearInterval(pollInterval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchActiveAlerts]);
 
   const playAlertSound = () => {

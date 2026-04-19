@@ -1,1208 +1,999 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
+/**
+ * Flota Vehicular (Admin) — mirrors
+ * apps/mobile/lib/features/admin/presentation/pages/admin_fleet_screen.dart
+ *
+ * Two pill-tabs: Vehiculos / Bitacoras.
+ */
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import AppLayout from '@/components/layout/AppLayout';
-import AllVehiclesList from '@/components/fleet/AllVehiclesList';
-import VehicleUsageHistory from '@/components/fleet/VehicleUsageHistory';
-import LogDetailModal from '@/components/fleet/LogDetailModal';
-import { useFleetSocket, VehiclePosition } from '@/hooks/useFleetSocket';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  TruckIcon,
-  SignalIcon,
-  SignalSlashIcon,
-  MapIcon,
-  ClockIcon,
-  ChartBarIcon,
-  PlusIcon,
-  MagnifyingGlassIcon,
-  DocumentArrowDownIcon,
-  FunnelIcon,
-  ArrowPathIcon,
-  CalendarIcon,
-  MapPinIcon,
-  PlayIcon,
-  PencilIcon,
-  TrashIcon,
-  XMarkIcon,
-} from '@heroicons/react/24/outline';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import * as XLSX from 'xlsx';
+  Car,
+  Route,
+  Plus,
+  RefreshCw,
+  X,
+  Pencil,
+  Trash2,
+  Play,
+  CheckCircle2,
+  Filter,
+  FileSpreadsheet,
+  PlayCircle,
+  Clock,
+  User as UserIcon,
+  MapPin,
+  Gauge,
+} from 'lucide-react';
 
-// Dynamic imports for map components (client-side only)
-const FleetMap = dynamic(() => import('@/components/fleet/FleetMap'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
-    </div>
-  ),
-});
+import AppLayout from '@/components/layout/AppLayout';
+import {
+  getVehicles,
+  getVehicleLogs,
+  createVehicle,
+  updateVehicle,
+  deleteVehicle,
+  pick,
+  type AdminRecord,
+} from '@/lib/admin-api';
+import { exportCSV } from '@/lib/export-service';
+import { FROGIO_COLORS, FROGIO_GRADIENTS } from '@/lib/theme';
 
-const RouteMap = dynamic(() => import('@/components/fleet/RouteMap'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
-    </div>
-  ),
-});
+type VehicleStatus = 'in_use' | 'available' | 'out_of_service';
 
-// Types
-interface Geofence {
-  id: string;
-  name: string;
-  geofence_type: 'circle' | 'polygon';
-  center_lat?: number;
-  center_lng?: number;
-  radius_meters?: number;
-  polygon_coordinates?: { lat: number; lng: number }[];
-  is_active: boolean;
+function deriveVehicleStatus(v: AdminRecord): VehicleStatus {
+  const explicit = (v.status ?? '').toString();
+  if (explicit) {
+    if (
+      explicit === 'in_use' ||
+      explicit === 'available' ||
+      explicit === 'out_of_service'
+    ) {
+      return explicit;
+    }
+  }
+  if (v.active_log_id != null) return 'in_use';
+  if (v.is_active === true) return 'available';
+  return 'out_of_service';
 }
 
-interface Vehicle {
-  id: string;
-  plate: string;
-  brand: string;
-  model: string;
-  year: number | null;
-  color: string | null;
-  vehicle_type: string | null;
-  owner_first_name: string;
-  owner_last_name: string;
-  owner_rut: string;
-  is_active: boolean;
-  created_at: string;
-  ownership_type: 'propio' | 'arrendado' | 'comodato' | null;
-  vehicle_status: 'activo' | 'dado_de_baja' | 'en_espera_de_remate' | 'rematado' | null;
-  notes: string | null;
-  insurance_expiry: string | null;
-  technical_review_expiry: string | null;
-  acquisition_date: string | null;
-  disposal_date: string | null;
-}
-
-interface VehicleLog {
-  id: string;
-  vehicle_id: string;
-  vehicle_plate: string;
-  vehicle_brand: string;
-  vehicle_model: string;
-  driver_id: string;
-  driver_name: string;
-  usage_type: string;
-  purpose: string | null;
-  start_km: number;
-  end_km: number | null;
-  start_time: string;
-  end_time: string | null;
-  total_distance_km: number | null;
-  observations: string | null;
-  status?: string;
-}
-
-interface Inspector {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-}
-
-interface RoutePoint {
-  latitude: number;
-  longitude: number;
-  speed: number | null;
-  recorded_at: string;
-}
-
-interface RouteData {
-  points: RoutePoint[];
-  totalDistance: number;
-  avgSpeed: number;
-  maxSpeed: number;
-  startTime: string;
-  endTime: string;
-}
-
-type TabType = 'live' | 'logs' | 'history' | 'vehicles';
-
-const usageTypeLabels: Record<string, string> = {
-  'official': 'Servicio Oficial',
-  'emergency': 'Emergencia',
-  'maintenance': 'Mantención',
-  'transfer': 'Traslado',
-  'other': 'Otro',
+const STATUS_LABEL: Record<VehicleStatus, string> = {
+  in_use: 'En ruta',
+  available: 'Disponible',
+  out_of_service: 'Fuera de servicio',
 };
 
-const ownershipTypeLabels: Record<string, string> = {
-  'propio': 'Propio',
-  'arrendado': 'Arrendado',
-  'comodato': 'Comodato',
+const STATUS_COLOR: Record<VehicleStatus, string> = {
+  in_use: FROGIO_COLORS.success,
+  available: FROGIO_COLORS.info,
+  out_of_service: FROGIO_COLORS.textTertiary,
 };
 
-const vehicleStatusLabels: Record<string, string> = {
-  'activo': 'Activo',
-  'dado_de_baja': 'Dado de Baja',
-  'en_espera_de_remate': 'En Espera de Remate',
-  'rematado': 'Rematado',
-};
+function fmtDate(s?: string | null): string {
+  if (!s) return '—';
+  try {
+    return new Date(s).toLocaleString('es-CL');
+  } catch {
+    return '—';
+  }
+}
 
-const vehicleStatusColors: Record<string, string> = {
-  'activo': 'bg-green-100 text-green-800',
-  'dado_de_baja': 'bg-red-100 text-red-800',
-  'en_espera_de_remate': 'bg-yellow-100 text-yellow-800',
-  'rematado': 'bg-gray-100 text-gray-600',
-};
+function fmtTime(s?: string | null): string {
+  if (!s) return '—';
+  try {
+    return new Date(s).toLocaleTimeString('es-CL', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '—';
+  }
+}
 
-function FleetPageContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const tabParam = searchParams.get('tab') as TabType | null;
-  const [activeTab, setActiveTab] = useState<TabType>(tabParam && ['live', 'logs', 'history', 'vehicles'].includes(tabParam) ? tabParam : 'live');
+export default function FleetPage() {
+  const [tab, setTab] = useState<'vehicles' | 'logs'>('vehicles');
 
-  // Vehicle edit/delete state
-  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
-  const [deletingVehicle, setDeletingVehicle] = useState<Vehicle | null>(null);
-  const [saving, setSaving] = useState(false);
+  // Vehicles
+  const [vehicles, setVehicles] = useState<AdminRecord[]>([]);
+  const [vehLoading, setVehLoading] = useState(false);
+  const [editing, setEditing] = useState<AdminRecord | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<AdminRecord | null>(null);
 
-  // Sync URL with active tab
-  const handleTabChange = useCallback((tab: TabType) => {
-    setActiveTab(tab);
-    router.push(`/fleet?tab=${tab}`, { scroll: false });
-  }, [router]);
-
-  // Live tracking state
-  const { isConnected, vehicles: socketVehicles, geofenceEvents, error: socketError, refreshPositions } = useFleetSocket();
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
-  const [geofences, setGeofences] = useState<Geofence[]>([]);
-  const [showGeofences, setShowGeofences] = useState(true);
-  const [initialPositions, setInitialPositions] = useState<Map<string, VehiclePosition>>(new Map());
-
-  // Vehicles management state
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [vehiclesLoading, setVehiclesLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Logs state
-  const [logs, setLogs] = useState<VehicleLog[]>([]);
-  const [inspectors, setInspectors] = useState<Inspector[]>([]);
+  // Logs
+  const [logs, setLogs] = useState<AdminRecord[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
-  const [selectedVehicleFilter, setSelectedVehicleFilter] = useState<string>('');
-  const [selectedInspector, setSelectedInspector] = useState<string>('');
-  const [logsStartDate, setLogsStartDate] = useState<string>('');
-  const [logsEndDate, setLogsEndDate] = useState<string>('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedLog, setSelectedLog] = useState<VehicleLog | null>(null);
+  const [logsFilter, setLogsFilter] = useState<'all' | 'active' | 'completed'>(
+    'all'
+  );
 
-  // History state
-  const [historyVehicleId, setHistoryVehicleId] = useState<string>('');
-  const [historyDate, setHistoryDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [routeData, setRouteData] = useState<RouteData | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
-  // Fetch initial data for live tracking
-  useEffect(() => {
-    async function fetchInitialData() {
-      try {
-        const posResponse = await fetch('/api/fleet/live');
-        if (posResponse.ok) {
-          const positions = await posResponse.json();
-          const posMap = new Map<string, VehiclePosition>();
-          positions.forEach((pos: VehiclePosition) => {
-            posMap.set(pos.vehicleId, pos);
-          });
-          setInitialPositions(posMap);
-        }
-
-        const geoResponse = await fetch('/api/geofences?active=true');
-        if (geoResponse.ok) {
-          const geoData = await geoResponse.json();
-          setGeofences(geoData);
-        }
-      } catch (err) {
-        console.error('Error fetching initial data:', err);
-      }
+  const loadVehicles = useCallback(async () => {
+    setVehLoading(true);
+    try {
+      const data = await getVehicles();
+      setVehicles(data);
+    } finally {
+      setVehLoading(false);
     }
-
-    fetchInitialData();
   }, []);
 
-  // Fetch vehicles
-  useEffect(() => {
-    async function fetchVehicles() {
-      try {
-        const response = await fetch('/api/vehicles');
-        if (response.ok) {
-          const data = await response.json();
-          setVehicles(data);
-        }
-      } catch (error) {
-        console.error('Error fetching vehicles:', error);
-      } finally {
-        setVehiclesLoading(false);
-      }
-    }
-
-    async function fetchInspectors() {
-      try {
-        const response = await fetch('/api/users?role=inspector');
-        if (response.ok) {
-          const data = await response.json();
-          setInspectors(data);
-        }
-      } catch (error) {
-        console.error('Error fetching inspectors:', error);
-      }
-    }
-
-    fetchVehicles();
-    fetchInspectors();
-  }, []);
-
-  // Fetch logs
-  const fetchLogs = useCallback(async () => {
+  const loadLogs = useCallback(async () => {
     setLogsLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (selectedVehicleFilter) params.append('vehicleId', selectedVehicleFilter);
-      if (selectedInspector) params.append('driverId', selectedInspector);
-      if (logsStartDate) params.append('startDate', logsStartDate);
-      if (logsEndDate) params.append('endDate', logsEndDate);
-
-      const response = await fetch(`/api/vehicles/logs?${params.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        setLogs(data);
-      }
-    } catch (error) {
-      console.error('Error fetching logs:', error);
+      const data = await getVehicleLogs();
+      setLogs(data);
     } finally {
       setLogsLoading(false);
     }
-  }, [selectedVehicleFilter, selectedInspector, logsStartDate, logsEndDate]);
+  }, []);
 
   useEffect(() => {
-    if (activeTab === 'logs') {
-      fetchLogs();
-    }
-  }, [activeTab, fetchLogs]);
+    loadVehicles();
+    loadLogs();
+  }, [loadVehicles, loadLogs]);
 
-  // Fetch route history
-  async function fetchRoute() {
-    if (!historyVehicleId || !historyDate) return;
-
-    setHistoryLoading(true);
-    try {
-      const startDate = `${historyDate}T00:00:00`;
-      const endDate = `${historyDate}T23:59:59`;
-
-      const response = await fetch(
-        `/api/fleet/history?vehicleId=${historyVehicleId}&startDate=${startDate}&endDate=${endDate}`
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setRouteData(data);
-      } else {
-        setRouteData(null);
+  const filteredLogs = useMemo(() => {
+    if (logsFilter === 'all') return logs;
+    return logs.filter((l) => {
+      const status = (l.status ?? '').toString().toLowerCase();
+      if (logsFilter === 'active') {
+        return status === 'active' || l.end_time == null;
       }
-    } catch (error) {
-      console.error('Error fetching route:', error);
-      setRouteData(null);
-    } finally {
-      setHistoryLoading(false);
-    }
+      return status === 'completed' || l.end_time != null;
+    });
+  }, [logs, logsFilter]);
+
+  const counts = useMemo(
+    () => ({
+      all: logs.length,
+      active: logs.filter(
+        (l) =>
+          (l.status ?? '').toString().toLowerCase() === 'active' ||
+          l.end_time == null
+      ).length,
+      completed: logs.filter(
+        (l) =>
+          (l.status ?? '').toString().toLowerCase() === 'completed' ||
+          l.end_time != null
+      ).length,
+    }),
+    [logs]
+  );
+
+  function exportLogsCsv() {
+    const rows = filteredLogs.map((l) => [
+      String(pick(l, 'plate', 'vehicle_plate', 'vehiclePlate') ?? '').toUpperCase(),
+      String(pick(l, 'driver_name', 'driverName') ?? ''),
+      fmtDate(pick<string>(l, 'start_time', 'startTime')),
+      fmtDate(pick<string>(l, 'end_time', 'endTime')),
+      pick<number>(l, 'start_km', 'startKm') ?? '',
+      pick<number>(l, 'end_km', 'endKm') ?? '',
+      pick<number>(l, 'total_distance_km', 'totalDistanceKm') ?? '',
+      String(pick(l, 'status') ?? ''),
+    ]);
+    exportCSV({
+      filenamePrefix: 'bitacoras_flota',
+      headers: [
+        'Patente',
+        'Conductor',
+        'Inicio',
+        'Fin',
+        'Km inicial',
+        'Km final',
+        'Distancia (km)',
+        'Estado',
+      ],
+      rows,
+    });
   }
-
-  // Merge socket and initial positions
-  const mergedVehicles = new Map(initialPositions);
-  socketVehicles.forEach((v, k) => mergedVehicles.set(k, v));
-
-  // Filter vehicles for management tab
-  const filteredVehicles = vehicles.filter(vehicle => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      vehicle.plate.toLowerCase().includes(query) ||
-      vehicle.brand.toLowerCase().includes(query) ||
-      vehicle.model.toLowerCase().includes(query)
-    );
-  });
-
-  // Transform geofences for map
-  const mapGeofences = geofences.map(g => ({
-    id: g.id,
-    name: g.name,
-    geofenceType: g.geofence_type,
-    centerLat: g.center_lat,
-    centerLng: g.center_lng,
-    radiusMeters: g.radius_meters,
-    polygonCoordinates: g.polygon_coordinates,
-    isActive: g.is_active,
-  }));
-
-  const clearFilters = () => {
-    setSelectedVehicleFilter('');
-    setSelectedInspector('');
-    setLogsStartDate('');
-    setLogsEndDate('');
-  };
-
-  const exportToExcel = () => {
-    const exportData = logs.map(log => ({
-      'Patente': log.vehicle_plate,
-      'Vehículo': `${log.vehicle_brand} ${log.vehicle_model}`,
-      'Inspector': log.driver_name,
-      'Tipo de Uso': usageTypeLabels[log.usage_type] || log.usage_type,
-      'Propósito': log.purpose || '-',
-      'Km Inicial': log.start_km,
-      'Km Final': log.end_km || '-',
-      'Distancia (km)': log.total_distance_km?.toFixed(1) || '-',
-      'Inicio': format(new Date(log.start_time), 'dd/MM/yyyy HH:mm', { locale: es }),
-      'Fin': log.end_time ? format(new Date(log.end_time), 'dd/MM/yyyy HH:mm', { locale: es }) : 'En curso',
-      'Observaciones': log.observations || '-',
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Bitácora Vehículos');
-    XLSX.writeFile(workbook, `bitacora_vehiculos_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
-  };
-
-  const selectedHistoryVehicle = vehicles.find(v => v.id === historyVehicleId);
-
-  // Export route history to Excel
-  const exportRouteToExcel = () => {
-    if (!routeData || routeData.points.length === 0 || !selectedHistoryVehicle) return;
-
-    const exportData = routeData.points.map((point, index) => ({
-      '#': index + 1,
-      'Fecha/Hora': format(new Date(point.recorded_at), 'dd/MM/yyyy HH:mm:ss', { locale: es }),
-      'Latitud': point.latitude.toFixed(6),
-      'Longitud': point.longitude.toFixed(6),
-      'Velocidad (km/h)': point.speed?.toFixed(1) || 'N/A',
-    }));
-
-    // Add summary sheet
-    const summaryData = [
-      { Campo: 'Patente', Valor: selectedHistoryVehicle.plate },
-      { Campo: 'Vehículo', Valor: `${selectedHistoryVehicle.brand} ${selectedHistoryVehicle.model}` },
-      { Campo: 'Fecha', Valor: format(new Date(historyDate), 'dd/MM/yyyy', { locale: es }) },
-      { Campo: 'Distancia Total', Valor: `${routeData.totalDistance.toFixed(2)} km` },
-      { Campo: 'Velocidad Promedio', Valor: `${routeData.avgSpeed.toFixed(1)} km/h` },
-      { Campo: 'Velocidad Máxima', Valor: `${routeData.maxSpeed.toFixed(1)} km/h` },
-      { Campo: 'Puntos GPS', Valor: routeData.points.length.toString() },
-      { Campo: 'Inicio Actividad', Valor: routeData.startTime ? format(new Date(routeData.startTime), 'HH:mm:ss', { locale: es }) : 'N/A' },
-      { Campo: 'Fin Actividad', Valor: routeData.endTime ? format(new Date(routeData.endTime), 'HH:mm:ss', { locale: es }) : 'N/A' },
-    ];
-
-    const workbook = XLSX.utils.book_new();
-
-    // Points sheet
-    const pointsSheet = XLSX.utils.json_to_sheet(exportData);
-    XLSX.utils.book_append_sheet(workbook, pointsSheet, 'Puntos GPS');
-
-    // Summary sheet
-    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen');
-
-    XLSX.writeFile(workbook, `ruta_${selectedHistoryVehicle.plate}_${historyDate}.xlsx`);
-  };
-
-  const tabs = [
-    { id: 'live' as TabType, name: 'Mapa en Vivo', icon: MapPinIcon },
-    { id: 'logs' as TabType, name: 'Bitácora', icon: ClockIcon },
-    { id: 'history' as TabType, name: 'Historial Rutas', icon: MapIcon },
-    { id: 'vehicles' as TabType, name: 'Vehículos', icon: TruckIcon },
-  ];
-
-  // Fetch vehicles function to reuse
-  const fetchVehicles = async () => {
-    setVehiclesLoading(true);
-    try {
-      const response = await fetch('/api/vehicles');
-      if (response.ok) {
-        const data = await response.json();
-        setVehicles(data);
-      }
-    } catch (error) {
-      console.error('Error fetching vehicles:', error);
-    } finally {
-      setVehiclesLoading(false);
-    }
-  };
-
-  // Handle vehicle update
-  const handleUpdateVehicle = async (vehicleData: Partial<Vehicle>) => {
-    if (!editingVehicle) return;
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/vehicles/${editingVehicle.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(vehicleData),
-      });
-      if (response.ok) {
-        await fetchVehicles();
-        setEditingVehicle(null);
-      } else {
-        const error = await response.json();
-        alert(error.error || 'Error al actualizar vehículo');
-      }
-    } catch (error) {
-      console.error('Error updating vehicle:', error);
-      alert('Error al actualizar vehículo');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Handle vehicle delete
-  const handleDeleteVehicle = async () => {
-    if (!deletingVehicle) return;
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/vehicles/${deletingVehicle.id}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        await fetchVehicles();
-        setDeletingVehicle(null);
-      } else {
-        const error = await response.json();
-        alert(error.error || 'Error al eliminar vehículo');
-      }
-    } catch (error) {
-      console.error('Error deleting vehicle:', error);
-      alert('Error al eliminar vehículo');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <AppLayout>
-      <div className="h-[calc(100vh-4rem)] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Gestión de Flota</h1>
-            <p className="text-sm text-gray-500">
-              Control y seguimiento de vehículos municipales
+      <div className="space-y-4">
+        {/* Section header */}
+        <div className="flex items-center gap-3 px-1">
+          <div
+            className="w-1 h-9 rounded"
+            style={{
+              background: `linear-gradient(180deg, ${FROGIO_COLORS.primaryDark} 0%, ${FROGIO_COLORS.primary} 100%)`,
+            }}
+          />
+          <div className="flex-1">
+            <h1 className="text-xl font-bold text-foreground">
+              Flota Vehicular
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {tab === 'vehicles'
+                ? `${vehicles.length} vehículos en el sistema`
+                : `${filteredLogs.length} bitácoras registradas`}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Connection Status - Only show on live tab */}
-            {activeTab === 'live' && (
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
-                isConnected ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-              }`}>
-                {isConnected ? (
-                  <SignalIcon className="h-4 w-4" />
-                ) : (
-                  <SignalSlashIcon className="h-4 w-4" />
-                )}
-                {isConnected ? 'Tiempo Real' : 'Actualización cada 10s'}
-              </div>
-            )}
-
-            {/* Stats Link */}
-            <Link
-              href="/fleet/stats"
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+          {tab === 'logs' && (
+            <button
+              onClick={exportLogsCsv}
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-border hover:bg-muted"
+              title="Exportar CSV"
             >
-              <ChartBarIcon className="h-4 w-4" />
-              Estadísticas
-            </Link>
+              <FileSpreadsheet className="h-4 w-4" />
+              CSV
+            </button>
+          )}
+          <button
+            onClick={tab === 'vehicles' ? loadVehicles : loadLogs}
+            className="p-2 rounded-lg border border-border hover:bg-muted"
+            title="Recargar"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${
+                (tab === 'vehicles' && vehLoading) ||
+                (tab === 'logs' && logsLoading)
+                  ? 'animate-spin'
+                  : ''
+              }`}
+            />
+          </button>
+          {tab === 'vehicles' && (
+            <button
+              onClick={() => setCreating(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg text-white shadow-sm"
+              style={{ background: FROGIO_COLORS.primary }}
+            >
+              <Plus className="h-4 w-4" />
+              Nuevo vehículo
+            </button>
+          )}
+        </div>
+
+        {/* Pill tabs */}
+        <div className="px-1">
+          <div className="inline-flex p-1 rounded-full bg-white border border-border">
+            <PillTab
+              active={tab === 'vehicles'}
+              onClick={() => setTab('vehicles')}
+              icon={<Car className="h-4 w-4" />}
+              label="Vehículos"
+            />
+            <PillTab
+              active={tab === 'logs'}
+              onClick={() => setTab('logs')}
+              icon={<Route className="h-4 w-4" />}
+              label="Bitácoras"
+            />
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="border-b border-gray-200 mb-4">
-          <nav className="-mb-px flex space-x-6 overflow-x-auto">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <tab.icon className="h-5 w-5" />
-                {tab.name}
-                {tab.id === 'live' && mergedVehicles.size > 0 && (
-                  <span className="ml-1 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
-                    {mergedVehicles.size}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* Tab Content */}
-        <div className="flex-1 min-h-0">
-          {/* LIVE TRACKING TAB */}
-          {activeTab === 'live' && (
-            <div className="h-full grid grid-cols-1 lg:grid-cols-4 gap-4">
-              {/* Left Panel - Vehicle List */}
-              <div className="lg:col-span-1 bg-white rounded-lg shadow overflow-hidden flex flex-col">
-                <div className="p-3 border-b bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <h2 className="font-semibold text-gray-900 text-sm">Vehículos</h2>
-                    <button
-                      onClick={refreshPositions}
-                      className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
-                      title="Actualizar"
-                    >
-                      <ArrowPathIcon className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                  <AllVehiclesList
-                    selectedVehicleId={selectedVehicleId}
-                    onVehicleSelect={setSelectedVehicleId}
-                    liveVehicles={mergedVehicles}
-                  />
-                </div>
-              </div>
-
-              {/* Center - Map */}
-              <div className="lg:col-span-2 bg-white rounded-lg shadow overflow-hidden">
-                {socketError && (
-                  <div className="p-2 bg-yellow-50 text-yellow-700 text-xs text-center">
-                    {socketError}
-                  </div>
-                )}
-                <div className="h-full">
-                  <FleetMap
-                    vehicles={mergedVehicles}
-                    selectedVehicleId={selectedVehicleId}
-                    onVehicleClick={setSelectedVehicleId}
-                    geofences={[]}
-                    showGeofences={false}
-                  />
-                </div>
-              </div>
-
-              {/* Right Panel - Vehicle Usage History */}
-              <div className="lg:col-span-1 bg-white rounded-lg shadow overflow-hidden flex flex-col">
-                <VehicleUsageHistory
-                  onViewRoute={(vehicleId, date) => {
-                    setHistoryVehicleId(vehicleId);
-                    setHistoryDate(date);
-                    handleTabChange('history');
-                  }}
-                />
-              </div>
-            </div>
+        {/* Content */}
+        <div className="px-1">
+          {tab === 'vehicles' ? (
+            <VehiclesGrid
+              vehicles={vehicles}
+              loading={vehLoading}
+              onEdit={(v) => setEditing(v)}
+              onDelete={(v) => setDeleting(v)}
+            />
+          ) : (
+            <LogsList
+              logs={filteredLogs}
+              loading={logsLoading}
+              filter={logsFilter}
+              onFilterChange={setLogsFilter}
+              counts={counts}
+            />
           )}
-
-          {/* LOGS TAB */}
-          {activeTab === 'logs' && (
-            <div className="space-y-4 h-full overflow-y-auto">
-              {/* Filters */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-                  >
-                    <FunnelIcon className="h-4 w-4" />
-                    Filtros
-                    {(selectedVehicleFilter || selectedInspector || logsStartDate || logsEndDate) && (
-                      <span className="ml-1 px-2 py-0.5 text-xs bg-indigo-100 text-indigo-800 rounded-full">
-                        Activos
-                      </span>
-                    )}
-                  </button>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={fetchLogs}
-                      className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
-                      title="Actualizar"
-                    >
-                      <ArrowPathIcon className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={exportToExcel}
-                      disabled={logs.length === 0}
-                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <DocumentArrowDownIcon className="h-4 w-4" />
-                      Exportar Excel
-                    </button>
-                  </div>
-                </div>
-
-                {showFilters && (
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Vehículo</label>
-                      <select
-                        value={selectedVehicleFilter}
-                        onChange={(e) => setSelectedVehicleFilter(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="">Todos</option>
-                        {vehicles.map((v) => (
-                          <option key={v.id} value={v.id}>{v.plate} - {v.brand} {v.model}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Inspector</label>
-                      <select
-                        value={selectedInspector}
-                        onChange={(e) => setSelectedInspector(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="">Todos</option>
-                        {inspectors.map((i) => (
-                          <option key={i.id} value={i.id}>{i.first_name} {i.last_name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
-                      <input
-                        type="date"
-                        value={logsStartDate}
-                        onChange={(e) => setLogsStartDate(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
-                      <input
-                        type="date"
-                        value={logsEndDate}
-                        onChange={(e) => setLogsEndDate(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    {(selectedVehicleFilter || selectedInspector || logsStartDate || logsEndDate) && (
-                      <div className="md:col-span-4">
-                        <button onClick={clearFilters} className="text-sm text-indigo-600 hover:text-indigo-800">
-                          Limpiar filtros
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Logs Table */}
-              {logsLoading ? (
-                <div className="bg-white rounded-lg shadow p-8 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-                </div>
-              ) : logs.length === 0 ? (
-                <div className="bg-white rounded-lg shadow p-8 text-center">
-                  <ClockIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-1">Sin registros</h3>
-                  <p className="text-sm text-gray-500">No hay registros de uso en el período seleccionado</p>
-                </div>
-              ) : (
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vehículo</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inspector</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kilometraje</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha/Hora</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {logs.map((log) => (
-                          <tr
-                            key={log.id}
-                            className="hover:bg-indigo-50 cursor-pointer transition-colors"
-                            onClick={() => setSelectedLog(log)}
-                          >
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              <p className="text-sm font-medium text-gray-900 uppercase">{log.vehicle_plate}</p>
-                              <p className="text-xs text-gray-500">{log.vehicle_brand} {log.vehicle_model}</p>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{log.driver_name}</td>
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                log.usage_type === 'emergency' ? 'bg-red-100 text-red-800' :
-                                log.usage_type === 'official' ? 'bg-blue-100 text-blue-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {usageTypeLabels[log.usage_type] || log.usage_type}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm">
-                              <span className="text-gray-900">{log.start_km}</span>
-                              <span className="text-gray-400 mx-1">→</span>
-                              <span className="text-gray-900">{log.end_km || '...'}</span>
-                              {log.total_distance_km && (
-                                <p className="text-xs text-green-600">+{Number(log.total_distance_km).toFixed(1)} km</p>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm">
-                              <p className="text-gray-900">{format(new Date(log.start_time), 'dd/MM/yyyy', { locale: es })}</p>
-                              <p className="text-xs text-gray-500">
-                                {format(new Date(log.start_time), 'HH:mm', { locale: es })}
-                                {log.end_time && <> - {format(new Date(log.end_time), 'HH:mm', { locale: es })}</>}
-                              </p>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              {log.end_time ? (
-                                <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Finalizado</span>
-                              ) : (
-                                <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 animate-pulse">En curso</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* HISTORY TAB */}
-          {activeTab === 'history' && (
-            <div className="h-full grid grid-cols-1 lg:grid-cols-4 gap-4">
-              {/* Left Panel - Filters & Stats */}
-              <div className="lg:col-span-1 bg-white rounded-lg shadow p-4 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <TruckIcon className="h-4 w-4 inline mr-1" />
-                    Vehículo
-                  </label>
-                  <select
-                    value={historyVehicleId}
-                    onChange={(e) => setHistoryVehicleId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Seleccionar vehículo...</option>
-                    {vehicles.map((v) => (
-                      <option key={v.id} value={v.id}>{v.plate} - {v.brand} {v.model}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <CalendarIcon className="h-4 w-4 inline mr-1" />
-                    Fecha
-                  </label>
-                  <input
-                    type="date"
-                    value={historyDate}
-                    onChange={(e) => setHistoryDate(e.target.value)}
-                    max={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <button
-                  onClick={fetchRoute}
-                  disabled={!historyVehicleId || historyLoading}
-                  className="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <PlayIcon className="h-4 w-4" />
-                  {historyLoading ? 'Cargando...' : 'Ver Recorrido'}
-                </button>
-
-                {/* Route Stats */}
-                {routeData && routeData.points.length > 0 && (
-                  <div className="pt-4 border-t space-y-3">
-                    <h3 className="font-semibold text-gray-900">Estadísticas del Día</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="p-3 bg-gray-50 rounded-lg text-center">
-                        <p className="text-xs text-gray-500">Distancia</p>
-                        <p className="text-lg font-bold text-gray-900">{routeData.totalDistance.toFixed(1)} km</p>
-                      </div>
-                      <div className="p-3 bg-gray-50 rounded-lg text-center">
-                        <p className="text-xs text-gray-500">Vel. Promedio</p>
-                        <p className="text-lg font-bold text-gray-900">{routeData.avgSpeed.toFixed(0)} km/h</p>
-                      </div>
-                      <div className="p-3 bg-gray-50 rounded-lg text-center">
-                        <p className="text-xs text-gray-500">Vel. Máxima</p>
-                        <p className="text-lg font-bold text-gray-900">{routeData.maxSpeed.toFixed(0)} km/h</p>
-                      </div>
-                      <div className="p-3 bg-gray-50 rounded-lg text-center">
-                        <p className="text-xs text-gray-500">Puntos GPS</p>
-                        <p className="text-lg font-bold text-gray-900">{routeData.points.length}</p>
-                      </div>
-                    </div>
-                    {routeData.startTime && routeData.endTime && (
-                      <div className="p-3 bg-indigo-50 rounded-lg">
-                        <p className="text-xs text-indigo-600 font-medium">Período de Actividad</p>
-                        <p className="text-sm text-indigo-900 mt-1">
-                          {new Date(routeData.startTime).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                          {' - '}
-                          {new Date(routeData.endTime).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Export Button */}
-                    <button
-                      onClick={exportRouteToExcel}
-                      className="w-full px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
-                    >
-                      <DocumentArrowDownIcon className="h-4 w-4" />
-                      Exportar Ruta a Excel
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Map */}
-              <div className="lg:col-span-3 bg-white rounded-lg shadow overflow-hidden">
-                {routeData && routeData.points.length > 0 ? (
-                  <RouteMap points={routeData.points} vehiclePlate={selectedHistoryVehicle?.plate || ''} />
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-gray-500">
-                    <MapIcon className="h-16 w-16 text-gray-300 mb-3" />
-                    <p className="text-sm font-medium">
-                      {!historyVehicleId
-                        ? 'Selecciona un vehículo para ver su historial'
-                        : routeData === null
-                        ? 'No hay datos de ruta para la fecha seleccionada'
-                        : 'Selecciona un vehículo y fecha para consultar'
-                      }
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Los recorridos se registran automáticamente cuando un inspector usa un vehículo
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* VEHICLES TAB */}
-          {activeTab === 'vehicles' && (
-            <div className="space-y-4 h-full overflow-y-auto">
-              {/* Search & Actions */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="relative flex-1 max-w-md">
-                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Buscar por patente, marca, modelo..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <Link
-                    href="/vehicles/new"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                    Registrar Vehículo
-                  </Link>
-                </div>
-              </div>
-
-              {/* Results */}
-              <div className="text-sm text-gray-500">
-                {filteredVehicles.length} vehículo{filteredVehicles.length !== 1 ? 's' : ''} registrado{filteredVehicles.length !== 1 ? 's' : ''}
-              </div>
-
-              {/* Vehicles Grid */}
-              {vehiclesLoading ? (
-                <div className="bg-white rounded-lg shadow p-8 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-                </div>
-              ) : filteredVehicles.length === 0 ? (
-                <div className="bg-white rounded-lg shadow p-8 text-center">
-                  <TruckIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-1">No hay vehículos</h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    {searchQuery ? 'No se encontraron vehículos' : 'Aún no se han registrado vehículos'}
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredVehicles.map((vehicle) => (
-                    <div key={vehicle.id} className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-3 rounded-full ${vehicle.vehicle_status === 'activo' ? 'bg-green-100' : 'bg-gray-100'}`}>
-                            <TruckIcon className={`h-6 w-6 ${vehicle.vehicle_status === 'activo' ? 'text-green-600' : 'text-gray-400'}`} />
-                          </div>
-                          <div>
-                            <p className="text-lg font-bold text-gray-900 uppercase">{vehicle.plate}</p>
-                            <p className="text-sm text-gray-600">{vehicle.brand} {vehicle.model}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setEditingVehicle(vehicle)}
-                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
-                            title="Editar"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeletingVehicle(vehicle)}
-                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-                            title="Eliminar"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          vehicleStatusColors[vehicle.vehicle_status || 'activo']
-                        }`}>
-                          {vehicleStatusLabels[vehicle.vehicle_status || 'activo']}
-                        </span>
-                        {vehicle.ownership_type && (
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                            {ownershipTypeLabels[vehicle.ownership_type]}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-4 pt-4 border-t text-sm text-gray-500 space-y-1">
-                        {vehicle.year && <p>Año: {vehicle.year}</p>}
-                        {vehicle.color && <p>Color: {vehicle.color}</p>}
-                        {vehicle.vehicle_type && <p>Tipo: {vehicle.vehicle_type}</p>}
-                        {vehicle.technical_review_expiry && (
-                          <p className={new Date(vehicle.technical_review_expiry) < new Date() ? 'text-red-600' : ''}>
-                            Rev. Técnica: {format(new Date(vehicle.technical_review_expiry), 'dd/MM/yyyy', { locale: es })}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Edit Vehicle Modal */}
-              {editingVehicle && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                    <div className="flex items-center justify-between p-4 border-b">
-                      <h3 className="text-lg font-semibold text-gray-900">Editar Vehículo: {editingVehicle.plate}</h3>
-                      <button onClick={() => setEditingVehicle(null)} className="text-gray-400 hover:text-gray-600">
-                        <XMarkIcon className="h-6 w-6" />
-                      </button>
-                    </div>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const formData = new FormData(e.currentTarget);
-                        handleUpdateVehicle({
-                          brand: formData.get('brand') as string,
-                          model: formData.get('model') as string,
-                          year: formData.get('year') ? parseInt(formData.get('year') as string) : null,
-                          color: formData.get('color') as string || null,
-                          vehicleType: formData.get('vehicleType') as string || null,
-                          ownershipType: formData.get('ownershipType') as 'propio' | 'arrendado' | 'comodato',
-                          vehicleStatus: formData.get('vehicleStatus') as 'activo' | 'dado_de_baja' | 'en_espera_de_remate' | 'rematado',
-                          notes: formData.get('notes') as string || null,
-                          insuranceExpiry: formData.get('insuranceExpiry') as string || null,
-                          technicalReviewExpiry: formData.get('technicalReviewExpiry') as string || null,
-                        } as unknown as Partial<Vehicle>);
-                      }}
-                      className="p-4 space-y-4"
-                    >
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
-                          <input
-                            type="text"
-                            name="brand"
-                            defaultValue={editingVehicle.brand || ''}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
-                          <input
-                            type="text"
-                            name="model"
-                            defaultValue={editingVehicle.model || ''}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
-                          <input
-                            type="number"
-                            name="year"
-                            defaultValue={editingVehicle.year || ''}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                          <input
-                            type="text"
-                            name="color"
-                            defaultValue={editingVehicle.color || ''}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Vehículo</label>
-                          <select
-                            name="vehicleType"
-                            defaultValue={editingVehicle.vehicle_type || ''}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                          >
-                            <option value="">Seleccionar...</option>
-                            <option value="auto">Auto</option>
-                            <option value="camioneta">Camioneta</option>
-                            <option value="camion">Camión</option>
-                            <option value="moto">Moto</option>
-                            <option value="bus">Bus</option>
-                            <option value="otro">Otro</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Propiedad</label>
-                          <select
-                            name="ownershipType"
-                            defaultValue={editingVehicle.ownership_type || 'propio'}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                          >
-                            <option value="propio">Propio</option>
-                            <option value="arrendado">Arrendado</option>
-                            <option value="comodato">Comodato</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                          <select
-                            name="vehicleStatus"
-                            defaultValue={editingVehicle.vehicle_status || 'activo'}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                          >
-                            <option value="activo">Activo</option>
-                            <option value="dado_de_baja">Dado de Baja</option>
-                            <option value="en_espera_de_remate">En Espera de Remate</option>
-                            <option value="rematado">Rematado</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Vencimiento Seguro</label>
-                          <input
-                            type="date"
-                            name="insuranceExpiry"
-                            defaultValue={editingVehicle.insurance_expiry?.split('T')[0] || ''}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Vencimiento Rev. Técnica</label>
-                          <input
-                            type="date"
-                            name="technicalReviewExpiry"
-                            defaultValue={editingVehicle.technical_review_expiry?.split('T')[0] || ''}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
-                          <textarea
-                            name="notes"
-                            rows={3}
-                            defaultValue={editingVehicle.notes || ''}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-3 pt-4 border-t">
-                        <button
-                          type="button"
-                          onClick={() => setEditingVehicle(null)}
-                          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={saving}
-                          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                        >
-                          {saving ? 'Guardando...' : 'Guardar Cambios'}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
-
-              {/* Delete Confirmation Modal */}
-              {deletingVehicle && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Eliminar Vehículo</h3>
-                    <p className="text-gray-600 mb-4">
-                      ¿Está seguro de eliminar el vehículo <strong>{deletingVehicle.plate}</strong>?
-                      Esta acción no se puede deshacer.
-                    </p>
-                    <div className="flex justify-end gap-3">
-                      <button
-                        onClick={() => setDeletingVehicle(null)}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={handleDeleteVehicle}
-                        disabled={saving}
-                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
-                      >
-                        {saving ? 'Eliminando...' : 'Eliminar'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
         </div>
       </div>
 
-      {/* Log Detail Modal */}
-      {selectedLog && (
-        <LogDetailModal
-          isOpen={!!selectedLog}
-          onClose={() => setSelectedLog(null)}
-          log={selectedLog}
-        />
-      )}
+      {/* Create / Edit modal */}
+      <AnimatePresence>
+        {(creating || editing) && (
+          <VehicleFormModal
+            initial={editing ?? null}
+            onClose={() => {
+              setCreating(false);
+              setEditing(null);
+            }}
+            onSaved={async () => {
+              setCreating(false);
+              setEditing(null);
+              await loadVehicles();
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Delete confirm */}
+      <AnimatePresence>
+        {deleting && (
+          <motion.div
+            className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setDeleting(null)}
+          >
+            <motion.div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-foreground mb-2">
+                Eliminar vehículo
+              </h3>
+              <p className="text-sm text-muted-foreground mb-5">
+                ¿Confirmas eliminar el vehículo{' '}
+                <strong className="text-foreground">
+                  {String(deleting.plate ?? '').toUpperCase()}
+                </strong>
+                ? Esta acción no se puede deshacer.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setDeleting(null)}
+                  className="px-4 py-2 rounded-lg border border-border text-sm font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={async () => {
+                    const id = String(deleting.id ?? '');
+                    if (!id) return;
+                    try {
+                      await deleteVehicle(id);
+                      setDeleting(null);
+                      await loadVehicles();
+                    } catch (e) {
+                      alert(`Error al eliminar: ${(e as Error).message}`);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg text-white text-sm font-semibold"
+                  style={{ background: FROGIO_COLORS.emergency }}
+                >
+                  Eliminar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AppLayout>
   );
 }
 
-export default function FleetPage() {
+// ---------------------------------------------------------------------------
+// PillTab
+// ---------------------------------------------------------------------------
+
+function PillTab({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
   return (
-    <Suspense fallback={
-      <AppLayout>
-        <div className="flex items-center justify-center min-h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    <button
+      onClick={onClick}
+      className="relative inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all"
+      style={{
+        background: active ? FROGIO_GRADIENTS.primary : 'transparent',
+        color: active ? '#fff' : FROGIO_COLORS.textSecondary,
+        boxShadow: active
+          ? `0 4px 10px ${FROGIO_COLORS.primary}55`
+          : 'none',
+      }}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Vehicles
+// ---------------------------------------------------------------------------
+
+function VehiclesGrid({
+  vehicles,
+  loading,
+  onEdit,
+  onDelete,
+}: {
+  vehicles: AdminRecord[];
+  loading: boolean;
+  onEdit: (v: AdminRecord) => void;
+  onDelete: (v: AdminRecord) => void;
+}) {
+  if (loading && vehicles.length === 0) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-36 rounded-2xl bg-gradient-to-br from-muted to-muted/40 animate-pulse"
+          />
+        ))}
+      </div>
+    );
+  }
+  if (vehicles.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-border p-10 text-center">
+        <Car className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+        <h3 className="text-lg font-semibold text-foreground">Sin vehículos</h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Aún no se han registrado vehículos.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {vehicles.map((v, i) => (
+        <VehicleCard
+          key={String(v.id ?? i)}
+          v={v}
+          onEdit={() => onEdit(v)}
+          onDelete={() => onDelete(v)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function VehicleCard({
+  v,
+  onEdit,
+  onDelete,
+}: {
+  v: AdminRecord;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const status = deriveVehicleStatus(v);
+  const color = STATUS_COLOR[status];
+  const plate = String(v.plate ?? '').toUpperCase();
+  const brand = String(v.brand ?? '');
+  const model = String(v.model ?? '');
+  const year = v.year ?? '';
+  const km = pick<number | string>(v, 'currentKm', 'current_km');
+  const driver = String(pick(v, 'active_driver_name', 'driverName') ?? '');
+  const isActive = v.active_log_id != null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="relative bg-white rounded-2xl border overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+      style={{
+        borderColor: isActive
+          ? `${FROGIO_COLORS.primary}55`
+          : FROGIO_COLORS.border,
+        boxShadow: isActive
+          ? `0 8px 18px ${FROGIO_COLORS.primary}25`
+          : undefined,
+      }}
+      onClick={onEdit}
+    >
+      <div
+        className="absolute left-0 top-0 bottom-0 w-1"
+        style={{ background: color }}
+      />
+      <div className="p-4 pl-5">
+        <div className="flex items-start gap-3">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center"
+            style={{
+              background: `${color}1F`,
+              border: `1px solid ${color}33`,
+            }}
+          >
+            <Car className="h-6 w-6" style={{ color }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-extrabold text-foreground truncate tracking-wider">
+                {plate || '(Sin patente)'}
+              </h3>
+              <span
+                className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold"
+                style={{
+                  background: `${color}1F`,
+                  color,
+                  border: `1px solid ${color}55`,
+                }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: color }}
+                />
+                {STATUS_LABEL[status]}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1 truncate">
+              {[brand, model, year].filter(Boolean).join(' ')}
+            </p>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {km != null && km !== '' && (
+                <Chip icon={<Gauge className="h-3 w-3" />} text={`${km} km`} />
+              )}
+              {driver && (
+                <Chip
+                  icon={<UserIcon className="h-3 w-3" />}
+                  text={driver}
+                  color={FROGIO_COLORS.primary}
+                />
+              )}
+              {isActive && (
+                <Chip
+                  icon={<PlayCircle className="h-3 w-3" />}
+                  text="En ruta"
+                  color={FROGIO_COLORS.success}
+                />
+              )}
+            </div>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="text-muted-foreground hover:text-red-600 p-1"
+            title="Eliminar"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
-      </AppLayout>
-    }>
-      <FleetPageContent />
-    </Suspense>
+        <div className="flex justify-end mt-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Editar
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function Chip({
+  icon,
+  text,
+  color,
+}: {
+  icon: React.ReactNode;
+  text: string;
+  color?: string;
+}) {
+  const c = color ?? FROGIO_COLORS.textSecondary;
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md"
+      style={{ background: `${c}14`, color: c, border: `1px solid ${c}25` }}
+    >
+      {icon}
+      {text}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Vehicle form modal (create or edit)
+// ---------------------------------------------------------------------------
+
+function VehicleFormModal({
+  initial,
+  onClose,
+  onSaved,
+}: {
+  initial: AdminRecord | null;
+  onClose: () => void;
+  onSaved: () => void | Promise<void>;
+}) {
+  const isEdit = initial != null;
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        initial={{ scale: 0.92, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.92, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h2 className="text-lg font-bold text-foreground">
+            {isEdit
+              ? `Editar vehículo: ${String(initial?.plate ?? '').toUpperCase()}`
+              : 'Nuevo vehículo'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <form
+          className="p-5 space-y-4"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setSaving(true);
+            setError(null);
+            const fd = new FormData(e.currentTarget);
+            const yearRaw = (fd.get('year') as string) || '';
+            const body = {
+              plate: ((fd.get('plate') as string) || '').toUpperCase(),
+              brand: (fd.get('brand') as string) || '',
+              model: (fd.get('model') as string) || '',
+              year: yearRaw ? parseInt(yearRaw, 10) : null,
+              type: (fd.get('type') as string) || null,
+              color: (fd.get('color') as string) || null,
+              status: (fd.get('status') as string) || null,
+              is_active: fd.get('status') !== 'out_of_service',
+            };
+            try {
+              if (isEdit && initial?.id) {
+                await updateVehicle(String(initial.id), body);
+              } else {
+                await createVehicle(body);
+              }
+              await onSaved();
+            } catch (err) {
+              setError((err as Error).message);
+            } finally {
+              setSaving(false);
+            }
+          }}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field
+              label="Patente"
+              name="plate"
+              defaultValue={String(initial?.plate ?? '')}
+              required
+            />
+            <Field
+              label="Marca"
+              name="brand"
+              defaultValue={String(initial?.brand ?? '')}
+            />
+            <Field
+              label="Modelo"
+              name="model"
+              defaultValue={String(initial?.model ?? '')}
+            />
+            <Field
+              label="Año"
+              name="year"
+              type="number"
+              defaultValue={String(initial?.year ?? '')}
+            />
+            <SelectField
+              label="Tipo"
+              name="type"
+              defaultValue={String(initial?.type ?? '')}
+              options={[
+                { value: '', label: 'Seleccionar...' },
+                { value: 'auto', label: 'Auto' },
+                { value: 'camioneta', label: 'Camioneta' },
+                { value: 'camion', label: 'Camión' },
+                { value: 'moto', label: 'Moto' },
+                { value: 'bus', label: 'Bus' },
+                { value: 'otro', label: 'Otro' },
+              ]}
+            />
+            <Field
+              label="Color"
+              name="color"
+              defaultValue={String(initial?.color ?? '')}
+            />
+            <SelectField
+              label="Estado"
+              name="status"
+              defaultValue={
+                initial ? deriveVehicleStatus(initial) : 'available'
+              }
+              options={[
+                { value: 'available', label: 'Disponible' },
+                { value: 'in_use', label: 'En ruta' },
+                { value: 'out_of_service', label: 'Fuera de servicio' },
+              ]}
+            />
+          </div>
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+              {error}
+            </p>
+          )}
+          <div className="flex gap-3 justify-end pt-2 border-t border-border">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg border border-border text-sm font-semibold"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-5 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-60"
+              style={{ background: FROGIO_COLORS.primary }}
+            >
+              {saving ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function Field({
+  label,
+  name,
+  type = 'text',
+  defaultValue,
+  required = false,
+}: {
+  label: string;
+  name: string;
+  type?: string;
+  defaultValue?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold text-muted-foreground">
+        {label}
+      </span>
+      <input
+        name={name}
+        type={type}
+        defaultValue={defaultValue}
+        required={required}
+        className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none"
+      />
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  name,
+  defaultValue,
+  options,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold text-muted-foreground">
+        {label}
+      </span>
+      <select
+        name={name}
+        defaultValue={defaultValue}
+        className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none bg-white"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Logs
+// ---------------------------------------------------------------------------
+
+function LogsList({
+  logs,
+  loading,
+  filter,
+  onFilterChange,
+  counts,
+}: {
+  logs: AdminRecord[];
+  loading: boolean;
+  filter: 'all' | 'active' | 'completed';
+  onFilterChange: (f: 'all' | 'active' | 'completed') => void;
+  counts: { all: number; active: number; completed: number };
+}) {
+  return (
+    <div className="space-y-4">
+      {/* Filter pills */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <FilterPill
+          icon={<Filter className="h-3.5 w-3.5" />}
+          label="Todos"
+          active={filter === 'all'}
+          color={FROGIO_COLORS.textSecondary}
+          count={counts.all}
+          onClick={() => onFilterChange('all')}
+        />
+        <FilterPill
+          icon={<Play className="h-3.5 w-3.5" />}
+          label="Activos"
+          active={filter === 'active'}
+          color={FROGIO_COLORS.success}
+          count={counts.active}
+          onClick={() => onFilterChange('active')}
+        />
+        <FilterPill
+          icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+          label="Completados"
+          active={filter === 'completed'}
+          color={FROGIO_COLORS.info}
+          count={counts.completed}
+          onClick={() => onFilterChange('completed')}
+        />
+      </div>
+
+      {/* List */}
+      {loading && logs.length === 0 ? (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-24 rounded-2xl bg-gradient-to-br from-muted to-muted/40 animate-pulse"
+            />
+          ))}
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-border p-10 text-center">
+          <Route className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+          <h3 className="text-lg font-semibold text-foreground">Sin bitácoras</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            No hay registros con este filtro.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {logs.map((l, i) => (
+            <LogCard key={String(l.id ?? i)} log={l} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilterPill({
+  icon,
+  label,
+  active,
+  color,
+  count,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  color: string;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all whitespace-nowrap"
+      style={{
+        background: active ? `${color}1F` : '#fff',
+        borderColor: active ? `${color}66` : FROGIO_COLORS.border,
+        borderWidth: active ? 1.5 : 1,
+        color: active ? color : FROGIO_COLORS.textSecondary,
+      }}
+    >
+      {icon}
+      <span className="text-xs font-bold">{label}</span>
+      <span
+        className="text-[10px] font-extrabold px-1.5 rounded-full text-white"
+        style={{ background: active ? color : '#9CA3AF', minWidth: 18 }}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function LogCard({ log }: { log: AdminRecord }) {
+  const plate = String(
+    pick(log, 'plate', 'vehicle_plate', 'vehiclePlate') ?? ''
+  ).toUpperCase();
+  const driver = String(pick(log, 'driver_name', 'driverName') ?? '');
+  const start = pick<string>(log, 'start_time', 'startTime');
+  const end = pick<string>(log, 'end_time', 'endTime');
+  const startKm = pick<number>(log, 'start_km', 'startKm');
+  const endKm = pick<number>(log, 'end_km', 'endKm');
+  const distance = pick<number>(log, 'total_distance_km', 'totalDistanceKm');
+  const status = String(log.status ?? '').toLowerCase();
+  const isActive = status === 'active' || end == null;
+  const id = String(log.id ?? '');
+
+  return (
+    <Link
+      href={`/fleet/playback/${id}`}
+      className="block bg-white rounded-2xl border border-border p-4 hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className="inline-flex items-center px-2 py-1 rounded-md font-extrabold text-xs tracking-wider"
+          style={{
+            background: `${FROGIO_COLORS.primary}1F`,
+            color: FROGIO_COLORS.primaryDark,
+          }}
+        >
+          {plate || 'SIN PLACA'}
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-sm font-semibold text-foreground truncate">
+              {driver || '—'}
+            </span>
+            <span
+              className="ml-auto text-[10px] px-2 py-0.5 rounded-full font-bold"
+              style={{
+                background: isActive
+                  ? `${FROGIO_COLORS.success}1F`
+                  : `${FROGIO_COLORS.info}1F`,
+                color: isActive ? FROGIO_COLORS.success : FROGIO_COLORS.info,
+              }}
+            >
+              {isActive ? 'ACTIVO' : 'COMPLETADO'}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
+            <div className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {fmtTime(start)} → {fmtTime(end)}
+            </div>
+            <div className="inline-flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {distance != null ? `${Number(distance).toFixed(1)} km` : '—'}
+            </div>
+            <div>
+              <span className="font-semibold text-foreground">
+                {startKm ?? '—'}
+              </span>
+              <span className="mx-1">→</span>
+              <span className="font-semibold text-foreground">
+                {endKm ?? '—'}
+              </span>{' '}
+              km
+            </div>
+          </div>
+        </div>
+      </div>
+    </Link>
   );
 }

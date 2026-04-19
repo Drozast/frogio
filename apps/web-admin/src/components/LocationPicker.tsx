@@ -60,7 +60,7 @@ export default function LocationPicker({
         zoom: latitude && longitude ? 16 : DEFAULT_ZOOM,
       });
 
-      L.tileLayer('https://maps.drozast.xyz/styles/osm-bright/{z}/{x}/{y}.png', {
+      L.tileLayer('https://maps.supertools.cl/styles/osm-bright/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Tiles: FROGIO',
       }).addTo(map);
 
@@ -108,6 +108,7 @@ export default function LocationPicker({
         markerRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Update marker when props change
@@ -136,6 +137,7 @@ export default function LocationPicker({
     };
 
     updateMarker();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latitude, longitude, isMapReady]);
 
   const reverseGeocode = async (lat: number, lng: number) => {

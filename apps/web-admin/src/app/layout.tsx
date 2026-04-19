@@ -4,6 +4,10 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'FROGIO Admin - Gestión Municipal',
   description: 'Sistema de Gestión de Seguridad Pública Municipal',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
 }
 
 export default function RootLayout({

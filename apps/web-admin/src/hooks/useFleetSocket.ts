@@ -58,7 +58,7 @@ function getSocketUrl(): string {
   }
 
   // Production: derive API URL from current domain
-  // e.g., admin-frogio.drozast.xyz -> api-frogio.drozast.xyz
+  // e.g., admin-frogio.supertools.cl -> api-frogio.supertools.cl
   const apiHost = host.replace('admin-', 'api-');
   return `https://${apiHost}`;
 }

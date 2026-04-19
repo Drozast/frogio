@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 import AppLayout from '@/components/layout/AppLayout';
 import CitationVersionHistory from './CitationVersionHistory';
@@ -73,6 +74,7 @@ export default function CitationDetailPage() {
 
   useEffect(() => {
     fetchCitation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function fetchCitation() {
@@ -300,10 +302,13 @@ export default function CitationDetailPage() {
                       rel="noopener noreferrer"
                       className="block"
                     >
-                      <img
+                      <Image
                         src={photo}
                         alt={`Evidencia ${index + 1}`}
                         className="w-full h-32 object-cover rounded-lg hover:opacity-90 transition-opacity"
+                        width={300}
+                        height={128}
+                        unoptimized
                       />
                     </a>
                   ))}

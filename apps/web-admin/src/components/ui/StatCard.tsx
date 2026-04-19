@@ -1,4 +1,8 @@
+'use client';
+
 import Link from 'next/link';
+import { motion } from 'framer-motion';
+import AnimatedCounter from './AnimatedCounter';
 
 interface StatCardProps {
   title: string;
@@ -12,6 +16,24 @@ interface StatCardProps {
   href?: string;
   subtitle?: string;
 }
+
+const accentColors: Record<string, string> = {
+  primary: 'hsl(126 57% 23%)',
+  success: 'hsl(122 39% 41%)',
+  warning: 'hsl(27 98% 47%)',
+  destructive: 'hsl(0 72% 51%)',
+  info: 'hsl(211 69% 43%)',
+  muted: 'hsl(0 0% 70%)',
+};
+
+const glowColors: Record<string, string> = {
+  primary: 'rgba(27, 94, 32, 0.12)',
+  success: 'rgba(34, 139, 34, 0.12)',
+  warning: 'rgba(245, 158, 11, 0.12)',
+  destructive: 'rgba(239, 68, 68, 0.12)',
+  info: 'rgba(59, 130, 246, 0.12)',
+  muted: 'rgba(0, 0, 0, 0.06)',
+};
 
 export default function StatCard({ title, value, icon, trend, color = 'primary', href, subtitle }: StatCardProps) {
   const iconColors = {
@@ -31,14 +53,21 @@ export default function StatCard({ title, value, icon, trend, color = 'primary',
             {title}
           </p>
           <div className="mt-2 flex items-baseline gap-2">
-            <p className="text-3xl font-bold text-foreground tracking-tight">
-              {value}
+            <p className="text-3xl font-bold text-foreground tracking-tight stat-glow">
+              {typeof value === 'number' ? (
+                <AnimatedCounter value={value} />
+              ) : (
+                value
+              )}
             </p>
             {trend && (
-              <span
+              <motion.span
                 className={`inline-flex items-center text-sm font-medium ${
                   trend.isPositive ? 'text-success-600' : 'text-red-600'
                 }`}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
               >
                 <svg
                   className={`w-4 h-4 mr-0.5 ${trend.isPositive ? '' : 'rotate-180'}`}
@@ -49,48 +78,63 @@ export default function StatCard({ title, value, icon, trend, color = 'primary',
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                 </svg>
                 {Math.abs(trend.value)}%
-              </span>
+              </motion.span>
             )}
           </div>
           {subtitle && (
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1.5 text-xs text-muted-foreground">
               {subtitle}
             </p>
           )}
         </div>
         {icon && (
-          <div className={`flex-shrink-0 p-3 rounded-xl ${iconColors[color]}`}>
+          <motion.div
+            className={`flex-shrink-0 p-3 rounded-xl ${iconColors[color]} transition-all`}
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+          >
             {icon}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>
   );
 
-  const cardClasses = `
-    bg-card rounded-xl border border-border/50
-    shadow-card transition-all duration-200
-    ${href ? 'hover:shadow-card-hover hover:-translate-y-0.5 cursor-pointer' : 'hover:shadow-md'}
-  `;
+  const cardContent = (
+    <motion.div
+      className={`
+        group bg-card rounded-xl border border-border/50 overflow-hidden
+        shadow-card transition-all duration-400
+        ${href ? 'cursor-pointer' : ''}
+      `}
+      whileHover={{
+        y: -3,
+        boxShadow: `0 0 24px ${glowColors[color]}, 0 12px 40px rgba(0,0,0,0.08)`,
+      }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {/* Top accent line with gradient */}
+      <div
+        className="h-[3px] w-full"
+        style={{
+          background: `linear-gradient(90deg, ${accentColors[color]}, ${accentColors[color]}88, ${accentColors[color]})`,
+        }}
+      />
+      {content}
+    </motion.div>
+  );
 
   if (href) {
     return (
       <Link href={href} className="block">
-        <div className={cardClasses}>
-          {content}
-        </div>
+        {cardContent}
       </Link>
     );
   }
 
-  return (
-    <div className={cardClasses}>
-      {content}
-    </div>
-  );
+  return cardContent;
 }
 
-// Compact variant for smaller stat displays
 export function StatCardCompact({
   label,
   value,
@@ -114,7 +158,7 @@ export function StatCardCompact({
         <span className={`w-2 h-2 rounded-full ${dotColors[color]}`}></span>
         <span className="text-sm text-muted-foreground">{label}</span>
       </div>
-      <span className="text-sm font-semibold text-foreground">{value}</span>
+      <span className="text-sm font-semibold text-foreground tabular-nums">{value}</span>
     </div>
   );
 }
