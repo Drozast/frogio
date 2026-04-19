@@ -68,13 +68,24 @@ export default function ReportsClient({ initialReports, initialInspectors }: Rep
         }),
       ]);
 
+      const unwrap = (x: unknown): unknown[] => {
+        if (Array.isArray(x)) return x;
+        if (x && typeof x === 'object') {
+          const o = x as Record<string, unknown>;
+          if (Array.isArray(o.data)) return o.data;
+          if (Array.isArray(o.items)) return o.items;
+          if (Array.isArray(o.reports)) return o.reports;
+          if (Array.isArray(o.users)) return o.users;
+        }
+        return [];
+      };
       if (reportsRes.ok) {
-        const newReports = await reportsRes.json();
-        setReports(newReports);
+        const newReports = unwrap(await reportsRes.json());
+        setReports(newReports as Report[]);
       }
       if (inspectorsRes.ok) {
-        const newInspectors = await inspectorsRes.json();
-        setInspectors(newInspectors);
+        const newInspectors = unwrap(await inspectorsRes.json());
+        setInspectors(newInspectors as Inspector[]);
       }
       setLastUpdate(new Date());
     } catch (error) {

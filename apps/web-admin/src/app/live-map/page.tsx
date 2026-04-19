@@ -184,18 +184,26 @@ export default function LiveMapPage() {
         (r) => String(r.status ?? '').toLowerCase() === 'pendiente'
       )
       .filter((r) => hasLatLng(r))
-      .map((r) => ({
-        id: pick<string>(r, 'id'),
-        title: pick<string>(r, 'title'),
-        category: pick<string>(r, 'category'),
-        report_type: pick<string>(r, 'report_type'),
-        status: pick<string>(r, 'status'),
-        address: pick<string>(r, 'address'),
-        citizen_name: pick<string>(r, 'citizen_name', 'citizenName'),
-        latitude: toNumOrNull(r.latitude)!,
-        longitude: toNumOrNull(r.longitude)!,
-        created_at: pick<string>(r, 'created_at'),
-      }));
+      .map((r) => {
+        const first = pick<string>(r, 'first_name', 'firstName');
+        const last = pick<string>(r, 'last_name', 'lastName');
+        const fullName = [first, last].filter(Boolean).join(' ').trim();
+        return {
+          id: pick<string>(r, 'id'),
+          title: pick<string>(r, 'title'),
+          // Backend stores the category in the `type` column.
+          category: pick<string>(r, 'category', 'type'),
+          report_type: pick<string>(r, 'report_type', 'type'),
+          status: pick<string>(r, 'status'),
+          address: pick<string>(r, 'address'),
+          citizen_name:
+              pick<string>(r, 'citizen_name', 'citizenName') ||
+              (fullName ? fullName : undefined),
+          latitude: toNumOrNull(r.latitude)!,
+          longitude: toNumOrNull(r.longitude)!,
+          created_at: pick<string>(r, 'created_at'),
+        };
+      });
   }, []);
 
   const loadAll = useCallback(async () => {
