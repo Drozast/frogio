@@ -47,6 +47,7 @@ import { FROGIO_COLORS, getStatusColor } from '@/lib/theme';
 // ---------------------------------------------------------------------------
 
 type TabKey =
+  | 'all'
   | 'citations'
   | 'reports'
   | 'sos'
@@ -66,6 +67,15 @@ interface TabSpec {
 }
 
 const TABS: TabSpec[] = [
+  {
+    key: 'all',
+    label: 'Todos',
+    icon: Inbox,
+    filenamePrefix: 'actividad_completa',
+    pdfTitle: 'Reporte Consolidado',
+    statusOptions: [],
+    headers: ['Tipo', 'Título', 'Detalle', 'Estado', 'Fecha'],
+  },
   {
     key: 'citations',
     label: 'Citaciones',
@@ -212,8 +222,69 @@ function matchesSearch(record: AdminRecord, query: string): boolean {
 // Per-tab row mapping
 // ---------------------------------------------------------------------------
 
+// Map each record in the "Todos" view into a unified row.
+// Records are tagged with __type during aggregation.
+function mapUnifiedRow(item: AdminRecord): string[] {
+  const t = String(item.__type ?? '');
+  const dateField = pick(item, 'startTime', 'start_time', 'createdAt', 'created_at', 'triggeredAt');
+  switch (t) {
+    case 'citation':
+      return [
+        'Citación',
+        s(pick(item, 'number', 'citationNumber', 'citation_number')),
+        `${s(pick(item, 'targetName', 'target_name'))} · ${s(pick(item, 'citationType', 'type'))}`.trim(),
+        s(pick(item, 'status')),
+        formatDateTime(dateField),
+      ];
+    case 'report':
+      return [
+        'Denuncia',
+        s(pick(item, 'title')),
+        s(pick(item, 'category', 'type')),
+        s(pick(item, 'status')),
+        formatDateTime(dateField),
+      ];
+    case 'sos':
+      return [
+        'SOS',
+        s(pick(item, 'userName', 'user_name', 'name')),
+        s(pick(item, 'address')),
+        s(pick(item, 'status')),
+        formatDateTime(dateField),
+      ];
+    case 'vehicle':
+      return [
+        'Vehículo',
+        s(pick(item, 'plate')),
+        `${s(pick(item, 'brand'))} ${s(pick(item, 'model'))}`.trim(),
+        s(pick(item, 'status')) || (pick<boolean>(item, 'is_active', 'isActive') ? 'Activo' : 'Inactivo'),
+        formatDateTime(dateField),
+      ];
+    case 'log':
+      return [
+        'Bitácora',
+        s(pick(item, 'plate', 'vehiclePlate', 'vehicle_plate')),
+        s(pick(item, 'driverName', 'driver_name')),
+        s(pick(item, 'status')),
+        formatDateTime(dateField),
+      ];
+    case 'user':
+      return [
+        'Usuario',
+        `${s(pick(item, 'firstName', 'first_name'))} ${s(pick(item, 'lastName', 'last_name'))}`.trim(),
+        s(pick(item, 'email')),
+        s(pick(item, 'role')),
+        formatDateTime(dateField),
+      ];
+    default:
+      return [t, '', '', '', formatDateTime(dateField)];
+  }
+}
+
 function mapRow(tab: TabKey, item: AdminRecord): string[] {
   switch (tab) {
+    case 'all':
+      return mapUnifiedRow(item);
     case 'citations':
       return [
         s(pick(item, 'number', 'citationNumber', 'citation_number')),
@@ -376,6 +447,47 @@ export default function DataExplorerClient({
     try {
       let data: AdminRecord[] = [];
       switch (activeTabKey) {
+        case 'all': {
+          // Fetch everything in parallel, tag with __type, merge, sort desc by date.
+          const [cits, reps, sos, vehs, logs, usrs] = await Promise.all([
+            getCitations({ from: fromDate, to: toDate }).catch(() => []),
+            getReports({ from: fromDate, to: toDate }).catch(() => []),
+            getPanicAlerts().catch(() => []),
+            getVehicles().catch(() => []),
+            getVehicleLogs().catch(() => []),
+            getUsers().catch(() => []),
+          ]);
+          const tag = (arr: AdminRecord[], type: string) =>
+            arr.map((r) => ({ ...r, __type: type } as AdminRecord));
+          const merged: AdminRecord[] = [
+            ...tag(cits, 'citation'),
+            ...tag(
+              reps.filter((r) => isWithinRange(getRecordDate('reports', r), fromDate, toDate)),
+              'report'
+            ),
+            ...tag(
+              sos.filter((r) => isWithinRange(getRecordDate('sos', r), fromDate, toDate)),
+              'sos'
+            ),
+            ...tag(vehs, 'vehicle'),
+            ...tag(
+              logs.filter((r) => isWithinRange(getRecordDate('logs', r), fromDate, toDate)),
+              'log'
+            ),
+            ...tag(usrs, 'user'),
+          ];
+          merged.sort((a, b) => {
+            const da = new Date(String(
+              pick(a, 'startTime', 'start_time', 'createdAt', 'created_at') ?? 0
+            )).getTime();
+            const db = new Date(String(
+              pick(b, 'startTime', 'start_time', 'createdAt', 'created_at') ?? 0
+            )).getTime();
+            return db - da;
+          });
+          data = merged;
+          break;
+        }
         case 'citations':
           data = await getCitations({
             from: fromDate,
