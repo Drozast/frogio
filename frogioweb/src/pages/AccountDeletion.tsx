@@ -3,7 +3,7 @@ import { ArrowLeft, Mail, Clock, Trash2, Shield, AlertCircle } from "lucide-reac
 import { Link } from "react-router-dom";
 
 const AccountDeletion = () => {
-  const supportEmail = "soporte@frogio.cl";
+  const supportEmail = "rddigitalspa@gmail.com";
 
   useEffect(() => {
     document.title = "Eliminación de Cuenta - Frogio";

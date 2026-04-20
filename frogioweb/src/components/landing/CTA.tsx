@@ -88,7 +88,7 @@ const CTA = () => {
           <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
             {/* Email card */}
             <a
-              href="mailto:contacto@frogio.cl"
+              href="mailto:rddigitalspa@gmail.com"
               className="group flex items-center gap-4 p-6 bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl hover:bg-white/10 hover:border-white/20 transition-all duration-300 hover:-translate-y-1"
             >
               <div className="w-14 h-14 bg-gradient-to-br from-primary to-emerald-light rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
@@ -97,7 +97,7 @@ const CTA = () => {
               <div>
                 <p className="text-sm text-white/60 mb-1">Escríbenos</p>
                 <p className="text-lg font-semibold text-white group-hover:text-primary transition-colors">
-                  contacto@frogio.cl
+                  rddigitalspa@gmail.com
                 </p>
               </div>
             </a>

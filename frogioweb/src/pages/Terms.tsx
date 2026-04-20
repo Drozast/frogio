@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 const Terms = () => {
   const lastUpdated = "19 de abril de 2026";
-  const supportEmail = "soporte@frogio.cl";
+  const supportEmail = "rddigitalspa@gmail.com";
 
   useEffect(() => {
     document.title = "Términos y Condiciones - Frogio";

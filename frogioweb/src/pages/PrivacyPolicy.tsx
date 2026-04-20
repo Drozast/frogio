@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 const PrivacyPolicy = () => {
   const lastUpdated = "19 de abril de 2026";
-  const developerEmail = "privacidad@frogio.cl";
+  const developerEmail = "rddigitalspa@gmail.com";
 
   return (
     <div className="min-h-screen bg-background">
