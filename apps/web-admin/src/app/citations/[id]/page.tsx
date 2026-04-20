@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import AppLayout from '@/components/layout/AppLayout';
 import CitationVersionHistory from './CitationVersionHistory';
+import InlineLocationMap from '@/components/map/InlineLocationMap';
 import {
   ArrowLeftIcon,
   UserIcon,
@@ -271,17 +272,15 @@ export default function CitationDetailPage() {
                   <p className="text-gray-700">{citation.location_address}</p>
                 )}
                 {citation.latitude && citation.longitude && (
-                  <div className="mt-3">
-                    <a
-                      href={`https://www.google.com/maps?q=${citation.latitude},${citation.longitude}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800"
-                    >
-                      <MapPinIcon className="h-4 w-4" />
-                      Ver en Google Maps
-                    </a>
-                    <p className="text-xs text-gray-400 mt-1">
+                  <div className="mt-3 space-y-2">
+                    <InlineLocationMap
+                      lat={Number(citation.latitude)}
+                      lng={Number(citation.longitude)}
+                      address={citation.location_address ?? undefined}
+                      label={citation.citation_number ?? 'Ubicación'}
+                      height={260}
+                    />
+                    <p className="text-xs text-gray-400">
                       Coordenadas: {Number(citation.latitude).toFixed(6)}, {Number(citation.longitude).toFixed(6)}
                     </p>
                   </div>
