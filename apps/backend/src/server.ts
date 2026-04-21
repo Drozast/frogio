@@ -25,6 +25,7 @@ import exportsRoutes from './modules/exports/exports.routes.js';
 import gpsTrackingRoutes from './modules/gps-tracking/gps-tracking.routes.js';
 import geofencesRoutes from './modules/geofences/geofences.routes.js';
 import adminImportsRoutes from './modules/admin-imports/admin-imports.routes.js';
+import { staleAlertsService } from './services/stale-alerts.service.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -224,6 +225,10 @@ async function bootstrap() {
         `ALTER TABLE "${schema}".reports ADD CONSTRAINT reports_status_check CHECK (status IN ('pendiente', 'en_proceso', 'resuelto', 'rechazado', 'pending', 'in_progress', 'resolved', 'rejected'))`,
         `ALTER TABLE "${schema}".reports DROP CONSTRAINT IF EXISTS reports_priority_check`,
         `ALTER TABLE "${schema}".reports ADD CONSTRAINT reports_priority_check CHECK (priority IN ('baja', 'media', 'alta', 'urgente', 'low', 'medium', 'high', 'urgent'))`,
+        // Tracking columns for automatic stale alerts (avoid duplicate notifications)
+        `ALTER TABLE "${schema}".reports ADD COLUMN IF NOT EXISTS stale_alert_sent_at TIMESTAMPTZ`,
+        `ALTER TABLE "${schema}".panic_alerts ADD COLUMN IF NOT EXISTS unresponded_alert_sent_at TIMESTAMPTZ`,
+        `ALTER TABLE "${schema}".trip_logs ADD COLUMN IF NOT EXISTS incomplete_alert_sent_at TIMESTAMPTZ`,
       ];
       for (const sql of constraintFixes) {
         try {
@@ -246,6 +251,9 @@ async function bootstrap() {
     // Inicializar MinIO
     await initializeMinio();
 
+    // Iniciar alertas automáticas (denuncias 24h, pánicos 5min, bitácoras incompletas)
+    staleAlertsService.start();
+
     // Iniciar servidor
     httpServer.listen(env.PORT, () => {
       logger.info(`🚀 Server running on port ${env.PORT}`);
@@ -261,6 +269,7 @@ async function bootstrap() {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully...');
+  staleAlertsService.stop();
   httpServer.close(async () => {
     await prisma.$disconnect();
     if (redis) {

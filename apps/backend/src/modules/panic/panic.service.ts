@@ -161,7 +161,7 @@ export class PanicService {
   async findById(id: string, tenantId: string) {
     const [alert] = await prisma.$queryRawUnsafe<any[]>(
       `SELECT pa.*,
-       u.first_name, u.last_name, u.phone, u.email, u.address as user_address,
+       u.first_name, u.last_name, u.phone, u.email, u.rut, u.avatar, u.address as user_address,
        r.first_name as responder_first_name, r.last_name as responder_last_name
        FROM "${tenantId}".panic_alerts pa
        LEFT JOIN "${tenantId}".users u ON pa.user_id = u.id
@@ -172,6 +172,23 @@ export class PanicService {
 
     if (!alert) {
       throw new Error('Alerta no encontrada');
+    }
+
+    // Get medical record for the user in emergency (most recent one)
+    try {
+      const [medical] = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT mr.id, mr.address as medical_address, mr.family_members, mr.chronic_conditions,
+         mr.allergies, mr.medications, mr.emergency_contact_name, mr.emergency_contact_phone, mr.notes as medical_notes
+         FROM "${tenantId}".medical_records mr
+         WHERE mr.household_head_id = $1::uuid
+         ORDER BY mr.created_at DESC
+         LIMIT 1`,
+        alert.user_id
+      );
+      alert.medical_record = medical || null;
+    } catch (e) {
+      logger.warn(`Could not fetch medical record for panic alert ${id}: ${e}`);
+      alert.medical_record = null;
     }
 
     // Get all responders
