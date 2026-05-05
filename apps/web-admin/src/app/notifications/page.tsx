@@ -12,7 +12,8 @@ async function getNotifications(token: string) {
     });
 
     if (!response.ok) return [];
-    return await response.json();
+    const result = await response.json();
+    return result.data || [];
   } catch (error) {
     console.error('Error fetching notifications:', error);
     return [];
