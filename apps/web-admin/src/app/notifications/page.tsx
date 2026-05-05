@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import AppLayout from '@/components/layout/AppLayout';
 
 async function getNotifications(token: string) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -32,18 +33,10 @@ export default async function NotificationsPage() {
   const unreadCount = notifications.filter((n: any) => !n.is_read).length;
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Link href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900">
-            ← Volver al Dashboard
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-900 mt-2">Notificaciones</h1>
-        </div>
-      </header>
+    <AppLayout>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Notificaciones</h1>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-white shadow rounded-lg p-6">
             <div className="text-sm font-medium text-gray-500">Total Notificaciones</div>
@@ -55,7 +48,6 @@ export default async function NotificationsPage() {
           </div>
         </div>
 
-        {/* Notifications List */}
         <div className="bg-white shadow rounded-lg overflow-hidden">
           {notifications.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
@@ -99,8 +91,8 @@ export default async function NotificationsPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
 
