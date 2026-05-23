@@ -1,5 +1,6 @@
 // lib/core/services/maps_service.dart
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -20,6 +21,14 @@ class MapsService {
 
   /// Alternative: OpenStreetMap fallback URL
   static const String osmFallbackUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  /// Tile provider with Basic Auth + caching headers
+  static NetworkTileProvider get tileProvider => NetworkTileProvider(
+    headers: {
+      'Authorization': 'Basic ${base64Encode(utf8.encode('drozast:Enanitos123\$'))}',
+      'Cache-Control': 'max-age=86400', // Cache tiles 24h
+    },
+  );
 
   MapController? _controller;
   Position? _currentPosition;

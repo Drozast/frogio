@@ -1,15 +1,26 @@
 // lib/features/citizen/presentation/pages/enhanced_report_detail_screen.dart
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:frogio_santa_juana/core/services/maps_service.dart';
+import 'package:frogio_mobile/core/services/maps_service.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../domain/entities/enhanced_report_entity.dart';
 import '../bloc/report/enhanced_report_bloc.dart';
 import '../bloc/report/enhanced_report_event.dart';
@@ -31,18 +42,19 @@ class EnhancedReportDetailScreen extends StatefulWidget {
   State<EnhancedReportDetailScreen> createState() => _EnhancedReportDetailScreenState();
 }
 
-class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
-    with SingleTickerProviderStateMixin {
+class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen> {
   late ReportBloc _reportBloc;
-  late TabController _tabController;
   final MapController _mapController = MapController();
+  LatLng? _myLocation;
+  List<LatLng> _routePoints = [];
+  Timer? _locationTimer;
+  bool _loadingRoute = false;
 
-  /// Capitaliza la primera letra de cada palabra
   String _capitalize(String text) {
     if (text.isEmpty) return text;
-    return text.split(' ').map((word) {
-      if (word.isEmpty) return word;
-      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    return text.split(' ').map((w) {
+      if (w.isEmpty) return w;
+      return w[0].toUpperCase() + w.substring(1).toLowerCase();
     }).join(' ');
   }
 
@@ -50,17 +62,37 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
   void initState() {
     super.initState();
     _reportBloc = di.sl<ReportBloc>();
-    _tabController = TabController(length: 3, vsync: this);
-    _loadReportDetails();
+    _loadReport();
+    _startLocationTracking();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _locationTimer?.cancel();
     super.dispose();
   }
 
-  void _loadReportDetails() {
+  Future<void> _startLocationTracking() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
+
+      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      if (mounted) setState(() => _myLocation = LatLng(pos.latitude, pos.longitude));
+
+      _locationTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+        try {
+          final p = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+          if (mounted) setState(() => _myLocation = LatLng(p.latitude, p.longitude));
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
+  void _loadReport() {
     _reportBloc.add(GetReportByIdEvent(reportId: widget.reportId));
   }
 
@@ -68,667 +100,707 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _reportBloc,
-      child: BlocListener<ReportBloc, ReportState>(
-        listener: (context, state) {
-          if (state is ReportError) {
-            _showErrorSnackBar(state.message);
-          }
-        },
-        child: Scaffold(
-          backgroundColor: const Color(0xFFF8FAF8),
-          appBar: _buildAppBar(),
-          body: BlocBuilder<ReportBloc, ReportState>(
-            builder: (context, state) {
-              if (state is ReportLoading) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (state is ReportLoaded) {
-                return _buildReportDetail(state.report);
-              } else if (state is ReportError) {
-                return _buildErrorState(state.message);
-              } else {
-                return const Center(child: CircularProgressIndicator());
-              }
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: AppTheme.surfaceWhite,
-      foregroundColor: AppTheme.textPrimary,
-      elevation: 0,
-      title: const Text('Detalle de Denuncia'),
-
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh, color: AppTheme.primary),
-          onPressed: _loadReportDetails,
-        ),
-        BlocBuilder<ReportBloc, ReportState>(
+      child: Scaffold(
+        backgroundColor: AppTheme.surface,
+        body: BlocBuilder<ReportBloc, ReportState>(
           builder: (context, state) {
-            if (state is ReportLoaded) {
-              return PopupMenuButton<String>(
-                onSelected: (value) => _handleMenuAction(value, state.report),
-                color: AppTheme.surfaceWhite,
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'share',
-                    child: Row(
-                      children: [
-                        Icon(Icons.share, color: AppTheme.primary),
-                        SizedBox(width: 8),
-                        Text('Compartir'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'directions',
-                    child: Row(
-                      children: [
-                        Icon(Icons.directions, color: AppTheme.primary),
-                        SizedBox(width: 8),
-                        Text('Cómo llegar'),
-                      ],
-                    ),
-                  ),
-                ],
-              );
+            if (state is ReportLoading) {
+              return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+            } else if (state is ReportLoaded) {
+              return _buildBody(state.report);
+            } else if (state is ReportError) {
+              return _buildError(state.message);
             }
-            return const SizedBox.shrink();
+            return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
           },
         ),
-      ],
-    );
-  }
-
-  Widget _buildReportDetail(ReportEntity report) {
-    return Column(
-      children: [
-        // Header con información básica
-        _buildReportHeader(report),
-
-        // Tabs
-        Container(
-          color: AppTheme.surfaceWhite,
-          child: TabBar(
-            controller: _tabController,
-            labelColor: AppTheme.primary,
-            unselectedLabelColor: AppTheme.textSecondary,
-            indicatorColor: AppTheme.primary,
-            indicatorWeight: 2,
-            tabs: const [
-              Tab(icon: Icon(Icons.info), text: 'Detalles'),
-              Tab(icon: Icon(Icons.forum), text: 'Respuestas'),
-              Tab(icon: Icon(Icons.track_changes), text: 'Seguimiento'),
-            ],
-          ),
-        ),
-
-        // Tab content
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildDetailsTab(report),
-              _buildResponsesTab(report),
-              _buildHistoryTab(report),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildReportHeader(ReportEntity report) {
-    final statusColor = _getStatusColor(report.status);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceWhite,
-        boxShadow: [BoxShadow(color: statusColor.withValues(alpha: 0.15), blurRadius: 8)],
-        border: Border(
-          bottom: BorderSide(color: statusColor.withValues(alpha: 0.35), width: 1.5),
-        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _capitalize(report.title),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ),
-              _buildStatusBadge(report.status),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _buildCategoryChip(_capitalize(report.category)),
-              const SizedBox(width: 8),
-              if (report.location.address != null)
-                Expanded(
-                  child: Row(
+    );
+  }
+
+  Widget _buildBody(ReportEntity report) {
+    final loc = report.location;
+    final hasCoords = loc.latitude != 0 && loc.longitude != 0;
+    final statusColor = _statusColor(report.status);
+    final reportLocation = LatLng(loc.latitude, loc.longitude);
+
+    return CustomScrollView(
+      slivers: [
+        SliverAppBar(
+          expandedHeight: hasCoords ? 280 : 0,
+          pinned: true,
+          backgroundColor: const Color(0xFF1B5E20),
+          foregroundColor: Colors.white,
+          iconTheme: const IconThemeData(color: Colors.white),
+          actionsIconTheme: const IconThemeData(color: Colors.white),
+          title: const Text('Detalle de Denuncia', style: TextStyle(color: Colors.white)),
+          actions: [
+            IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _loadReport),
+          ],
+          flexibleSpace: hasCoords
+              ? FlexibleSpaceBar(
+                  background: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      const Icon(
-                        Icons.location_on,
-                        size: 16,
-                        color: AppTheme.textSecondary,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          report.location.address!,
-                          style: const TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 12,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(
-                Icons.access_time,
-                size: 16,
-                color: AppTheme.textSecondary,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Creada: ${DateFormat('dd/MM/yyyy HH:mm').format(report.createdAt)}',
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                'ID: ${report.id.length > 8 ? report.id.substring(0, 8) : report.id}',
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailsTab(ReportEntity report) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Descripción
-          _buildSection(
-            'Descripción',
-            Icons.description,
-            Text(
-              report.description,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-
-          // Multimedia
-          if (report.attachments.isNotEmpty)
-            _buildSection(
-              'Evidencia Fotográfica',
-              Icons.photo_library,
-              _buildPhotoGallery(report.attachments),
-            ),
-
-          // Ubicación
-          _buildSection(
-            'Ubicación',
-            Icons.location_on,
-            _buildLocationSection(report),
-          ),
-
-          // Información adicional (sin prioridad)
-          _buildSection(
-            'Información Adicional',
-            Icons.info,
-            Column(
-              children: [
-                _buildInfoRow('Categoría', _capitalize(report.category)),
-                _buildInfoRow('Estado', report.status.displayName),
-                _buildInfoRow(
-                  'Última actualización',
-                  DateFormat('dd/MM/yyyy HH:mm').format(report.updatedAt),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResponsesTab(ReportEntity report) {
-    if (report.responses.isEmpty) {
-      return _buildEmptyResponses();
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: report.responses.length,
-      itemBuilder: (context, index) {
-        final response = report.responses[index];
-        return _buildResponseCard(response);
-      },
-    );
-  }
-
-  /// Verifica si el reporte es una emergencia SOS
-  bool _isEmergencyReport(ReportEntity report) {
-    return report.category.toLowerCase() == 'emergencia';
-  }
-
-  Widget _buildHistoryTab(ReportEntity report) {
-    final isEmergency = _isEmergencyReport(report);
-    final isRejected = report.status == ReportStatus.rejected;
-
-    // Ordenar historial por fecha
-    final historyItems = report.statusHistory.toList()
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Tracker visual de progreso
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceWhite,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: (isEmergency ? AppTheme.emergency : AppTheme.primary).withValues(alpha: 0.2),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      isEmergency ? Icons.sos_rounded : Icons.track_changes,
-                      color: isEmergency ? AppTheme.emergency : AppTheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      isEmergency ? 'Seguimiento de Emergencia' : 'Estado Actual',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                if (isRejected)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.emergency.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.emergency.withValues(alpha: 0.35)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.cancel, color: AppTheme.emergency),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Este reporte ha sido rechazado',
-                            style: TextStyle(color: AppTheme.emergency, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (isEmergency)
-                  _buildEmergencyProgressTracker(report)
-                else
-                  _buildNormalProgressTracker(report),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Timeline de historial
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceWhite,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.primary.withValues(alpha: 0.15)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.history, color: AppTheme.primary),
-                    SizedBox(width: 8),
-                    Text(
-                      'Historial de Cambios',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (historyItems.isEmpty)
-                  const Text(
-                    'Sin historial de cambios',
-                    style: TextStyle(color: AppTheme.textSecondary),
-                  )
-                else
-                  ...historyItems.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final historyItem = entry.value;
-                    final isLastItem = index == historyItems.length - 1;
-                    final color = _getStatusColor(historyItem.status);
-
-                    return IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      FlutterMap(
+                        mapController: _mapController,
+                        options: MapOptions(initialCenter: reportLocation, initialZoom: 15),
                         children: [
-                          // Timeline visual — colored left border indicator
-                          Column(
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  color: isLastItem
-                                      ? color.withValues(alpha: 0.2)
-                                      : const Color(0xFFF0F7F0),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: color, width: 2),
-                                  boxShadow: isLastItem
-                                      ? [BoxShadow(color: color.withValues(alpha: 0.20), blurRadius: 14, spreadRadius: 3)]
-                                      : null,
-                                ),
-                                child: isLastItem
-                                    ? Icon(Icons.check, size: 14, color: color)
-                                    : null,
+                          TileLayer(
+                            urlTemplate: MapsService.tileServerUrl,
+                            tileProvider: MapsService.tileProvider,
+                            userAgentPackageName: 'com.frogio.santajuana',
+                          ),
+                          if (_routePoints.isNotEmpty)
+                            PolylineLayer(polylines: [
+                              Polyline(points: _routePoints, strokeWidth: 4, color: AppTheme.primary),
+                            ]),
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: reportLocation,
+                                width: 40, height: 40,
+                                child: const Icon(Icons.location_pin, color: Colors.red, size: 40),
                               ),
-                              if (!isLastItem)
-                                Expanded(
+                              if (_myLocation != null)
+                                Marker(
+                                  point: _myLocation!,
+                                  width: 36, height: 36,
                                   child: Container(
-                                    width: 2,
-                                    margin: const EdgeInsets.symmetric(vertical: 4),
-                                    color: color.withValues(alpha: 0.25),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.withValues(alpha: 0.3),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.blue, width: 2),
+                                    ),
+                                    child: const Icon(Icons.my_location, color: Colors.blue, size: 18),
                                   ),
                                 ),
                             ],
                           ),
-                          const SizedBox(width: 12),
-                          // Contenido — dark card with colored left border
-                          Expanded(
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 16),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF0F7F0),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border(
-                                  left: BorderSide(color: color, width: 3),
-                                  top: BorderSide(color: color.withValues(alpha: 0.15)),
-                                  right: BorderSide(color: color.withValues(alpha: 0.15)),
-                                  bottom: BorderSide(color: color.withValues(alpha: 0.15)),
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        _getStatusIcon(historyItem.status),
-                                        size: 16,
-                                        color: color,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          historyItem.status.displayName,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: isLastItem ? color : AppTheme.textPrimary,
-                                          ),
-                                        ),
-                                      ),
-                                      if (isLastItem)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: color.withValues(alpha: 0.18),
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: color.withValues(alpha: 0.5)),
-                                          ),
-                                          child: Text(
-                                            'Actual',
-                                            style: TextStyle(
-                                              color: color,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    DateFormat('dd/MM/yyyy HH:mm').format(historyItem.timestamp),
-                                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                                  ),
-                                  if (historyItem.comment != null && historyItem.comment!.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.surface,
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: color.withValues(alpha: 0.15)),
-                                      ),
-                                      child: Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Icon(Icons.comment, size: 14, color: AppTheme.textSecondary),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              historyItem.comment!,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                fontStyle: FontStyle.italic,
-                                                color: AppTheme.textPrimary,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                  if (historyItem.userName != null) ...[
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.person, size: 12, color: AppTheme.textSecondary),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          historyItem.userName!,
-                                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ],
+                        ],
+                      ),
+                      // Status badge
+                      Positioned(
+                        bottom: 12, left: 12,
+                        child: _buildStatusBadge(report.status, statusColor),
+                      ),
+                      // Map control buttons
+                      Positioned(
+                        bottom: 12, right: 12,
+                        child: Column(
+                          children: [
+                            _mapBtn(Icons.location_pin, Colors.red, () {
+                              _mapController.move(reportLocation, 16);
+                            }),
+                            const SizedBox(height: 8),
+                            _mapBtn(Icons.my_location, Colors.blue, () {
+                              if (_myLocation != null) _mapController.move(_myLocation!, 16);
+                            }),
+                            const SizedBox(height: 8),
+                            _mapBtn(
+                              _loadingRoute ? Icons.hourglass_empty : Icons.directions,
+                              AppTheme.primary,
+                              () => _calculateRoute(reportLocation),
+                            ),
+                            if (_myLocation != null) ...[
+                              const SizedBox(height: 8),
+                              _mapBtn(Icons.zoom_out_map, AppTheme.primary, () {
+                                final bounds = LatLngBounds(reportLocation, _myLocation!);
+                                _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(60)));
+                              }),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : null,
+        ),
+
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              _card([
+                Text(_capitalize(report.title), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8, runSpacing: 8,
+                  children: [
+                    _chip(_capitalize(report.category), AppTheme.primary),
+                    if (!hasCoords) _buildStatusBadge(report.status, statusColor),
+                  ],
+                ),
+                if (loc.address != null) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 16, color: AppTheme.textSecondary),
+                      const SizedBox(width: 4),
+                      Flexible(child: Text(loc.address!, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13))),
+                    ],
+                  ),
+                ],
+              ]),
+
+              const SizedBox(height: 12),
+
+              _card([
+                _sectionTitle('Descripcion', Icons.description),
+                const SizedBox(height: 8),
+                Text(report.description, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.5)),
+              ]),
+
+              if (report.attachments.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _card([
+                  _sectionTitle('Evidencia', Icons.photo_library),
+                  const SizedBox(height: 12),
+                  _buildPhotoGallery(report.attachments),
+                ]),
+              ],
+
+              const SizedBox(height: 12),
+
+              _card([
+                _sectionTitle('Fechas', Icons.calendar_today),
+                const SizedBox(height: 8),
+                _infoRow('Creada', DateFormat('dd/MM/yyyy HH:mm').format(report.createdAt)),
+                _infoRow('Actualizada', DateFormat('dd/MM/yyyy HH:mm').format(report.updatedAt)),
+                if (report.status == ReportStatus.resuelto || report.status == ReportStatus.rechazado)
+                  _infoRow(report.status == ReportStatus.resuelto ? 'Resuelta' : 'Rechazada', _resolvedDate(report)),
+              ]),
+
+              const SizedBox(height: 12),
+
+              _card([
+                _sectionTitle('Progreso', Icons.track_changes),
+                const SizedBox(height: 16),
+                _buildProgressTracker(report),
+              ]),
+
+              if (widget.currentUserRole == 'inspector') ...[
+                const SizedBox(height: 12),
+                _card([
+                  _sectionTitle('Denunciante', Icons.person),
+                  const SizedBox(height: 8),
+                  _infoRow('Nombre', report.citizenName ?? 'No disponible'),
+                  if (report.citizenEmail != null) _infoRow('Email', report.citizenEmail!),
+                  if (report.citizenPhone != null && report.citizenPhone!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final uri = Uri(scheme: 'tel', path: report.citizenPhone);
+                          if (await canLaunchUrl(uri)) await launchUrl(uri);
+                        },
+                        icon: const Icon(Icons.phone, size: 18),
+                        label: Text('Llamar: ${report.citizenPhone}'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.success,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ]),
+              ],
+
+              if (report.assignedToName != null) ...[
+                const SizedBox(height: 12),
+                _card([
+                  _sectionTitle('Inspector asignado', Icons.badge),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+                        child: Text(
+                          report.assignedToName![0].toUpperCase(),
+                          style: const TextStyle(color: AppTheme.primaryDark, fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(report.assignedToName!, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary))),
+                    ],
+                  ),
+                ]),
+              ],
+
+              if (report.statusHistory.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _card([
+                  _sectionTitle('Historial', Icons.history),
+                  const SizedBox(height: 12),
+                  _buildTimeline(report.statusHistory),
+                ]),
+              ],
+
+              // Inspector action buttons
+              if (widget.currentUserRole == 'inspector') ...[
+                const SizedBox(height: 20),
+                _buildInspectorActions(report),
+              ],
+
+              const SizedBox(height: 32),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInspectorActions(ReportEntity report) {
+    if (report.status == ReportStatus.resuelto || report.status == ReportStatus.rechazado) {
+      return const SizedBox.shrink();
+    }
+
+    if (report.status == ReportStatus.pendiente) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () => _attendReport(report),
+          icon: const Icon(Icons.assignment_ind_rounded, size: 22),
+          label: const Text('ATENDER DENUNCIA', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+      );
+    }
+
+    // en_proceso
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => _closeReport(report, resolve: true),
+            icon: const Icon(Icons.check_circle_rounded, size: 22),
+            label: const Text('CERRAR DENUNCIA', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.success,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _closeReport(report, resolve: false),
+            icon: const Icon(Icons.cancel_outlined, size: 20),
+            label: const Text('Rechazar'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.emergency,
+              side: BorderSide(color: AppTheme.emergency.withValues(alpha: 0.5)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _attendReport(ReportEntity report) async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! Authenticated) return;
+
+    _reportBloc.add(UpdateReportStatusEvent(
+      reportId: report.id,
+      status: 'en_proceso',
+      comment: 'Inspector atendiendo la denuncia',
+      userId: authState.user.id,
+      assignedTo: authState.user.id,
+    ));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Denuncia tomada'), backgroundColor: AppTheme.success),
+    );
+  }
+
+  Future<void> _closeReport(ReportEntity report, {required bool resolve}) async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! Authenticated) return;
+
+    final notesController = TextEditingController();
+    List<File> evidence = [];
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.surfaceWhite,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: EdgeInsets.only(
+            left: 20, right: 20, top: 16,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(color: AppTheme.border, borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                Text(resolve ? 'Cerrar Denuncia' : 'Rechazar Denuncia',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                const SizedBox(height: 4),
+                Text(resolve ? 'Describe como se resolvio la denuncia' : 'Describe por que se rechaza',
+                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: notesController,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    hintText: 'Detalle de lo realizado...',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: AppTheme.surface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                if (evidence.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 8, runSpacing: 8,
+                    children: evidence.asMap().entries.map((e) {
+                      return Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(e.value, width: 70, height: 70, fit: BoxFit.cover),
+                          ),
+                          Positioned(
+                            top: -4, right: -4,
+                            child: GestureDetector(
+                              onTap: () => setSheet(() => evidence.removeAt(e.key)),
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(color: AppTheme.emergency, shape: BoxShape.circle),
+                                child: const Icon(Icons.close, size: 14, color: Colors.white),
                               ),
                             ),
                           ),
                         ],
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final source = await showModalBottomSheet<ImageSource>(
+                      context: ctx,
+                      builder: (c) => SafeArea(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              leading: const Icon(Icons.camera_alt_rounded),
+                              title: const Text('Camara'),
+                              onTap: () => Navigator.pop(c, ImageSource.camera),
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.photo_library_rounded),
+                              title: const Text('Galeria'),
+                              onTap: () => Navigator.pop(c, ImageSource.gallery),
+                            ),
+                          ],
+                        ),
                       ),
                     );
-                  }),
+                    if (source != null) {
+                      final picked = await ImagePicker().pickImage(source: source, imageQuality: 70);
+                      if (picked != null) {
+                        File f = File(picked.path);
+                        try {
+                          final dir = await getTemporaryDirectory();
+                          final target = '${dir.path}/ev_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                          final compressed = await FlutterImageCompress.compressAndGetFile(
+                            f.absolute.path, target, quality: 70, minWidth: 1280, minHeight: 1280,
+                          );
+                          if (compressed != null) f = File(compressed.path);
+                        } catch (_) {}
+                        setSheet(() => evidence.add(f));
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.attach_file_rounded),
+                  label: Text('Adjuntar foto (${evidence.length}/5)'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: notesController.text.trim().isEmpty ? null : () => Navigator.pop(ctx, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: resolve ? AppTheme.success : AppTheme.emergency,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text(resolve ? 'Cerrar Denuncia' : 'Rechazar Denuncia',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  ),
+                ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+
+    if (result != true) return;
+
+    _reportBloc.add(UpdateReportStatusEvent(
+      reportId: report.id,
+      status: resolve ? 'resuelto' : 'rechazado',
+      comment: notesController.text.trim(),
+      userId: authState.user.id,
+    ));
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(resolve ? 'Denuncia cerrada' : 'Denuncia rechazada'),
+          backgroundColor: resolve ? AppTheme.success : AppTheme.emergency,
+        ),
+      );
+    }
+  }
+
+  Future<void> _calculateRoute(LatLng destination) async {
+    if (_myLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Obteniendo tu ubicacion...')),
+      );
+      return;
+    }
+
+    setState(() => _loadingRoute = true);
+    try {
+      final url = 'https://routing.supertools.cl/route/v1/driving/'
+          '${_myLocation!.longitude},${_myLocation!.latitude};'
+          '${destination.longitude},${destination.latitude}'
+          '?overview=full&geometries=geojson';
+
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['routes'] != null && (data['routes'] as List).isNotEmpty) {
+          final coords = data['routes'][0]['geometry']['coordinates'] as List;
+          final points = coords.map<LatLng>((c) => LatLng(c[1] as double, c[0] as double)).toList();
+          final distance = (data['routes'][0]['distance'] as num).toDouble();
+          final duration = (data['routes'][0]['duration'] as num).toDouble();
+
+          setState(() {
+            _routePoints = points;
+            _loadingRoute = false;
+          });
+
+          // Fit map to route
+          final bounds = LatLngBounds.fromPoints(points);
+          _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)));
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Ruta: ${(distance / 1000).toStringAsFixed(1)} km · ${(duration / 60).toStringAsFixed(0)} min'),
+                backgroundColor: AppTheme.primary,
+              ),
+            );
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Route error: $e');
+    }
+    if (mounted) {
+      setState(() => _loadingRoute = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo calcular la ruta'), backgroundColor: AppTheme.emergency),
+      );
+    }
+  }
+
+  Widget _mapBtn(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 6, offset: const Offset(0, 2))],
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+    );
+  }
+
+  Widget _card(List<Widget> children) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceWhite,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        boxShadow: AppTheme.shadowSmall,
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+    );
+  }
+
+  Widget _sectionTitle(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: AppTheme.primary),
+        const SizedBox(width: 8),
+        Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+      ],
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 110, child: Text('$label:', style: const TextStyle(fontWeight: FontWeight.w500, color: AppTheme.textSecondary, fontSize: 13))),
+          Expanded(child: Text(value, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13))),
         ],
       ),
     );
   }
 
-  /// Tracker de progreso para emergencias SOS: Enviado → En camino → Finalizado
-  Widget _buildEmergencyProgressTracker(ReportEntity report) {
-    // Pasos de emergencia SOS
-    final sosSteps = [
-      {'label': 'Enviado', 'icon': Icons.send_rounded, 'status': ReportStatus.submitted},
-      {'label': 'En camino', 'icon': Icons.directions_run_rounded, 'status': ReportStatus.inProgress},
-      {'label': 'Finalizado', 'icon': Icons.check_circle_rounded, 'status': ReportStatus.resolved},
-    ];
-
-    // Determinar el paso actual basado en el estado del reporte
-    int currentStep;
-    switch (report.status) {
-      case ReportStatus.submitted:
-      case ReportStatus.reviewing:
-        currentStep = 0;
-        break;
-      case ReportStatus.inProgress:
-        currentStep = 1;
-        break;
-      case ReportStatus.resolved:
-      case ReportStatus.archived:
-        currentStep = 2;
-        break;
-      default:
-        currentStep = 0;
-    }
-
+  Widget _chip(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F7F0),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.emergency.withValues(alpha: 0.25)),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusRound),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: List.generate(sosSteps.length, (index) {
-          final step = sosSteps[index];
-          final isCompleted = index <= currentStep;
-          final isCurrent = index == currentStep;
-          final isLast = index == sosSteps.length - 1;
+      child: Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+    );
+  }
 
-          return Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        width: isCurrent ? 44 : 36,
-                        height: isCurrent ? 44 : 36,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isCompleted
-                              ? AppTheme.emergency.withValues(alpha: 0.18)
-                              : Colors.white,
-                          border: Border.all(
-                            color: isCompleted ? AppTheme.emergency : AppTheme.border,
-                            width: isCurrent ? 2.5 : 1.5,
-                          ),
-                          boxShadow: isCurrent ? [BoxShadow(color: AppTheme.emergency.withValues(alpha: 0.25), blurRadius: 12, spreadRadius: 2)] : null,
-                        ),
-                        child: Icon(
-                          step['icon'] as IconData,
-                          size: isCurrent ? 22 : 18,
-                          color: isCompleted ? AppTheme.emergency : AppTheme.textTertiary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        step['label'] as String,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                          color: isCompleted ? AppTheme.emergency : AppTheme.textTertiary,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+  Widget _buildStatusBadge(ReportStatus status, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(AppTheme.radiusRound),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
+      ),
+      child: Text(status.displayName, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+    );
+  }
+
+  Widget _buildPhotoGallery(List<MediaAttachment> attachments) {
+    final images = attachments.where((a) => a.type == MediaType.image).toList();
+    if (images.isEmpty) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 120,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: images.length,
+        itemBuilder: (context, i) {
+          var url = images[i].url;
+          if (url.contains('192.168.') || url.contains('localhost')) {
+            final uri = Uri.parse(url);
+            url = '${ApiConfig.activeBaseUrl}${uri.path}';
+          }
+          return GestureDetector(
+            onTap: () => _openPhoto(url),
+            child: Container(
+              width: 120,
+              margin: EdgeInsets.only(right: i < images.length - 1 ? 8 : 0),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(7),
+                child: Image.network(
+                  url,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, color: AppTheme.textTertiary)),
+                  loadingBuilder: (_, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator(color: AppTheme.primary, strokeWidth: 2)),
                 ),
-                if (!isLast)
-                  Container(
-                    width: 24,
-                    height: 3,
-                    margin: const EdgeInsets.only(bottom: 20),
-                    decoration: BoxDecoration(
-                      color: index < currentStep
-                          ? AppTheme.emergency.withValues(alpha: 0.6)
-                          : AppTheme.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-              ],
+              ),
             ),
           );
-        }),
+        },
       ),
     );
   }
 
-  /// Tracker de progreso para reportes normales: Enviado → Revisión → En Proceso → Resuelto
-  Widget _buildNormalProgressTracker(ReportEntity report) {
-    final statusOrder = [
-      ReportStatus.submitted,
-      ReportStatus.reviewing,
-      ReportStatus.inProgress,
-      ReportStatus.resolved,
+  Widget _buildProgressTracker(ReportEntity report) {
+    if (report.status == ReportStatus.rechazado) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.emergencyLight,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          border: Border.all(color: AppTheme.emergency.withValues(alpha: 0.35)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.cancel, color: AppTheme.emergency),
+            SizedBox(width: 8),
+            Expanded(child: Text('Esta denuncia ha sido rechazada', style: TextStyle(color: AppTheme.emergency, fontWeight: FontWeight.w600))),
+          ],
+        ),
+      );
+    }
+
+    final steps = [
+      (label: 'Pendiente', icon: Icons.send, status: ReportStatus.pendiente),
+      (label: 'En Proceso', icon: Icons.engineering, status: ReportStatus.enProceso),
+      (label: 'Resuelta', icon: Icons.check_circle, status: ReportStatus.resuelto),
     ];
 
-    final currentStatusIndex = statusOrder.indexOf(report.status);
+    final order = [ReportStatus.pendiente, ReportStatus.enProceso, ReportStatus.resuelto];
+    final currentIdx = order.indexOf(report.status).clamp(0, 2);
 
     return Row(
-      children: statusOrder.asMap().entries.map((entry) {
-        final index = entry.key;
-        final status = entry.value;
-        final isCompleted = currentStatusIndex >= index;
-        final isCurrent = currentStatusIndex == index;
-        final isLast = index == statusOrder.length - 1;
-        final color = isCompleted ? _getStatusColor(status) : AppTheme.textTertiary;
+      children: steps.asMap().entries.map((entry) {
+        final i = entry.key;
+        final step = entry.value;
+        final done = currentIdx >= i;
+        final isCurrent = currentIdx == i;
+        final color = done ? _statusColor(step.status) : AppTheme.textTertiary;
+        final isLast = i == steps.length - 1;
 
         return Expanded(
           child: Row(
@@ -736,54 +808,30 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
               Expanded(
                 child: Column(
                   children: [
-                    // Círculo de estado
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       width: isCurrent ? 40 : 32,
                       height: isCurrent ? 40 : 32,
                       decoration: BoxDecoration(
-                        color: isCompleted
-                            ? color.withValues(alpha: 0.18)
-                            : Colors.white,
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isCompleted ? color : AppTheme.border,
-                          width: isCurrent ? 2.5 : 1.5,
-                        ),
-                        boxShadow: isCurrent ? [BoxShadow(color: color.withValues(alpha: 0.20), blurRadius: 10, spreadRadius: 2)] : null,
+                        color: done ? color.withValues(alpha: 0.18) : AppTheme.surfaceWhite,
+                        border: Border.all(color: done ? color : AppTheme.border, width: isCurrent ? 2.5 : 1.5),
+                        boxShadow: isCurrent ? [BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 10, spreadRadius: 2)] : null,
                       ),
-                      child: Icon(
-                        _getStatusIcon(status),
-                        size: isCurrent ? 20 : 16,
-                        color: isCompleted ? color : AppTheme.textTertiary,
-                      ),
+                      child: Icon(step.icon, size: isCurrent ? 20 : 16, color: done ? color : AppTheme.textTertiary),
                     ),
                     const SizedBox(height: 8),
-                    // Etiqueta
-                    Text(
-                      _getShortStatusName(status),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                        color: isCompleted ? color : AppTheme.textTertiary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                    Text(step.label, style: TextStyle(fontSize: 10, fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal, color: done ? color : AppTheme.textTertiary), textAlign: TextAlign.center),
                   ],
                 ),
               ),
-              // Línea conectora
               if (!isLast)
-                Expanded(
-                  child: Container(
-                    height: 3,
-                    margin: const EdgeInsets.only(bottom: 24),
-                    decoration: BoxDecoration(
-                      color: currentStatusIndex > index
-                          ? _getStatusColor(statusOrder[index + 1]).withValues(alpha: 0.6)
-                          : AppTheme.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                Container(
+                  width: 24, height: 3,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: currentIdx > i ? _statusColor(order[i + 1]).withValues(alpha: 0.6) : AppTheme.border,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
             ],
@@ -793,572 +841,127 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
     );
   }
 
-  IconData _getStatusIcon(ReportStatus status) {
-    switch (status) {
-      case ReportStatus.draft:
-        return Icons.edit_note;
-      case ReportStatus.submitted:
-        return Icons.send;
-      case ReportStatus.reviewing:
-        return Icons.search;
-      case ReportStatus.inProgress:
-        return Icons.engineering;
-      case ReportStatus.resolved:
-        return Icons.check_circle;
-      case ReportStatus.rejected:
-        return Icons.cancel;
-      case ReportStatus.archived:
-        return Icons.archive;
-      case ReportStatus.duplicate:
-        return Icons.content_copy;
-      case ReportStatus.cancelled:
-        return Icons.block;
-    }
-  }
-
-  String _getShortStatusName(ReportStatus status) {
-    switch (status) {
-      case ReportStatus.draft:
-        return 'Borrador';
-      case ReportStatus.submitted:
-        return 'Enviado';
-      case ReportStatus.reviewing:
-        return 'Revisión';
-      case ReportStatus.inProgress:
-        return 'En Proceso';
-      case ReportStatus.resolved:
-        return 'Resuelto';
-      case ReportStatus.rejected:
-        return 'Rechazado';
-      case ReportStatus.archived:
-        return 'Archivado';
-      case ReportStatus.duplicate:
-        return 'Duplicada';
-      case ReportStatus.cancelled:
-        return 'Cancelada';
-    }
-  }
-
-  Widget _buildSection(String title, IconData icon, Widget content) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: AppTheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          content,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPhotoGallery(List<MediaAttachment> attachments) {
-    final images = attachments.where((a) => a.type == MediaType.image).toList();
-
-    if (images.isEmpty) {
-      return const Text('Sin imágenes');
-    }
-
-    return SizedBox(
-      height: 120,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: images.length,
-        itemBuilder: (context, index) {
-          return GestureDetector(
-            onTap: () => _openPhotoViewer(images[index].url),
-            child: Container(
-              width: 120,
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  images[index].url,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: const Color(0xFFF0F7F0),
-                    child: const Icon(Icons.error, color: AppTheme.emergency),
-                  ),
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: const Color(0xFFF0F7F0),
-                      child: const Center(
-                        child: CircularProgressIndicator(color: AppTheme.primary),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildLocationSection(ReportEntity report) {
-    final location = report.location;
+  Widget _buildTimeline(List<StatusHistoryItem> history) {
+    final items = history.toList()..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Dirección
-        if (location.address != null)
-          Text(location.address!)
-        else
-          const Text('Dirección no disponible'),
+      children: items.asMap().entries.map((entry) {
+        final i = entry.key;
+        final item = entry.value;
+        final isLast = i == items.length - 1;
+        final color = _statusColor(item.status);
 
-        const SizedBox(height: 8),
-
-        // Coordenadas
-        if (location.latitude != 0 && location.longitude != 0) ...[
-          Text(
-            'Coordenadas: ${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}',
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Mapa interactivo (click para expandir)
-          GestureDetector(
-            onTap: () => _showFullscreenMap(LatLng(location.latitude, location.longitude), location.address),
-            child: Container(
-              height: 200,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Stack(
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
                 children: [
-                  FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter: LatLng(location.latitude, location.longitude),
-                      initialZoom: 15,
-                      interactionOptions: const InteractionOptions(
-                        flags: InteractiveFlag.none,
+                  Container(
+                    width: 20, height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isLast ? color.withValues(alpha: 0.2) : AppTheme.surface,
+                      border: Border.all(color: color, width: 2),
+                    ),
+                    child: isLast ? Icon(Icons.check, size: 12, color: color) : null,
+                  ),
+                  if (!isLast)
+                    Expanded(
+                      child: Container(
+                        width: 2,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        color: color.withValues(alpha: 0.25),
                       ),
                     ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    border: Border(left: BorderSide(color: color, width: 3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TileLayer(
-                        urlTemplate: MapsService.tileServerUrl,
-                  tileProvider: MapsService.tileProvider,
-                        userAgentPackageName: 'com.frogio.santajuana',
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: LatLng(location.latitude, location.longitude),
-                            width: 40,
-                            height: 40,
-                            child: const Icon(
-                              Icons.location_pin,
-                              color: Colors.red,
-                              size: 40,
+                      Row(
+                        children: [
+                          Expanded(child: Text(item.status.displayName, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: isLast ? color : AppTheme.textPrimary))),
+                          if (isLast)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                              child: Text('Actual', style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
                             ),
-                          ),
                         ],
                       ),
+                      const SizedBox(height: 2),
+                      Text(DateFormat('dd/MM/yyyy HH:mm').format(item.timestamp), style: const TextStyle(fontSize: 11, color: AppTheme.textTertiary)),
+                      if (item.comment != null && item.comment!.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(item.comment!, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: AppTheme.textSecondary)),
+                      ],
+                      if (item.userName != null) ...[
+                        const SizedBox(height: 4),
+                        Text(item.userName!, style: const TextStyle(fontSize: 11, color: AppTheme.textTertiary)),
+                      ],
                     ],
                   ),
-                  // Indicador para expandir
-                  Positioned(
-                    bottom: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.fullscreen, size: 16, color: AppTheme.primary),
-                          SizedBox(width: 4),
-                          Text(
-                            'Ampliar',
-                            style: TextStyle(fontSize: 12, color: AppTheme.primary),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              '$label:',
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(color: AppTheme.textPrimary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResponseCard(ReportResponse response) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
-                child: Text(
-                  response.responderName.isNotEmpty
-                      ? response.responderName.substring(0, 1).toUpperCase()
-                      : '?',
-                  style: const TextStyle(
-                    color: AppTheme.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      response.responderName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      DateFormat('dd/MM/yyyy HH:mm').format(response.createdAt),
-                      style: const TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (!response.isPublic)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
-                  ),
-                  child: const Text(
-                    'Privado',
-                    style: TextStyle(
-                      color: Colors.orange,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            response.message,
-            style: const TextStyle(color: AppTheme.textSecondary),
-          ),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 
-  Widget _buildEmptyResponses() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.forum_outlined,
-            size: 64,
-            color: AppTheme.textTertiary,
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Sin respuestas aún',
-            style: TextStyle(
-              fontSize: 18,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Las respuestas del municipio aparecerán aquí',
-            style: TextStyle(color: AppTheme.textSecondary),
-          ),
-        ],
-      ),
-    );
+  Color _statusColor(ReportStatus status) {
+    switch (status) {
+      case ReportStatus.pendiente: return Colors.orange;
+      case ReportStatus.enProceso: return Colors.blue;
+      case ReportStatus.resuelto: return AppTheme.success;
+      case ReportStatus.rechazado: return AppTheme.emergency;
+    }
   }
 
-  Widget _buildErrorState(String message) {
+  String _resolvedDate(ReportEntity report) {
+    final matching = report.statusHistory.where((h) => h.status == report.status);
+    if (matching.isNotEmpty) return DateFormat('dd/MM/yyyy HH:mm').format(matching.last.timestamp);
+    return DateFormat('dd/MM/yyyy HH:mm').format(report.updatedAt);
+  }
+
+  void _openPhoto(String imageUrl) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => _PhotoViewerScreen(imageUrl: imageUrl),
+      fullscreenDialog: true,
+    ));
+  }
+
+  Widget _buildError(String message) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.error_outline,
-            size: 64,
-            color: AppTheme.emergency,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Error: $message',
-            style: const TextStyle(fontSize: 16, color: AppTheme.textPrimary),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [BoxShadow(color: AppTheme.primary.withValues(alpha: 0.20), blurRadius: 12, spreadRadius: 2)],
-            ),
-            child: ElevatedButton(
-              onPressed: _loadReportDetails,
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 56, color: AppTheme.emergency),
+            const SizedBox(height: 16),
+            Text(message, style: const TextStyle(fontSize: 15, color: AppTheme.textPrimary), textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _loadReport,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Reintentar'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.black87,
-              ),
-              child: const Text('Reintentar'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(ReportStatus status) {
-    final color = _getStatusColor(status);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.6), width: 1),
-        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.12), blurRadius: 8)],
-      ),
-      child: Text(
-        status.displayName,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryChip(String category) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppTheme.primary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        category,
-        style: const TextStyle(
-          color: AppTheme.primary,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Color _getStatusColor(ReportStatus status) {
-    switch (status) {
-      case ReportStatus.draft:
-        return Colors.grey;
-      case ReportStatus.submitted:
-        return Colors.blue;
-      case ReportStatus.reviewing:
-        return Colors.orange;
-      case ReportStatus.inProgress:
-        return Colors.purple;
-      case ReportStatus.resolved:
-        return AppTheme.successColor;
-      case ReportStatus.rejected:
-        return AppTheme.errorColor;
-      case ReportStatus.archived:
-        return const Color(0xFF556677);
-      case ReportStatus.duplicate:
-        return Colors.amber;
-      case ReportStatus.cancelled:
-        return AppTheme.textSecondary;
-    }
-  }
-
-  void _handleMenuAction(String action, ReportEntity report) {
-    switch (action) {
-      case 'share':
-        _shareReport(report);
-        break;
-      case 'directions':
-        _openInMaps(report);
-        break;
-    }
-  }
-
-  void _shareReport(ReportEntity report) {
-    final shareText = 'Denuncia FROGIO: ${report.title}\nID: ${report.id}\nEstado: ${report.status.displayName}';
-
-    Clipboard.setData(ClipboardData(text: shareText)).then((_) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Información copiada al portapapeles'),
-          backgroundColor: AppTheme.successColor,
-        ),
-      );
-    });
-  }
-
-  void _openInMaps(ReportEntity report) {
-    final url = 'https://www.google.com/maps/search/?api=1&query=${report.location.latitude},${report.location.longitude}';
-    launchUrl(Uri.parse(url));
-  }
-
-  void _openPhotoViewer(String imageUrl) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => _PhotoViewerScreen(imageUrl: imageUrl),
-        fullscreenDialog: true,
-      ),
-    );
-  }
-
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppTheme.errorColor,
-      ),
-    );
-  }
-
-  void _showFullscreenMap(LatLng location, String? address) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.white,
-        insetPadding: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: AppTheme.surfaceWhite,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.location_on, color: AppTheme.primary),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Ubicación del Reporte',
-                      style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: AppTheme.textSecondary),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            if (address != null)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                color: AppTheme.surface,
-                child: Text(
-                  address,
-                  style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-                ),
-              ),
-            SizedBox(
-              height: 400,
-              child: _FullscreenMapWidget(
-                location: location,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ],
@@ -1370,115 +973,22 @@ class _EnhancedReportDetailScreenState extends State<EnhancedReportDetailScreen>
 
 class _PhotoViewerScreen extends StatelessWidget {
   final String imageUrl;
-
   const _PhotoViewerScreen({required this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
+      appBar: AppBar(backgroundColor: Colors.black, iconTheme: const IconThemeData(color: Colors.white)),
       body: Center(
         child: InteractiveViewer(
           child: Image.network(
             imageUrl,
             fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => const Icon(
-              Icons.error,
-              color: AppTheme.emergency,
-              size: 64,
-            ),
+            errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white54, size: 64),
           ),
         ),
       ),
-    );
-  }
-}
-
-class _FullscreenMapWidget extends StatefulWidget {
-  final LatLng location;
-
-  const _FullscreenMapWidget({required this.location});
-
-  @override
-  State<_FullscreenMapWidget> createState() => _FullscreenMapWidgetState();
-}
-
-class _FullscreenMapWidgetState extends State<_FullscreenMapWidget> {
-  late final MapController _mapController;
-
-  @override
-  void initState() {
-    super.initState();
-    _mapController = MapController();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: widget.location,
-            initialZoom: 16,
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: MapsService.tileServerUrl,
-                  tileProvider: MapsService.tileProvider,
-              userAgentPackageName: 'com.frogio.santajuana',
-            ),
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: widget.location,
-                  width: 50,
-                  height: 50,
-                  child: const Icon(
-                    Icons.location_on,
-                    color: AppTheme.primary,
-                    size: 50,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        // Botones de zoom
-        Positioned(
-          bottom: 16,
-          right: 16,
-          child: Column(
-            children: [
-              FloatingActionButton(
-                mini: true,
-                heroTag: 'fullscreen_zoom_in',
-                backgroundColor: Colors.white,
-                onPressed: () {
-                  final currentZoom = _mapController.camera.zoom;
-                  _mapController.move(_mapController.camera.center, currentZoom + 1);
-                },
-                child: const Icon(Icons.add, color: AppTheme.primary),
-              ),
-              const SizedBox(height: 8),
-              FloatingActionButton(
-                mini: true,
-                heroTag: 'fullscreen_zoom_out',
-                backgroundColor: Colors.white,
-                onPressed: () {
-                  final currentZoom = _mapController.camera.zoom;
-                  _mapController.move(_mapController.camera.center, currentZoom - 1);
-                },
-                child: const Icon(Icons.remove, color: AppTheme.primary),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

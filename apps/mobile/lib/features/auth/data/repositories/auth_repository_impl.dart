@@ -113,4 +113,24 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(AuthFailure(e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, UserEntity>> signInWithApple(String identityToken) async {
+    try {
+      final user = await remoteDataSource.signInWithApple(identityToken);
+      return Right(user);
+    } catch (e) {
+      return Left(AuthFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, UserEntity>> signInWithGoogle(String idToken) async {
+    try {
+      final user = await remoteDataSource.signInWithGoogle(idToken);
+      return Right(user);
+    } catch (e) {
+      return Left(AuthFailure(e.toString()));
+    }
+  }
 }

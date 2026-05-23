@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../models/municipal_statistics_model.dart';
 import '../models/query_model.dart';
 import '../models/user_model.dart';
@@ -26,7 +27,7 @@ class AdminApiDataSource implements AdminRemoteDataSource {
     final token = prefs.getString(_accessTokenKey);
     return {
       'Content-Type': 'application/json',
-      'x-tenant-id': 'santa_juana',
+      'x-tenant-id': ApiConfig.tenantId,
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
@@ -40,7 +41,8 @@ class AdminApiDataSource implements AdminRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? decoded['items'] ?? decoded['vehicles'] ?? decoded['users'] ?? decoded['reports'] ?? []);
         return data.map((json) => QueryModel.fromJson(json)).toList();
       } else {
         throw Exception('Error al obtener consultas pendientes');
@@ -153,7 +155,8 @@ class AdminApiDataSource implements AdminRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? decoded['items'] ?? decoded['vehicles'] ?? decoded['users'] ?? decoded['reports'] ?? []);
         return data.map((json) => UserModel.fromJson(json)).toList();
       } else {
         throw Exception('Error al obtener usuarios');
@@ -176,7 +179,8 @@ class AdminApiDataSource implements AdminRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? decoded['items'] ?? decoded['vehicles'] ?? decoded['users'] ?? decoded['reports'] ?? []);
         return data.map((json) => UserModel.fromJson(json)).toList();
       } else {
         throw Exception('Error al obtener usuarios por rol');

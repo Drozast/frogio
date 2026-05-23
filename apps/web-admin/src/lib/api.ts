@@ -1,5 +1,13 @@
+import { getTenantConfig, DEFAULT_TENANT } from '@/config/tenants';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID || 'santa_juana';
+
+function getTenantId(): string {
+  if (typeof document === 'undefined') return DEFAULT_TENANT;
+  const match = document.cookie.match(/(?:^|;\s*)tenantId=([^;]+)/);
+  if (match) return decodeURIComponent(match[1]);
+  return DEFAULT_TENANT;
+}
 
 interface FetchOptions extends Omit<RequestInit, 'headers'> {
   token?: string;
@@ -21,7 +29,8 @@ export async function apiRequest<T>(
 
   // Add tenant header for auth endpoints
   if (endpoint.startsWith('/auth/')) {
-    headers['X-Tenant-ID'] = TENANT_ID;
+    const tenantId = getTenantId();
+    headers['X-Tenant-ID'] = tenantId;
   }
 
   const response = await fetch(`${API_URL}/api${endpoint}`, {

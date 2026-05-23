@@ -34,9 +34,16 @@ export interface ReportVersion {
   longitude: number | null;
   assigned_to: string | null;
   resolution: string | null;
+  attachments: string[];
+  is_follow_up: boolean;
   modified_by: string;
   modified_at: string;
   change_reason: string | null;
   modifier_first_name?: string;
   modifier_last_name?: string;
+}
+
+export interface FollowUpDto {
+  comment: string;
+  attachments?: string[];
 }

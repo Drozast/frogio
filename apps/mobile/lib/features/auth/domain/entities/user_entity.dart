@@ -48,13 +48,17 @@ class UserEntity extends Equatable {
     }).join(' ');
   }
 
-  // Verificar si el perfil está completo
+  // Verificar si el perfil está completo (nombre, RUT, teléfono, dirección)
   bool get isProfileComplete {
-    return name != null && 
-           name!.isNotEmpty && 
-           phoneNumber != null && 
-           phoneNumber!.isNotEmpty && 
-           address != null && 
+    return name != null &&
+           name!.isNotEmpty &&
+           rut != null &&
+           rut!.isNotEmpty &&
+           !rut!.startsWith('APPLE_') &&
+           !rut!.startsWith('GOOGLE_') &&
+           phoneNumber != null &&
+           phoneNumber!.isNotEmpty &&
+           address != null &&
            address!.isNotEmpty;
   }
 

@@ -61,6 +61,7 @@ class ReportRepositoryImpl implements ReportRepository {
     required ReportStatus status,
     String? comment,
     required String userId,
+    String? assignedTo,
   }) async {
     try {
       await remoteDataSource.updateReportStatus(
@@ -68,6 +69,7 @@ class ReportRepositoryImpl implements ReportRepository {
         status: status,
         comment: comment,
         userId: userId,
+        assignedTo: assignedTo,
       );
       return const Right(null);
     } catch (e) {
@@ -104,12 +106,14 @@ class ReportRepositoryImpl implements ReportRepository {
     ReportStatus status, {
     String? muniId,
     String? assignedTo,
+    String? createdBy,
   }) async {
     try {
       final reports = await remoteDataSource.getReportsByStatus(
         status,
         muniId: muniId,
         assignedTo: assignedTo,
+        createdBy: createdBy,
       );
       return Right(reports);
     } catch (e) {

@@ -1,24 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { API_URL } from '@/lib/api-config';
-
-const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID || 'santa_juana';
+import { getTenantConfig, DEFAULT_TENANT } from '@/config/tenants';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log('📨 Login request received:', { body, API_URL, TENANT_ID });
+    const tenantId = body.tenantId || DEFAULT_TENANT;
+    const tenant = getTenantConfig(tenantId);
 
-    const bodyString = JSON.stringify(body);
-    console.log('📤 Sending to backend:', bodyString);
+    // Remove tenantId from body before forwarding to backend
+    const { tenantId: _tid, ...loginBody } = body;
 
-    const response = await fetch(`${API_URL}/api/auth/login`, {
+    const response = await fetch(`${tenant.apiUrl}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Tenant-ID': TENANT_ID,
+        'X-Tenant-ID': tenant.id,
       },
-      body: bodyString,
+      body: JSON.stringify(loginBody),
     });
 
     if (!response.ok) {
@@ -28,10 +27,10 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
 
-    // accessToken non-httpOnly so the client admin-api can attach it as
-    // a Bearer header. refreshToken stays httpOnly. JWT lifetime is 15min.
     const isProd = process.env.NODE_ENV === 'production';
     const cookieStore = await cookies();
+
+    // Auth cookies
     cookieStore.set('accessToken', data.accessToken, {
       httpOnly: false,
       secure: isProd,
@@ -42,6 +41,15 @@ export async function POST(request: NextRequest) {
 
     cookieStore.set('refreshToken', data.refreshToken, {
       httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    });
+
+    // Tenant cookie (client-readable)
+    cookieStore.set('tenantId', tenant.id, {
+      httpOnly: false,
       secure: isProd,
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 7 days

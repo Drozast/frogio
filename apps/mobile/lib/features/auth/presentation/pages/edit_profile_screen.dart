@@ -7,11 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/text_formatters.dart';
-import '../../../../core/widgets/custom_button.dart';
 import '../../../../di/injection_container_api.dart' as di;
-import '../../data/datasources/auth_api_data_source.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../bloc/auth_bloc.dart';
@@ -19,17 +18,14 @@ import '../bloc/auth_event.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final UserEntity user;
-
-  const EditProfileScreen({
-    super.key,
-    required this.user,
-  });
+  const EditProfileScreen({super.key, required this.user});
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
-class _EditProfileScreenState extends State<EditProfileScreen> {
+class _EditProfileScreenState extends State<EditProfileScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _rutController;
@@ -37,13 +33,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _addressController;
   late AuthRepository _authRepository;
 
+  late AnimationController _entryController;
+  late AnimationController _pulseController;
+  late AnimationController _shimmerController;
+
   bool _isLoading = false;
   bool _isUploadingImage = false;
+  bool _isEditing = false;
   UserEntity? _updatedUser;
+  File? _localImageFile;
 
-  // Verificar si es inspector o admin
   bool get _isInspectorOrAdmin =>
       widget.user.role == 'inspector' || widget.user.role == 'admin';
+  UserEntity get _currentUser => _updatedUser ?? widget.user;
 
   @override
   void initState() {
@@ -51,31 +53,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _authRepository = di.sl<AuthRepository>();
     _nameController = TextEditingController(text: widget.user.name ?? '');
     _rutController = TextEditingController(text: widget.user.rut ?? '');
-    // Limpiar prefijo del teléfono si existe (ya que se muestra visualmente)
     _phoneController = TextEditingController(
       text: _cleanPhoneNumber(widget.user.phoneNumber ?? ''),
     );
-    _addressController = TextEditingController(text: widget.user.address ?? '');
+    _addressController =
+        TextEditingController(text: widget.user.address ?? '');
     _updatedUser = widget.user;
+
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..forward();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    )..repeat(reverse: true);
+
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+    )..repeat();
   }
 
-  /// Limpia el número de teléfono eliminando prefijos
   String _cleanPhoneNumber(String phone) {
     if (phone.isEmpty) return '';
-    // Eliminar todo lo que no sea dígito
     String cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
-    // Eliminar prefijo 56 si existe
     if (cleaned.startsWith('569') && cleaned.length > 9) {
       cleaned = cleaned.substring(3);
     } else if (cleaned.startsWith('56') && cleaned.length > 9) {
       cleaned = cleaned.substring(2);
     }
-    // Formatear el número
-    if (cleaned.length <= 1) {
-      return cleaned;
-    } else if (cleaned.length <= 5) {
+    if (cleaned.length <= 1) return cleaned;
+    if (cleaned.length <= 5) {
       return '${cleaned.substring(0, 1)} ${cleaned.substring(1)}';
-    } else if (cleaned.length <= 9) {
+    }
+    if (cleaned.length <= 9) {
       return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 5)} ${cleaned.substring(5)}';
     }
     return cleaned.substring(0, 9);
@@ -87,136 +100,858 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _rutController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _entryController.dispose();
+    _pulseController.dispose();
+    _shimmerController.dispose();
     super.dispose();
   }
+
+  // ---------------------------------------------------------------------------
+  // BUILD
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Editar Perfil'),
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              // Avatar con opción de cambiar foto
-              _buildProfileAvatar(),
-              const SizedBox(height: 8),
-              Text(
-                kIsWeb 
-                    ? 'Fotos de perfil disponibles en app móvil'
-                    : 'Toca la cámara para cambiar tu foto',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
+      backgroundColor: AppTheme.surface,
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              // Hero header
+              SliverAppBar(
+                expandedHeight: 320,
+                pinned: true,
+                backgroundColor: AppTheme.primaryDark,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: _buildHero(),
+                  collapseMode: CollapseMode.pin,
                 ),
-              ),
-              const SizedBox(height: 32),
-
-              // Campo nombre
-              TextFormField(
-                controller: _nameController,
-                inputFormatters: [NameFormatter()],
-                decoration: const InputDecoration(
-                  labelText: 'Nombre completo',
-                  prefixIcon: Icon(Icons.person),
-                ),
-                validator: Validators.validateName,
-              ),
-              const SizedBox(height: 16),
-
-              // Campo RUT (para inspectores/admin)
-              if (_isInspectorOrAdmin) ...[
-                TextFormField(
-                  controller: _rutController,
-                  keyboardType: TextInputType.text,
-                  decoration: const InputDecoration(
-                    labelText: 'RUT',
-                    prefixIcon: Icon(Icons.badge),
-                    hintText: 'Ej: 12.345.678-9',
+                title: const Text('Mi Perfil',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18)),
+                actions: [
+                  // Toggle edit/view
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: IconButton(
+                      key: ValueKey(_isEditing),
+                      icon: Icon(
+                        _isEditing ? Icons.close_rounded : Icons.edit_rounded,
+                        color: Colors.white,
+                      ),
+                      onPressed: () => setState(() => _isEditing = !_isEditing),
+                      tooltip: _isEditing ? 'Cancelar' : 'Editar',
+                    ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor ingrese su RUT';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              // Campo teléfono
-              TextFormField(
-                controller: _phoneController,
-                inputFormatters: [PhoneFormatter()],
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Teléfono',
-                  prefixIcon: Icon(Icons.phone),
-                  prefixText: '+56 ',
-                ),
-                validator: Validators.validatePhone,
+                ],
               ),
-              const SizedBox(height: 16),
 
-              // Campo dirección
-              TextFormField(
-                controller: _addressController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Dirección',
-                  prefixIcon: Icon(Icons.location_on),
-                  hintText: 'Ej: Calle Los Aromos 123, Santa Juana',
+              // Body
+              SliverToBoxAdapter(
+                child: Form(
+                  key: _formKey,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+                    child: Column(
+                      children: [
+                        _animatedSection(0, _buildInfoSection()),
+                        const SizedBox(height: 20),
+                        _animatedSection(1, _buildContactSection()),
+                        const SizedBox(height: 20),
+                        _animatedSection(2, _buildAccountSection()),
+                        if (_isEditing) ...[
+                          const SizedBox(height: 28),
+                          _animatedSection(3, _buildSaveButton()),
+                        ],
+                        const SizedBox(height: 20),
+                        _animatedSection(4, _buildPrivacySection()),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
                 ),
-                validator: Validators.validateAddress,
               ),
-              const SizedBox(height: 24),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-              // Información de cuenta (solo lectura)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+  // ---------------------------------------------------------------------------
+  // STAGGER ANIMATION
+  // ---------------------------------------------------------------------------
+
+  Widget _animatedSection(int index, Widget child) {
+    final delay = (index * 0.2).clamp(0.0, 0.6);
+    final end = (delay + 0.5).clamp(0.0, 1.0);
+    final curve = CurvedAnimation(
+      parent: _entryController,
+      curve: Interval(delay, end, curve: Curves.easeOutBack),
+    );
+    return AnimatedBuilder(
+      animation: curve,
+      builder: (_, __) => Transform.translate(
+        offset: Offset(0, 40 * (1 - curve.value)),
+        child: Opacity(opacity: curve.value, child: child),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // HERO SECTION
+  // ---------------------------------------------------------------------------
+
+  Widget _buildHero() {
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (_, __) {
+        final pulse = _pulseController.value;
+        return Container(
+          decoration: const BoxDecoration(gradient: AppTheme.accentGradient),
+          child: Stack(
+            children: [
+              // Neon sparkles
+              _neonOrb(left: 15, top: 70, size: 80, pulse: pulse),
+              _neonOrb(right: 20, top: 55, size: 50, pulse: pulse),
+              _neonOrb(left: 70, bottom: 30, size: 35, pulse: pulse),
+              _neonOrb(right: 60, bottom: 60, size: 65, pulse: pulse),
+              _neonOrb(left: 180, top: 45, size: 25, pulse: pulse),
+              _neonOrb(right: 140, top: 110, size: 30, pulse: pulse),
+              _neonOrb(left: 120, top: 75, size: 18, pulse: pulse),
+              _neonOrb(right: 100, bottom: 100, size: 22, pulse: pulse),
+
+              // Content
+              SafeArea(
+                bottom: false,
+                child: Center(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      const SizedBox(height: 50),
+                      _buildGlowAvatar(pulse),
+                      const SizedBox(height: 16),
+                      // Name
                       Text(
-                        _isInspectorOrAdmin
-                            ? 'Información institucional'
-                            : 'Información de la cuenta',
+                        _currentUser.displayName,
                         style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
+                          shadows: [
+                            Shadow(
+                              color: Color(0x6069F0AE),
+                              blurRadius: 20,
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      _buildInfoRow(
-                        _isInspectorOrAdmin ? 'Email institucional:' : 'Email:',
-                        widget.user.email,
-                      ),
-                      _buildInfoRow('Rol:', _getRoleDisplayName(widget.user.role)),
-                      if (!_isInspectorOrAdmin)
-                        _buildInfoRow(
-                          'Cuenta creada:',
-                          _formatDate(widget.user.createdAt),
+                      const SizedBox(height: 10),
+                      // Role badge con neon
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(100),
+                          border: Border.all(
+                            color: AppTheme.accent
+                                .withValues(alpha: 0.3 + pulse * 0.5),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.accent
+                                  .withValues(alpha: 0.15 + pulse * 0.2),
+                              blurRadius: 12 + pulse * 8,
+                              spreadRadius: pulse * 2,
+                            ),
+                          ],
                         ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _currentUser.role == 'admin'
+                                  ? Icons.admin_panel_settings
+                                  : _currentUser.role == 'inspector'
+                                      ? Icons.shield
+                                      : Icons.person,
+                              color: AppTheme.accent,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _getRoleDisplayName(_currentUser.role),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1,
+                                shadows: [
+                                  Shadow(
+                                    color: AppTheme.accent
+                                        .withValues(alpha: 0.6),
+                                    blurRadius: 10,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-              // Botón guardar
-              SizedBox(
-                width: double.infinity,
-                child: CustomButton(
-                  text: 'Guardar Cambios',
-                  isLoading: _isLoading,
-                  onPressed: _saveProfile,
+  Widget _neonOrb({
+    double? left,
+    double? right,
+    double? top,
+    double? bottom,
+    required double size,
+    required double pulse,
+  }) {
+    return Positioned(
+      left: left,
+      right: right,
+      top: top,
+      bottom: bottom,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              AppTheme.accent.withValues(alpha: 0.25 + pulse * 0.2),
+              AppTheme.accent.withValues(alpha: 0.0),
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.accent.withValues(alpha: 0.2 + pulse * 0.15),
+              blurRadius: size * 0.6 + pulse * size * 0.3,
+              spreadRadius: pulse * size * 0.1,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGlowAvatar(double pulse) {
+    return GestureDetector(
+      onTap: kIsWeb ? null : _showImagePicker,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.accent.withValues(alpha: 0.3 + pulse * 0.35),
+              blurRadius: 28 + pulse * 16,
+              spreadRadius: 4 + pulse * 6,
+            ),
+            BoxShadow(
+              color: AppTheme.primary.withValues(alpha: 0.2),
+              blurRadius: 40,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Outer neon ring
+            Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppTheme.accent.withValues(alpha: 0.5 + pulse * 0.5),
+                  width: 3,
                 ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: CircleAvatar(
+                  radius: 60,
+                  backgroundColor: Colors.white.withValues(alpha: 0.15),
+                  child: _isUploadingImage
+                      ? const SizedBox(
+                          width: 30,
+                          height: 30,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : _buildAvatarContent(_currentUser),
+                ),
+              ),
+            ),
+            // Camera badge
+            if (!kIsWeb)
+              Positioned(
+                bottom: 4,
+                right: 4,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppTheme.primary, AppTheme.accent],
+                    ),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.accent.withValues(alpha: 0.5),
+                        blurRadius: 12,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded,
+                      color: Colors.white, size: 18),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarContent(UserEntity user) {
+    if (_localImageFile != null) {
+      return ClipOval(
+        child: Image.file(_localImageFile!,
+            width: 120, height: 120, fit: BoxFit.cover),
+      );
+    }
+    if (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty) {
+      final url = user.profileImageUrl!.startsWith('file://')
+          ? '${ApiConfig.activeBaseUrl}/api/files/serve/${ApiConfig.tenantId}/${user.profileImageUrl!.substring(7)}'
+          : user.profileImageUrl!;
+      return ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: url,
+          width: 120,
+          height: 120,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => const CircularProgressIndicator(
+              color: Colors.white, strokeWidth: 2),
+          errorWidget: (_, __, ___) => _buildDefaultAvatar(user),
+        ),
+      );
+    }
+    return _buildDefaultAvatar(user);
+  }
+
+  Widget _buildDefaultAvatar(UserEntity user) {
+    return Text(
+      user.displayName.isNotEmpty
+          ? user.displayName.substring(0, 1).toUpperCase()
+          : '?',
+      style: TextStyle(
+        fontSize: 48,
+        fontWeight: FontWeight.w900,
+        color: Colors.white,
+        shadows: [
+          Shadow(
+            color: AppTheme.accent.withValues(alpha: 0.8),
+            blurRadius: 20,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // INFO SECTION (nombre, RUT)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildInfoSection() {
+    return _neonCard(
+      icon: Icons.person_rounded,
+      title: 'Informacion Personal',
+      children: [
+        _profileField(
+          icon: Icons.badge_rounded,
+          label: 'Nombre completo',
+          value: _currentUser.displayName,
+          controller: _nameController,
+          inputFormatters: [NameFormatter()],
+          validator: Validators.validateName,
+        ),
+        if (_isInspectorOrAdmin) ...[
+          const SizedBox(height: 16),
+          _profileField(
+            icon: Icons.fingerprint_rounded,
+            label: 'RUT',
+            value: _currentUser.rut ?? 'Sin RUT',
+            controller: _rutController,
+            inputFormatters: [RutFormatter()],
+            hint: '12.345.678-9',
+            validator: (v) =>
+                (v == null || v.isEmpty) ? 'Ingrese su RUT' : null,
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // CONTACT SECTION (telefono, direccion)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildContactSection() {
+    return _neonCard(
+      icon: Icons.phone_rounded,
+      title: 'Contacto',
+      children: [
+        _profileField(
+          icon: Icons.phone_rounded,
+          label: 'Telefono',
+          value: _currentUser.phoneNumber != null &&
+                  _currentUser.phoneNumber!.isNotEmpty
+              ? '+56 ${_cleanPhoneNumber(_currentUser.phoneNumber!)}'
+              : 'Sin telefono',
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          inputFormatters: [PhoneFormatter()],
+          prefixText: '+56 ',
+          validator: Validators.validatePhone,
+        ),
+        const SizedBox(height: 16),
+        _profileField(
+          icon: Icons.location_on_rounded,
+          label: 'Direccion',
+          value: _currentUser.address ?? 'Sin direccion',
+          controller: _addressController,
+          hint: 'Calle Los Aromos 123, Santa Juana',
+          validator: Validators.validateAddress,
+          maxLines: 2,
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // ACCOUNT SECTION (solo lectura)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildAccountSection() {
+    return _neonCard(
+      icon: Icons.shield_rounded,
+      title: 'Cuenta',
+      children: [
+        _readOnlyField(
+          icon: Icons.email_rounded,
+          label: 'Email',
+          value: _currentUser.email,
+        ),
+        const SizedBox(height: 14),
+        _readOnlyField(
+          icon: Icons.verified_user_rounded,
+          label: 'Rol',
+          value: _getRoleDisplayName(_currentUser.role),
+          highlight: true,
+        ),
+        const SizedBox(height: 14),
+        _readOnlyField(
+          icon: Icons.calendar_today_rounded,
+          label: 'Miembro desde',
+          value: _formatDate(_currentUser.createdAt),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // PRIVACIDAD Y DATOS PERSONALES (Ley 21.719 / Ley 19.628)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildPrivacySection() {
+    return _neonCard(
+      icon: Icons.privacy_tip_rounded,
+      title: 'Privacidad y datos personales',
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text(
+            'Frogio cumple con la Ley N° 21.719 y la Ley N° 19.628 sobre '
+            'protección de datos personales. Revisa la política y ejerce tus '
+            'derechos ARCOP en cualquier momento.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pushNamed('/privacy-policy');
+            },
+            icon: const Icon(Icons.policy_rounded),
+            label: const Text('Ver Política de Privacidad'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.primary,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // NEON CARD WRAPPER
+  // ---------------------------------------------------------------------------
+
+  Widget _neonCard({
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+  }) {
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (_, __) {
+        final p = _pulseController.value;
+        return Container(
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceWhite,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppTheme.primary.withValues(alpha: 0.15 + p * 0.1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primary.withValues(alpha: 0.06 + p * 0.04),
+                blurRadius: 16 + p * 8,
+                spreadRadius: p * 2,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: AppTheme.accent.withValues(alpha: 0.03 + p * 0.03),
+                blurRadius: 24,
+                spreadRadius: p,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.primarySurface.withValues(alpha: 0.8),
+                      AppTheme.primarySurface.withValues(alpha: 0.3),
+                    ],
+                  ),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppTheme.primary, AppTheme.accent],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.accent
+                                .withValues(alpha: 0.3 + p * 0.2),
+                            blurRadius: 8 + p * 4,
+                          ),
+                        ],
+                      ),
+                      child: Icon(icon, color: Colors.white, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(title,
+                        style: AppTheme.titleMedium
+                            .copyWith(fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(children: children),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // PROFILE FIELD (view/edit toggle)
+  // ---------------------------------------------------------------------------
+
+  Widget _profileField({
+    required IconData icon,
+    required String label,
+    required String value,
+    required TextEditingController controller,
+    List<dynamic>? inputFormatters,
+    String? Function(String?)? validator,
+    String? hint,
+    String? prefixText,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+  }) {
+    return AnimatedCrossFade(
+      duration: const Duration(milliseconds: 350),
+      crossFadeState:
+          _isEditing ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+      firstChild: _readOnlyField(icon: icon, label: label, value: value),
+      secondChild: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters?.cast(),
+        maxLines: maxLines,
+        style: AppTheme.bodyLarge,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          prefixText: prefixText,
+          prefixIcon: Icon(icon, size: 20, color: AppTheme.primary),
+          filled: true,
+          fillColor: AppTheme.surface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+                color: AppTheme.primary.withValues(alpha: 0.2)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+                color: AppTheme.primary.withValues(alpha: 0.2)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide:
+                const BorderSide(color: AppTheme.accent, width: 2),
+          ),
+        ),
+        validator: validator,
+      ),
+    );
+  }
+
+  Widget _readOnlyField({
+    required IconData icon,
+    required String label,
+    required String value,
+    bool highlight = false,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: highlight
+                ? AppTheme.primary.withValues(alpha: 0.1)
+                : AppTheme.surface,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon,
+              size: 20,
+              color: highlight ? AppTheme.primary : AppTheme.textSecondary),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: AppTheme.labelSmall
+                      .copyWith(color: AppTheme.textTertiary)),
+              const SizedBox(height: 3),
+              Text(
+                value,
+                style: AppTheme.bodyLarge.copyWith(
+                  color:
+                      highlight ? AppTheme.primary : AppTheme.textPrimary,
+                  fontWeight: highlight ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // SAVE BUTTON (neon glow)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildSaveButton() {
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (_, __) {
+        final p = _pulseController.value;
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.accent.withValues(alpha: 0.2 + p * 0.25),
+                blurRadius: 20 + p * 12,
+                spreadRadius: p * 3,
+              ),
+              BoxShadow(
+                color: AppTheme.primary.withValues(alpha: 0.15),
+                blurRadius: 30,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppTheme.primaryDark, AppTheme.primary, AppTheme.accent],
+              ),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: _isLoading ? null : _saveProfile,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                        : const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_rounded,
+                                  color: Colors.white, size: 22),
+                              SizedBox(width: 10),
+                              Text(
+                                'Guardar Cambios',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // IMAGE PICKER
+  // ---------------------------------------------------------------------------
+
+  void _showImagePicker() {
+    if (kIsWeb) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.surfaceWhite,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: AppTheme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text('Cambiar foto',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary)),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: _pickerCard(
+                      icon: Icons.camera_alt_rounded,
+                      label: 'Camara',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickImage(ImageSource.camera);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _pickerCard(
+                      icon: Icons.photo_library_rounded,
+                      label: 'Galeria',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickImage(ImageSource.gallery);
+                      },
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -225,203 +960,247 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildProfileAvatar() {
-    final currentUser = _updatedUser ?? widget.user;
-    
-    return Stack(
-      children: [
-        CircleAvatar(
-          radius: 60,
-          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-          child: _isUploadingImage
-              ? const CircularProgressIndicator()
-              : _buildAvatarContent(currentUser),
-        ),
-        if (!kIsWeb)
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: GestureDetector(
-              onTap: _showImagePicker,
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: AppTheme.primaryColor,
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(8),
-                child: const Icon(
-                  Icons.camera_alt,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
+  Widget _pickerCard({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          decoration: BoxDecoration(
+            color: AppTheme.primarySurface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+                color: AppTheme.primary.withValues(alpha: 0.2)),
           ),
-      ],
-    );
-  }
-
-  Widget _buildAvatarContent(UserEntity user) {
-    if (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty) {
-      // Verificar si es una referencia a archivo (file://fileId)
-      if (user.profileImageUrl!.startsWith('file://')) {
-        final fileId = user.profileImageUrl!.substring(7);
-        return _FileImageWidget(
-          fileId: fileId,
-          size: 120,
-          fallback: _buildDefaultAvatar(user),
-        );
-      }
-      // URL directa
-      return ClipOval(
-        child: CachedNetworkImage(
-          imageUrl: user.profileImageUrl!,
-          width: 120,
-          height: 120,
-          fit: BoxFit.cover,
-          placeholder: (context, url) => const CircularProgressIndicator(),
-          errorWidget: (context, url, error) => _buildDefaultAvatar(user),
-        ),
-      );
-    }
-    return _buildDefaultAvatar(user);
-  }
-
-  Widget _buildDefaultAvatar(UserEntity user) {
-    return CircleAvatar(
-      radius: 60,
-      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
-      child: Text(
-        user.displayName.substring(0, 1).toUpperCase(),
-        style: const TextStyle(
-          fontSize: 36,
-          fontWeight: FontWeight.bold,
-          color: AppTheme.primaryColor,
+          child: Column(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.primary, AppTheme.accent],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.accent.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: Colors.white, size: 28),
+              ),
+              const SizedBox(height: 10),
+              Text(label,
+                  style: AppTheme.titleSmall
+                      .copyWith(color: AppTheme.primary)),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _showImagePicker() {
-    if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Fotos de perfil disponibles en la app móvil'),
-          backgroundColor: AppTheme.warningColor,
-        ),
-      );
-      return;
-    }
-    
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Tomar foto'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Elegir de galería'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // ---------------------------------------------------------------------------
+  // IMAGE UPLOAD
+  // ---------------------------------------------------------------------------
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
+      final image = await ImagePicker().pickImage(
         source: source,
-        imageQuality: 70,
+        imageQuality: 50,
+        maxWidth: 400,
+        maxHeight: 400,
       );
-
       if (image != null) {
+        final file = File(image.path);
         setState(() {
+          _localImageFile = file;
           _isUploadingImage = true;
         });
-
-        final File imageFile = File(image.path);
-        await _uploadImage(imageFile);
+        await _uploadImage(file);
       }
     } catch (e) {
-      _showError('Error al seleccionar imagen: ${e.toString()}');
+      _showSnack('Error al seleccionar imagen', isError: true);
     }
   }
 
   Future<void> _uploadImage(File imageFile) async {
     try {
-      final imageUrlResult = await _authRepository.uploadProfileImage(
-        widget.user.id,
-        imageFile,
-      );
-
-      await imageUrlResult.fold(
-        (failure) async {
-          _showError('Error al subir imagen: ${failure.message}');
+      final result =
+          await _authRepository.uploadProfileImage(widget.user.id, imageFile);
+      await result.fold(
+        (f) async {
+          if (mounted) setState(() => _localImageFile = null);
+          _showSnack('Error: ${f.message}', isError: true);
         },
         (imageUrl) async {
-          final updateResult = await _authRepository.updateProfileImage(
-            widget.user.id,
-            imageUrl,
-          );
-
-          updateResult.fold(
-            (failure) {
-              _showError('Error al actualizar perfil: ${failure.message}');
+          final update = await _authRepository.updateProfileImage(
+              widget.user.id, imageUrl);
+          update.fold(
+            (f) {
+              if (mounted) setState(() => _localImageFile = null);
+              _showSnack('Error: ${f.message}', isError: true);
             },
             (user) {
-              setState(() {
-                _updatedUser = user;
-              });
-              _showSuccess('Imagen actualizada correctamente');
-              context.read<AuthBloc>().add(CheckAuthStatusEvent());
+              if (mounted) {
+                setState(() => _updatedUser = user);
+                _showSnack('Foto actualizada');
+                context.read<AuthBloc>().add(CheckAuthStatusEvent());
+              }
             },
           );
         },
       );
     } catch (e) {
-      _showError('Error inesperado: ${e.toString()}');
+      if (mounted) setState(() => _localImageFile = null);
+      _showSnack('Error inesperado', isError: true);
     } finally {
-      setState(() {
-        _isUploadingImage = false;
-      });
+      if (mounted) setState(() => _isUploadingImage = false);
     }
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.grey,
+  // ---------------------------------------------------------------------------
+  // SAVE
+  // ---------------------------------------------------------------------------
+
+  Future<void> _saveProfile() async {
+    final errors = <String>[];
+    final ne = Validators.validateName(_nameController.text);
+    if (ne != null) errors.add('Nombre: $ne');
+    if (_isInspectorOrAdmin && _rutController.text.trim().isEmpty) {
+      errors.add('RUT: Requerido');
+    }
+    final pe = Validators.validatePhone(_phoneController.text);
+    if (pe != null) errors.add('Telefono: $pe');
+    final ae = Validators.validateAddress(_addressController.text);
+    if (ae != null) errors.add('Direccion: $ae');
+
+    if (errors.isNotEmpty) {
+      _showErrors(errors);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final result = await _authRepository.updateUserProfile(
+        userId: widget.user.id,
+        name: _nameController.text.trim().isNotEmpty
+            ? _nameController.text.trim()
+            : null,
+        rut: _rutController.text.trim().isNotEmpty
+            ? _rutController.text.trim()
+            : null,
+        phoneNumber: _phoneController.text
+                .replaceAll(RegExp(r'[^\d]'), '')
+                .isNotEmpty
+            ? _phoneController.text.replaceAll(RegExp(r'[^\d]'), '')
+            : null,
+        address: _addressController.text.trim().isNotEmpty
+            ? _addressController.text.trim()
+            : null,
+      );
+      result.fold(
+        (f) => _showSnack('Error: ${f.message}', isError: true),
+        (user) {
+          _showSnack('Perfil actualizado');
+          if (mounted) {
+            context.read<AuthBloc>().add(CheckAuthStatusEvent());
+            Navigator.pop(context, true);
+          }
+        },
+      );
+    } catch (e) {
+      _showSnack('Error inesperado', isError: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showErrors(List<String> errors) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.warningLight,
+                borderRadius: BorderRadius.circular(10),
               ),
+              child: const Icon(Icons.warning_rounded,
+                  color: AppTheme.warning, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text('Revisa tus datos', style: AppTheme.titleLarge),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: errors
+              .map((e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.close_rounded,
+                            size: 16, color: AppTheme.emergency),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: Text(e, style: AppTheme.bodyMedium)),
+                      ],
+                    ),
+                  ))
+              .toList(),
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Entendido'),
             ),
           ),
-          Expanded(child: Text(value)),
         ],
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
       ),
     );
   }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_rounded : Icons.check_circle_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(msg)),
+          ],
+        ),
+        backgroundColor: isError ? AppTheme.emergency : AppTheme.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // HELPERS
+  // ---------------------------------------------------------------------------
 
   String _getRoleDisplayName(String role) {
     switch (role) {
@@ -437,224 +1216,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
-  Future<void> _saveProfile() async {
-    // Recopilar errores de validación
-    final errors = <String>[];
-
-    final nameError = Validators.validateName(_nameController.text);
-    if (nameError != null) errors.add('Nombre: $nameError');
-
-    if (_isInspectorOrAdmin) {
-      final rutValue = _rutController.text.trim();
-      if (rutValue.isEmpty) {
-        errors.add('RUT: Por favor ingrese su RUT');
-      }
-    }
-
-    final phoneError = Validators.validatePhone(_phoneController.text);
-    if (phoneError != null) errors.add('Teléfono: $phoneError');
-
-    final addressError = Validators.validateAddress(_addressController.text);
-    if (addressError != null) errors.add('Dirección: $addressError');
-
-    // Mostrar errores en popup si hay alguno
-    if (errors.isNotEmpty) {
-      _showValidationErrorsDialog(errors);
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final name = _nameController.text.trim();
-      final rut = _rutController.text.trim();
-      final phone = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
-      final address = _addressController.text.trim();
-
-      final result = await _authRepository.updateUserProfile(
-        userId: widget.user.id,
-        name: name.isNotEmpty ? name : null,
-        rut: rut.isNotEmpty ? rut : null,
-        phoneNumber: phone.isNotEmpty ? phone : null,
-        address: address.isNotEmpty ? address : null,
-      );
-
-      result.fold(
-        (failure) {
-          _showError('Error al actualizar perfil: ${failure.message}');
-        },
-        (user) {
-          _showSuccess('Perfil actualizado correctamente');
-          context.read<AuthBloc>().add(CheckAuthStatusEvent());
-          Navigator.pop(context, true);
-        },
-      );
-    } catch (e) {
-      _showError('Error inesperado: ${e.toString()}');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _showValidationErrorsDialog(List<String> errors) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.warningColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.warning_amber_rounded, color: AppTheme.warningColor),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text('Datos incorrectos'),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Por favor corrige los siguientes campos:',
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 12),
-            ...errors.map((error) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.error_outline, size: 16, color: AppTheme.errorColor),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      error,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ],
-              ),
-            )),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Entendido'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSuccess(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppTheme.successColor,
-      ),
-    );
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppTheme.errorColor,
-      ),
-    );
-  }
-}
-
-/// Widget que carga una imagen desde un fileId
-class _FileImageWidget extends StatefulWidget {
-  final String fileId;
-  final double size;
-  final Widget fallback;
-
-  const _FileImageWidget({
-    required this.fileId,
-    required this.size,
-    required this.fallback,
-  });
-
-  @override
-  State<_FileImageWidget> createState() => _FileImageWidgetState();
-}
-
-class _FileImageWidgetState extends State<_FileImageWidget> {
-  String? _imageUrl;
-  bool _isLoading = true;
-  bool _hasError = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadImageUrl();
-  }
-
-  Future<void> _loadImageUrl() async {
-    try {
-      debugPrint('📷 EditProfile: Loading image URL for fileId: ${widget.fileId}');
-      final authDataSource = di.sl<AuthApiDataSource>();
-      final url = await authDataSource.getFileUrl(widget.fileId);
-      debugPrint('📷 EditProfile: Got URL: $url');
-
-      if (!mounted) return;
-
-      setState(() {
-        _imageUrl = url;
-        _isLoading = false;
-        _hasError = url == null;
-      });
-    } catch (e) {
-      debugPrint('📷 EditProfile: Error loading URL: $e');
-      if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-        _hasError = true;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return SizedBox(
-        width: widget.size,
-        height: widget.size,
-        child: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (_hasError || _imageUrl == null) {
-      return widget.fallback;
-    }
-
-    return ClipOval(
-      child: CachedNetworkImage(
-        imageUrl: _imageUrl!,
-        width: widget.size,
-        height: widget.size,
-        fit: BoxFit.cover,
-        placeholder: (context, url) => const CircularProgressIndicator(),
-        errorWidget: (context, url, error) => widget.fallback,
-      ),
-    );
+    const m = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    ];
+    return '${date.day} de ${m[date.month - 1]} ${date.year}';
   }
 }

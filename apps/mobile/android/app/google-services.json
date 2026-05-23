@@ -1,45 +1,51 @@
 {
   "project_info": {
-    "project_number": "729189223627",
-    "project_id": "frogio-201f9",
-    "storage_bucket": "frogio-201f9.firebasestorage.app"
+    "project_number": "789201430048",
+    "project_id": "frogio-santa-juana",
+    "storage_bucket": "frogio-santa-juana.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:729189223627:android:89892f692380a1382e9f4e",
-        "android_client_info": {
-          "package_name": "com.example.frogio"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyC_88yvH7X3ETGzyRCZ9jkjtmhw-wIIbnc"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:729189223627:android:86b56712a035c4ec2e9f4e",
+        "mobilesdk_app_id": "1:789201430048:android:9c8d5a4529e62ae5ec3e45",
         "android_client_info": {
           "package_name": "com.frogio.santa_juana"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "789201430048-rt0m539ar5h467vkiui4eo0tvei0s33v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.frogio.santa_juana",
+            "certificate_hash": "1e72f70b94ca6975b4c88e4f43e1c2e04e24836d"
+          }
+        },
+        {
+          "client_id": "789201430048-0npsmn7uvi9e066i7qk2hvp0nrftfat6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyC_88yvH7X3ETGzyRCZ9jkjtmhw-wIIbnc"
+          "current_key": "AIzaSyA1weO93NAvF8ifQY_B6CulsjUNFCjaAlA"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "789201430048-0npsmn7uvi9e066i7qk2hvp0nrftfat6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "789201430048-epbsjo2ek3i1j115k7vjie6tu6c3jhrv.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.frogio.santajuana"
+              }
+            }
+          ]
         }
       }
     }

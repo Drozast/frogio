@@ -19,6 +19,9 @@ class ReportEntity extends Equatable {
   final List<ReportResponse> responses;
   final String? assignedToId;
   final String? assignedToName;
+  final String? citizenName;
+  final String? citizenPhone;
+  final String? citizenEmail;
 
   const ReportEntity({
     required this.id,
@@ -38,6 +41,9 @@ class ReportEntity extends Equatable {
     required this.responses,
     this.assignedToId,
     this.assignedToName,
+    this.citizenName,
+    this.citizenPhone,
+    this.citizenEmail,
   });
 
   @override
@@ -45,7 +51,7 @@ class ReportEntity extends Equatable {
     id, title, description, category, references, location,
     citizenId, muniId, status, priority, attachments,
     createdAt, updatedAt, statusHistory, responses,
-    assignedToId, assignedToName,
+    assignedToId, assignedToName, citizenName, citizenPhone, citizenEmail,
   ];
 
   ReportEntity copyWith({
@@ -66,6 +72,9 @@ class ReportEntity extends Equatable {
     List<ReportResponse>? responses,
     String? assignedToId,
     String? assignedToName,
+    String? citizenName,
+    String? citizenPhone,
+    String? citizenEmail,
   }) {
     return ReportEntity(
       id: id ?? this.id,
@@ -85,42 +94,74 @@ class ReportEntity extends Equatable {
       responses: responses ?? this.responses,
       assignedToId: assignedToId ?? this.assignedToId,
       assignedToName: assignedToName ?? this.assignedToName,
+      citizenName: citizenName ?? this.citizenName,
+      citizenPhone: citizenPhone ?? this.citizenPhone,
+      citizenEmail: citizenEmail ?? this.citizenEmail,
     );
   }
 }
 
 // Enums y clases relacionadas
 enum ReportStatus {
-  draft,
-  submitted,
-  reviewing,
-  inProgress,
-  resolved,
-  rejected,
-  archived,
-  duplicate,
-  cancelled;
+  /// Denuncia nueva, sin inspector asignado → backend: 'pendiente'
+  pendiente,
+  /// Inspector la tomó, en gestión → backend: 'en_proceso'
+  enProceso,
+  /// Cerrada positivamente → backend: 'resuelto'
+  resuelto,
+  /// Cerrada negativamente / rechazada / duplicada → backend: 'rechazado'
+  rechazado;
 
   String get displayName {
     switch (this) {
-      case ReportStatus.draft:
-        return 'Borrador';
-      case ReportStatus.submitted:
-        return 'Enviada';
-      case ReportStatus.reviewing:
-        return 'En Revisión';
-      case ReportStatus.inProgress:
+      case ReportStatus.pendiente:
+        return 'Pendiente';
+      case ReportStatus.enProceso:
         return 'En Proceso';
-      case ReportStatus.resolved:
+      case ReportStatus.resuelto:
         return 'Resuelta';
-      case ReportStatus.rejected:
+      case ReportStatus.rechazado:
         return 'Rechazada';
-      case ReportStatus.archived:
-        return 'Archivada';
-      case ReportStatus.duplicate:
-        return 'Duplicada';
-      case ReportStatus.cancelled:
-        return 'Cancelada';
+    }
+  }
+
+  /// Valor a enviar a la API
+  String toApiString() {
+    switch (this) {
+      case ReportStatus.pendiente:
+        return 'pendiente';
+      case ReportStatus.enProceso:
+        return 'en_proceso';
+      case ReportStatus.resuelto:
+        return 'resuelto';
+      case ReportStatus.rechazado:
+        return 'rechazado';
+    }
+  }
+
+  /// Parsear valor recibido de la API
+  static ReportStatus fromApiString(String value) {
+    switch (value.toLowerCase()) {
+      case 'pendiente':
+      case 'submitted':
+      case 'draft':
+        return ReportStatus.pendiente;
+      case 'en_proceso':
+      case 'inprogress':
+      case 'in_progress':
+      case 'reviewing':
+        return ReportStatus.enProceso;
+      case 'resuelto':
+      case 'resolved':
+        return ReportStatus.resuelto;
+      case 'rechazado':
+      case 'rejected':
+      case 'duplicate':
+      case 'archived':
+      case 'cancelled':
+        return ReportStatus.rechazado;
+      default:
+        return ReportStatus.pendiente;
     }
   }
 }
@@ -202,6 +243,10 @@ class StatusHistoryItem extends Equatable {
   final String? comment;
   final String? userId;
   final String? userName;
+  /// true si es un seguimiento del inspector sin cambio de estado
+  final bool isFollowUp;
+  /// Fotos/archivos adjuntos en esta entrada del historial
+  final List<String> attachments;
 
   const StatusHistoryItem({
     required this.timestamp,
@@ -209,10 +254,12 @@ class StatusHistoryItem extends Equatable {
     this.comment,
     this.userId,
     this.userName,
+    this.isFollowUp = false,
+    this.attachments = const [],
   });
 
   @override
-  List<Object?> get props => [timestamp, status, comment, userId, userName];
+  List<Object?> get props => [timestamp, status, comment, userId, userName, isFollowUp, attachments];
 }
 
 class ReportResponse extends Equatable {

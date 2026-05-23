@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../blocs/notification/notification_bloc.dart';
 import '../../theme/app_theme.dart';
+import '../../../features/panic/presentation/pages/panic_alert_detail_screen.dart';
 import '../../widgets/notification_widget.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -409,11 +410,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.pop(ctx);
+                _navigateToNotificationTarget(notification);
               },
-              icon: const Icon(Icons.map),
-              label: const Text('Ver en Mapa'),
+              icon: const Icon(Icons.visibility_rounded),
+              label: const Text('Ver Alerta'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
+                backgroundColor: AppTheme.emergency,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -631,14 +633,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     switch (notification.type) {
       case NotificationType.panicAlert:
         final alertId = data['panicAlertId'] ?? data['alertId'];
-        if (alertId != null) {
-          // Navegar a la pantalla de alerta de pánico
-          Navigator.pushNamed(
-            context,
-            '/panic-alert-detail',
-            arguments: {'alertId': alertId},
-          );
-        }
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PanicAlertDetailScreen(
+              alertId: alertId?.toString(),
+            ),
+          ),
+        );
         break;
       case NotificationType.reportStatusChanged:
       case NotificationType.reportResponse:

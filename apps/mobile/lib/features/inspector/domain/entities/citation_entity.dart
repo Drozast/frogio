@@ -22,6 +22,9 @@ class CitationEntity extends Equatable {
   final DateTime? notifiedAt;
   final String? issuedBy;
   final String? issuerName;
+  final String? reportId;
+  final String? courtName;
+  final DateTime? hearingDate;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -46,6 +49,9 @@ class CitationEntity extends Equatable {
     this.notifiedAt,
     this.issuedBy,
     this.issuerName,
+    this.reportId,
+    this.courtName,
+    this.hearingDate,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -72,6 +78,9 @@ class CitationEntity extends Equatable {
         notifiedAt,
         issuedBy,
         issuerName,
+        reportId,
+        courtName,
+        hearingDate,
         createdAt,
         updatedAt,
       ];
@@ -97,6 +106,9 @@ class CitationEntity extends Equatable {
     DateTime? notifiedAt,
     String? issuedBy,
     String? issuerName,
+    String? reportId,
+    String? courtName,
+    DateTime? hearingDate,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -121,6 +133,9 @@ class CitationEntity extends Equatable {
       notifiedAt: notifiedAt ?? this.notifiedAt,
       issuedBy: issuedBy ?? this.issuedBy,
       issuerName: issuerName ?? this.issuerName,
+      reportId: reportId ?? this.reportId,
+      courtName: courtName ?? this.courtName,
+      hearingDate: hearingDate ?? this.hearingDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -203,6 +218,7 @@ enum TargetType {
 
 enum CitationStatus {
   pendiente,
+  emitida,
   notificado,
   asistio,
   noAsistio,
@@ -212,6 +228,8 @@ enum CitationStatus {
     switch (this) {
       case CitationStatus.pendiente:
         return 'Pendiente';
+      case CitationStatus.emitida:
+        return 'Emitida';
       case CitationStatus.notificado:
         return 'Notificado';
       case CitationStatus.asistio:
@@ -227,6 +245,8 @@ enum CitationStatus {
     switch (value.toLowerCase()) {
       case 'pendiente':
         return CitationStatus.pendiente;
+      case 'emitida':
+        return CitationStatus.emitida;
       case 'notificado':
         return CitationStatus.notificado;
       case 'asistio':
@@ -244,6 +264,8 @@ enum CitationStatus {
     switch (this) {
       case CitationStatus.pendiente:
         return 'pendiente';
+      case CitationStatus.emitida:
+        return 'emitida';
       case CitationStatus.notificado:
         return 'notificado';
       case CitationStatus.asistio:

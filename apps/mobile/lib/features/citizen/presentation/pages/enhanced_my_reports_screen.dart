@@ -1,7 +1,7 @@
 // lib/features/citizen/presentation/pages/enhanced_my_reports_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:frogio_santa_juana/features/citizen/presentation/pages/report_detail_screen.dart';
+import 'package:frogio_mobile/features/citizen/presentation/pages/report_detail_screen.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -16,7 +16,7 @@ import 'enhanced_create_report_screen.dart';
 class MyReportsScreen extends StatefulWidget {
   final String userId;
   final String? userRole;
-  
+
   const MyReportsScreen({
     super.key,
     required this.userId,
@@ -32,7 +32,7 @@ class _MyReportsScreenState extends State<MyReportsScreen>
   late ReportBloc _reportBloc;
   late TabController _tabController;
   final _searchController = TextEditingController();
-  
+
   bool _useRealTimeUpdates = true;
   String _currentFilter = 'Todas';
   String _searchQuery = '';
@@ -74,62 +74,88 @@ class _MyReportsScreenState extends State<MyReportsScreen>
     return BlocProvider(
       create: (context) => _reportBloc,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Mis Denuncias'),
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: _showSearchDialog,
-            ),
-            PopupMenuButton<String>(
-              onSelected: _handleMenuAction,
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'realtime',
-                  child: Row(
-                    children: [
-                      Icon(
-                        _useRealTimeUpdates 
-                            ? Icons.notifications_active 
-                            : Icons.notifications_off,
+        backgroundColor: AppTheme.surface,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight + 48 + 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppBar(
+                title: const Text('Mis Denuncias'),
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.search, color: Colors.white),
+                    onPressed: _showSearchDialog,
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: Colors.white),
+                    color: AppTheme.surfaceWhite,
+                    onSelected: _handleMenuAction,
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'realtime',
+                        child: Row(
+                          children: [
+                            Icon(
+                              _useRealTimeUpdates
+                                  ? Icons.notifications_active
+                                  : Icons.notifications_off,
+                              color: AppTheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _useRealTimeUpdates
+                                  ? 'Desactivar tiempo real'
+                                  : 'Activar tiempo real',
+                              style: const TextStyle(
+                                  color: AppTheme.textPrimary),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(_useRealTimeUpdates 
-                          ? 'Desactivar tiempo real' 
-                          : 'Activar tiempo real'),
+                      const PopupMenuItem(
+                        value: 'refresh',
+                        child: Row(
+                          children: [
+                            Icon(Icons.refresh, color: AppTheme.primary),
+                            SizedBox(width: 8),
+                            Text('Actualizar',
+                                style:
+                                    TextStyle(color: AppTheme.textPrimary)),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
+                ],
+              ),
+              Container(
+                color: AppTheme.surfaceWhite,
+                child: TabBar(
+                  controller: _tabController,
+                  labelColor: AppTheme.primary,
+                  unselectedLabelColor: AppTheme.textTertiary,
+                  indicatorColor: AppTheme.primary,
+                  dividerColor: AppTheme.border,
+                  tabs: const [
+                    Tab(icon: Icon(Icons.list), text: 'Lista'),
+                    Tab(icon: Icon(Icons.dashboard), text: 'Resumen'),
+                  ],
                 ),
-                const PopupMenuItem(
-                  value: 'refresh',
-                  child: Row(
-                    children: [
-                      Icon(Icons.refresh),
-                      SizedBox(width: 8),
-                      Text('Actualizar'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-          bottom: TabBar(
-            controller: _tabController,
-            labelColor: AppTheme.primaryColor,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: AppTheme.primaryColor,
-            tabs: const [
-              Tab(icon: Icon(Icons.list), text: 'Lista'),
-              Tab(icon: Icon(Icons.dashboard), text: 'Resumen'),
+              ),
             ],
           ),
         ),
         floatingActionButton: FloatingActionButton.extended(
-          backgroundColor: AppTheme.primaryColor,
+          backgroundColor: AppTheme.primary,
+          foregroundColor: Colors.white,
           onPressed: () => _navigateToCreateReport(),
           icon: const Icon(Icons.add),
-          label: const Text('Nueva Denuncia'),
+          label: const Text('Nueva Denuncia',
+              style: TextStyle(fontWeight: FontWeight.w700)),
         ),
         body: TabBarView(
           controller: _tabController,
@@ -149,7 +175,8 @@ class _MyReportsScreenState extends State<MyReportsScreen>
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async => _loadReports(),
-            color: AppTheme.primaryColor,
+            color: AppTheme.primary,
+            backgroundColor: AppTheme.surfaceWhite,
             child: BlocBuilder<ReportBloc, ReportState>(
               builder: (context, state) {
                 if (state is ReportLoading) {
@@ -175,13 +202,13 @@ class _MyReportsScreenState extends State<MyReportsScreen>
     return BlocBuilder<ReportBloc, ReportState>(
       builder: (context, state) {
         List<ReportEntity> reports = [];
-        
+
         if (state is ReportsLoaded) {
           reports = state.reports;
         } else if (state is ReportsStreaming) {
           reports = state.reports;
         }
-        
+
         return _buildSummaryContent(reports);
       },
     );
@@ -191,14 +218,8 @@ class _MyReportsScreenState extends State<MyReportsScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppTheme.surfaceWhite,
+        boxShadow: AppTheme.shadowSmall,
       ),
       child: Column(
         children: [
@@ -210,45 +231,69 @@ class _MyReportsScreenState extends State<MyReportsScreen>
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: FilterChip(
-                    label: Text(filter),
+                    label: Text(
+                      filter,
+                      style: TextStyle(
+                        color: isSelected
+                            ? AppTheme.primary
+                            : AppTheme.textSecondary,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.normal,
+                      ),
+                    ),
                     selected: isSelected,
                     onSelected: (selected) {
                       if (selected) {
                         setState(() {
                           _currentFilter = filter;
                         });
-                        _reportBloc.add(FilterReportsEvent(filter: filter));
+                        _reportBloc
+                            .add(FilterReportsEvent(filter: filter));
                       }
                     },
-                    selectedColor: AppTheme.primaryColor.withValues(alpha: 0.2),
-                    checkmarkColor: AppTheme.primaryColor,
+                    backgroundColor: AppTheme.surface,
+                    selectedColor: AppTheme.primarySurface,
+                    checkmarkColor: AppTheme.primary,
+                    side: BorderSide(
+                      color: isSelected
+                          ? AppTheme.primary.withValues(alpha: 0.6)
+                          : AppTheme.border,
+                      width: isSelected ? 1.2 : 1.0,
+                    ),
+                    shadowColor: isSelected
+                        ? AppTheme.primary.withValues(alpha: 0.15)
+                        : Colors.transparent,
+                    elevation: isSelected ? 2 : 0,
                   ),
                 );
               }).toList(),
             ),
           ),
-          
+
           if (_searchQuery.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: AppTheme.primarySurface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.shade200),
+                border: Border.all(
+                    color: AppTheme.primary.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.search, color: Colors.blue),
+                  const Icon(Icons.search, color: AppTheme.primary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Buscando: "$_searchQuery"',
-                      style: const TextStyle(color: Colors.blue),
+                      style: const TextStyle(color: AppTheme.primary),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.clear, color: Colors.blue),
+                    icon: const Icon(Icons.clear, color: AppTheme.primary),
                     onPressed: _clearSearch,
                   ),
                 ],
@@ -275,7 +320,8 @@ class _MyReportsScreenState extends State<MyReportsScreen>
           child: EnhancedReportListItem(
             report: report,
             onTap: () => _navigateToReportDetail(report.id),
-            showActions: widget.userRole == 'admin' || widget.userRole == 'inspector',
+            showActions: widget.userRole == 'admin' ||
+                widget.userRole == 'inspector',
           ),
         );
       },
@@ -284,7 +330,7 @@ class _MyReportsScreenState extends State<MyReportsScreen>
 
   Widget _buildSummaryContent(List<ReportEntity> reports) {
     final stats = _calculateStats(reports);
-    
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -334,25 +380,21 @@ class _MyReportsScreenState extends State<MyReportsScreen>
             ],
           ),
           const SizedBox(height: 24),
-          
-          const Text(
+
+          Text(
             'Estadísticas por Estado',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTheme.titleMedium
+                .copyWith(color: AppTheme.textPrimary),
           ),
           const SizedBox(height: 16),
           _buildStatusChart(stats),
-          
+
           const SizedBox(height: 24),
-          
-          const Text(
+
+          Text(
             'Actividad Reciente',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTheme.titleMedium
+                .copyWith(color: AppTheme.textPrimary),
           ),
           const SizedBox(height: 16),
           _buildRecentActivity(reports),
@@ -361,140 +403,176 @@ class _MyReportsScreenState extends State<MyReportsScreen>
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.20)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.08),
+            blurRadius: 12,
+          ),
+          ...AppTheme.shadowSmall,
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 12,
-              ),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: AppTheme.bodySmall,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildStatusChart(Map<String, int> stats) {
     final total = stats.values.fold(0, (sum, value) => sum + value);
-    
+
     if (total == 0) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Center(
-            child: Text(
-              'Sin denuncias para mostrar',
-              style: TextStyle(color: Colors.grey),
-            ),
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceWhite,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: const Center(
+          child: Text(
+            'Sin denuncias para mostrar',
+            style: TextStyle(color: AppTheme.textTertiary),
           ),
         ),
       );
     }
-    
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: stats.entries.map((entry) {
-            final percentage = (entry.value / total * 100).round();
-            final color = _getStatusColor(entry.key);
-            
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.shadowSmall,
+      ),
+      child: Column(
+        children: stats.entries.map((entry) {
+          final percentage = (entry.value / total * 100).round();
+          final color = _getStatusColor(entry.key);
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(_getStatusDisplayName(entry.key)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _getStatusDisplayName(entry.key),
+                    style: AppTheme.bodyMedium,
                   ),
-                  Text(
-                    '${entry.value} ($percentage%)',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
+                ),
+                Text(
+                  '${entry.value} ($percentage%)',
+                  style: AppTheme.labelMedium.copyWith(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.bold,
                   ),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 
   Widget _buildRecentActivity(List<ReportEntity> reports) {
     final recentReports = reports
-        .where((r) => DateTime.now().difference(r.updatedAt).inDays <= 7)
+        .where(
+            (r) => DateTime.now().difference(r.updatedAt).inDays <= 7)
         .take(3)
         .toList();
-    
+
     if (recentReports.isEmpty) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Center(
-            child: Text(
-              'Sin actividad reciente',
-              style: TextStyle(color: Colors.grey),
-            ),
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceWhite,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: const Center(
+          child: Text(
+            'Sin actividad reciente',
+            style: TextStyle(color: AppTheme.textTertiary),
           ),
         ),
       );
     }
-    
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: recentReports.map((report) {
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-               backgroundColor: _getStatusColor(report.status.name).withValues(alpha: 0.2),
-                child: Icon(
-                  _getStatusIcon(report.status),
-                  color: _getStatusColor(report.status.name),
-                  size: 20,
-                ),
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.shadowSmall,
+      ),
+      child: Column(
+        children: recentReports.map((report) {
+          final statusColor = _getStatusColor(report.status.name);
+          return ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 4),
+            leading: CircleAvatar(
+              backgroundColor: statusColor.withValues(alpha: 0.12),
+              child: Icon(
+                _getStatusIcon(report.status),
+                color: statusColor,
+                size: 20,
               ),
-              title: Text(
-                report.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(
-                '${report.status.displayName} • ${_timeAgo(report.updatedAt)}',
-                style: const TextStyle(fontSize: 12),
-              ),
-              onTap: () => _navigateToReportDetail(report.id),
-            );
-          }).toList(),
-        ),
+            ),
+            title: Text(
+              report.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.titleSmall,
+            ),
+            subtitle: Text(
+              '${report.status.displayName} • ${_timeAgo(report.updatedAt)}',
+              style: AppTheme.bodySmall,
+            ),
+            onTap: () => _navigateToReportDetail(report.id),
+          );
+        }).toList(),
       ),
     );
   }
@@ -507,13 +585,14 @@ class _MyReportsScreenState extends State<MyReportsScreen>
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: Shimmer.fromColors(
-            baseColor: Colors.grey[300]!,
-            highlightColor: Colors.grey[100]!,
+            baseColor: AppTheme.borderLight,
+            highlightColor: AppTheme.primarySurface,
             child: Container(
               height: 120,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.surfaceWhite,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.border),
               ),
             ),
           ),
@@ -524,34 +603,40 @@ class _MyReportsScreenState extends State<MyReportsScreen>
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.report_off,
-            size: 80,
-            color: Colors.grey,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _searchQuery.isNotEmpty 
-                ? 'No se encontraron denuncias'
-                : _currentFilter == 'Todas'
-                    ? 'No tienes denuncias'
-                    : 'No tienes denuncias con estado "$_currentFilter"',
-            style: const TextStyle(
-              fontSize: 18,
-              color: Colors.grey,
+      child: Container(
+        margin: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.border),
+          boxShadow: AppTheme.shadowMedium,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _BouncingIcon(
+              icon: Icons.report_off,
+              color: AppTheme.primary,
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.add),
-            label: const Text('Crear Nueva Denuncia'),
-            onPressed: _navigateToCreateReport,
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'No se encontraron denuncias'
+                  : _currentFilter == 'Todas'
+                      ? 'No tienes denuncias'
+                      : 'No tienes denuncias con estado "$_currentFilter"',
+              style: AppTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _navigateToCreateReport,
+              icon: const Icon(Icons.add),
+              label: const Text('Crear Nueva Denuncia'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -561,15 +646,15 @@ class _MyReportsScreenState extends State<MyReportsScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline,
             size: 60,
-            color: AppTheme.errorColor,
+            color: AppTheme.errorColor.withValues(alpha: 0.6),
           ),
           const SizedBox(height: 16),
           Text(
             'Error: $message',
-            style: const TextStyle(fontSize: 16),
+            style: AppTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -583,17 +668,18 @@ class _MyReportsScreenState extends State<MyReportsScreen>
   }
 
   // Helper methods
-  
+
   Map<String, int> _calculateStats(List<ReportEntity> reports) {
     final stats = <String, int>{};
-    
+
     for (final report in reports) {
       final status = report.status.name;
       stats[status] = (stats[status] ?? 0) + 1;
     }
-    
-    final pending = (stats['submitted'] ?? 0) + (stats['reviewing'] ?? 0);
-    
+
+    final pending =
+        (stats['submitted'] ?? 0) + (stats['reviewing'] ?? 0);
+
     return {
       'pending': pending,
       'inProgress': stats['inProgress'] ?? 0,
@@ -637,25 +723,21 @@ class _MyReportsScreenState extends State<MyReportsScreen>
 
   IconData _getStatusIcon(ReportStatus status) {
     switch (status) {
-      case ReportStatus.submitted:
+      case ReportStatus.pendiente:
         return Icons.send;
-      case ReportStatus.reviewing:
-        return Icons.visibility;
-      case ReportStatus.inProgress:
+      case ReportStatus.enProceso:
         return Icons.build;
-      case ReportStatus.resolved:
+      case ReportStatus.resuelto:
         return Icons.check_circle;
-      case ReportStatus.rejected:
+      case ReportStatus.rechazado:
         return Icons.cancel;
-      default:
-        return Icons.info;
     }
   }
 
   String _timeAgo(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
-    
+
     if (difference.inDays > 0) {
       return 'hace ${difference.inDays} día${difference.inDays == 1 ? '' : 's'}';
     } else if (difference.inHours > 0) {
@@ -745,5 +827,59 @@ class _MyReportsScreenState extends State<MyReportsScreen>
         ),
       ),
     ).then((_) => _loadReports());
+  }
+}
+
+/// Bouncing icon widget used in the empty state.
+class _BouncingIcon extends StatefulWidget {
+  final IconData icon;
+  final Color color;
+
+  const _BouncingIcon({
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  State<_BouncingIcon> createState() => _BouncingIconState();
+}
+
+class _BouncingIconState extends State<_BouncingIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  late final Animation<double> _bounce = Tween<double>(begin: 0, end: -12)
+      .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _bounce,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(0, _bounce.value),
+        child: child,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: widget.color.withValues(alpha: 0.08),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          widget.icon,
+          size: 60,
+          color: widget.color.withValues(alpha: 0.7),
+        ),
+      ),
+    );
   }
 }

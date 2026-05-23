@@ -50,3 +50,11 @@ class ForgotPasswordEvent extends AuthEvent {
   @override
   List<Object> get props => [email];
 }
+
+class SignInWithAppleEvent extends AuthEvent {
+  const SignInWithAppleEvent();
+}
+
+class SignInWithGoogleEvent extends AuthEvent {
+  const SignInWithGoogleEvent();
+}

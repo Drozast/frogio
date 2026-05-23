@@ -20,6 +20,7 @@ abstract class ReportRemoteDataSource {
     required ReportStatus status,
     String? comment,
     required String userId,
+    String? assignedTo,
   });
   
   /// Añade una respuesta a un reporte
@@ -37,6 +38,7 @@ abstract class ReportRemoteDataSource {
     ReportStatus status, {
     String? muniId,
     String? assignedTo,
+    String? createdBy,
   });
   
   /// Asigna un reporte a un inspector

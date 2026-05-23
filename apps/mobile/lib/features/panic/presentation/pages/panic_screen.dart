@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
 import '../../../auth/domain/entities/user_entity.dart';
 import '../bloc/panic_bloc.dart';
@@ -29,11 +30,7 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
-  // Colores del tema (estilo FROGIO)
-  static const Color _primaryGreen = Color(0xFF1B5E20);
-  static const Color _lightGreen = Color(0xFF7CB342);
   static const Color _emergencyRed = Color(0xFFC62828);
-  static const Color _emergencyRedLight = Color(0xFFE57373);
 
   @override
   void initState() {
@@ -150,9 +147,10 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceWhite,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: const Border(top: BorderSide(color: Color(0x33FFAA00), width: 1)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -161,21 +159,21 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: AppTheme.warning.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 24),
-            Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange.shade600),
+            const Icon(Icons.warning_amber_rounded, size: 48, color: AppTheme.warning),
             const SizedBox(height: 16),
             const Text(
               '¿Cancelar la alerta?',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 8),
-            Text(
+            const Text(
               'Solo cancela si la emergencia fue un error',
-              style: TextStyle(color: Colors.grey.shade600),
+              style: TextStyle(color: Color(0xFF778899)),
             ),
             const SizedBox(height: 24),
             Row(
@@ -230,7 +228,20 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
             setState(() => _activeAlertId = state.alert.id);
           } else if (state is PanicAlertCancelled) {
             setState(() => _activeAlertId = null);
-            context.read<PanicBloc>().add(const ResetPanicStateEvent());
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text('Alerta cancelada correctamente'),
+                  ],
+                ),
+                backgroundColor: AppTheme.success,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            );
           } else if (state is PanicError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -246,10 +257,10 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
           final isActive = state is PanicAlertSent || _activeAlertId != null;
 
           return Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: AppTheme.surface,
             body: Stack(
               children: [
-                // Fondo con patrón de hojas/nenúfares (estilo FROGIO)
+                // Fondo con patrón decorativo neon
                 _buildBackgroundPattern(isActive),
 
                 // Contenido principal
@@ -273,7 +284,7 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: isActive ? _primaryGreen : _emergencyRed,
+                                  color: isActive ? AppTheme.success : AppTheme.emergency,
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -289,7 +300,7 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: isActive ? _primaryGreen : _emergencyRed,
+                                  color: isActive ? AppTheme.success : AppTheme.emergency,
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -326,34 +337,52 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
   }
 
   Widget _buildBackgroundPattern(bool isActive) {
+    final accent = isActive ? AppTheme.success : AppTheme.emergency;
     return Positioned.fill(
-      child: Opacity(
-        opacity: 0.05,
-        child: CustomPaint(
-          painter: _LeafPatternPainter(
-            color: isActive ? _primaryGreen : _emergencyRed,
+      child: Stack(
+        children: [
+          // Radial glow top
+          Positioned(
+            top: -100,
+            left: -100,
+            child: Container(
+              width: 400,
+              height: 400,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [accent.withValues(alpha: 0.08), Colors.transparent],
+                ),
+              ),
+            ),
           ),
-        ),
+          // Leaf pattern with neon tint
+          Opacity(
+            opacity: 0.04,
+            child: CustomPaint(
+              painter: _LeafPatternPainter(color: accent),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context, bool isActive) {
-    final headerColor = isActive ? _primaryGreen : _emergencyRed;
+    final accent = isActive ? AppTheme.success : AppTheme.emergency;
 
     return Container(
       decoration: BoxDecoration(
-        color: headerColor,
+        color: AppTheme.surfaceWhite,
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(30),
           bottomRight: Radius.circular(30),
         ),
+        border: Border(
+          bottom: BorderSide(color: accent.withValues(alpha: 0.5), width: 1.5),
+        ),
         boxShadow: [
-          BoxShadow(
-            color: headerColor.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
+          BoxShadow(color: accent.withValues(alpha: 0.18), blurRadius: 24, offset: const Offset(0, 6)),
         ],
       ),
       child: SafeArea(
@@ -410,22 +439,19 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
+                            color: accent.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: accent.withValues(alpha: 0.3)),
                           ),
-                          child: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
+                          child: Icon(Icons.arrow_back_ios_new_rounded, color: accent, size: 20),
                         ),
                       ),
                       const SizedBox(width: 16),
                       // Título
                       Text(
                         isActive ? 'ALERTA ACTIVA' : 'EMERGENCIA',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: accent,
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 2,
@@ -436,16 +462,14 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
 
                   const SizedBox(height: 20),
 
-                  // Tarjeta de usuario (estilo FROGIO)
+                  // Tarjeta de usuario neon
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
+                      color: AppTheme.surface,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        width: 1,
-                      ),
+                      border: Border.all(color: accent.withValues(alpha: 0.3)),
+                      boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.08), blurRadius: 12)],
                     ),
                     child: Row(
                       children: [
@@ -454,8 +478,9 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
                           width: 55,
                           height: 55,
                           decoration: BoxDecoration(
-                            color: isActive ? _lightGreen : _emergencyRedLight,
+                            color: accent.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: accent.withValues(alpha: 0.4)),
                           ),
                           child: Center(
                             child: Text(
@@ -557,9 +582,10 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
   }
 
   Widget _buildInfoGrid(bool isActive) {
-    final borderColor = isActive ? _lightGreen : _emergencyRedLight;
-    final iconBgColor = isActive ? _primaryGreen.withValues(alpha: 0.1) : _emergencyRed.withValues(alpha: 0.1);
-    final iconColor = isActive ? _primaryGreen : _emergencyRed;
+    final accent = isActive ? AppTheme.success : AppTheme.emergency;
+    final borderColor = accent.withValues(alpha: 0.4);
+    final iconBgColor = accent.withValues(alpha: 0.10);
+    final iconColor = accent;
 
     return Column(
       children: [
@@ -639,15 +665,11 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceWhite,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor, width: 2),
+        border: Border.all(color: borderColor, width: 1.5),
         boxShadow: [
-          BoxShadow(
-            color: borderColor.withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: borderColor.withValues(alpha: 0.12), blurRadius: 12),
         ],
       ),
       child: Column(
@@ -667,11 +689,7 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
                 const Spacer(),
                 GestureDetector(
                   onTap: onRefresh,
-                  child: Icon(
-                    Icons.refresh,
-                    color: iconColor.withValues(alpha: 0.6),
-                    size: 20,
-                  ),
+                  child: Icon(Icons.refresh, color: iconColor.withValues(alpha: 0.6), size: 20),
                 ),
               ],
             ],
@@ -679,17 +697,13 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
           const SizedBox(height: 12),
           Text(
             title,
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(color: Color(0xFF778899), fontSize: 12, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
             style: TextStyle(
-              color: Colors.grey.shade800,
+              color: Colors.white,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               fontFamily: isMonospace ? 'monospace' : null,
@@ -706,18 +720,15 @@ class _PanicScreenState extends State<PanicScreen> with TickerProviderStateMixin
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.orange.shade300, width: 2),
+        border: Border.all(color: AppTheme.warning.withValues(alpha: 0.5), width: 1.5),
+        boxShadow: [BoxShadow(color: AppTheme.warning.withValues(alpha: 0.12), blurRadius: 12)],
       ),
       child: TextButton.icon(
         onPressed: () => _cancelAlert(context),
-        icon: Icon(Icons.close_rounded, size: 22, color: Colors.orange.shade700),
-        label: Text(
+        icon: const Icon(Icons.close_rounded, size: 22, color: AppTheme.warning),
+        label: const Text(
           'Cancelar alerta',
-          style: TextStyle(
-            color: Colors.orange.shade700,
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-          ),
+          style: TextStyle(color: AppTheme.warning, fontWeight: FontWeight.w600, fontSize: 15),
         ),
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),

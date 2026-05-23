@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/location_picker_widget.dart';
 import '../../../../di/injection_container_api.dart' as di;
@@ -61,8 +60,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     return BlocProvider.value(
       value: _reportBloc,
       child: Scaffold(
+        backgroundColor: AppTheme.surface,
         appBar: AppBar(
           title: const Text('Nueva Denuncia'),
+          backgroundColor: AppTheme.surfaceWhite,
+          foregroundColor: AppTheme.textPrimary,
           elevation: 0,
         ),
         body: BlocListener<ReportBloc, ReportState>(
@@ -71,7 +73,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Denuncia creada exitosamente'),
-                  backgroundColor: AppTheme.successColor,
+                  backgroundColor: AppTheme.success,
                 ),
               );
               Navigator.pop(context, true);
@@ -79,7 +81,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message),
-                  backgroundColor: AppTheme.errorColor,
+                  backgroundColor: AppTheme.emergency,
                 ),
               );
             }
@@ -120,231 +122,259 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     );
   }
 
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Text(
+        title,
+        style: AppTheme.titleMedium.copyWith(color: AppTheme.primary),
+      ),
+    );
+  }
+
   Widget _buildBasicInfo() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Información Básica',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        CustomTextField(
-          label: 'Título',
-          hint: 'Resumen breve del problema',
-          controller: _titleController,
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'El título es requerido';
-            }
-            if (value.trim().length < 5) {
-              return 'El título debe tener al menos 5 caracteres';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 16),
-        CustomTextField(
-          label: 'Descripción',
-          hint: 'Describe el problema en detalle',
-          controller: _descriptionController,
-          maxLines: 4,
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'La descripción es requerida';
-            }
-            if (value.trim().length < 20) {
-              return 'La descripción debe tener al menos 20 caracteres';
-            }
-            return null;
-          },
-        ),
-      ],
+    return Container(
+      decoration: AppTheme.cardDecoration,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Información Básica'),
+          CustomTextField(
+            label: 'Título',
+            hint: 'Resumen breve del problema',
+            controller: _titleController,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'El título es requerido';
+              }
+              if (value.trim().length < 5) {
+                return 'El título debe tener al menos 5 caracteres';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          CustomTextField(
+            label: 'Descripción',
+            hint: 'Describe el problema en detalle',
+            controller: _descriptionController,
+            maxLines: 4,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'La descripción es requerida';
+              }
+              if (value.trim().length < 20) {
+                return 'La descripción debe tener al menos 20 caracteres';
+              }
+              return null;
+            },
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildCategorySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Categoría',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedCategory,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
+    return Container(
+      decoration: AppTheme.cardDecoration,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Categoría'),
+          DropdownButtonFormField<String>(
+            value: _selectedCategory,
+            dropdownColor: AppTheme.surfaceWhite,
+            style: AppTheme.bodyLarge,
+            decoration: const InputDecoration(labelText: 'Categoría'),
+            items: _categories.map((category) {
+              return DropdownMenuItem(
+                value: category,
+                child: Text(category, style: AppTheme.bodyLarge),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedCategory = value!;
+              });
+            },
           ),
-          items: _categories.map((category) {
-            return DropdownMenuItem(
-              value: category,
-              child: Text(category),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedCategory = value!;
-            });
-          },
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildLocationSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Ubicación',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
+    return Container(
+      decoration: AppTheme.cardDecoration,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Ubicación'),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_selectedLocation != null) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, color: AppTheme.primary),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Ubicación seleccionada:',
+                        style: AppTheme.bodyLarge,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _selectedLocation!.address ??
+                        'Lat: ${_selectedLocation!.latitude.toStringAsFixed(6)}, '
+                            'Lng: ${_selectedLocation!.longitude.toStringAsFixed(6)}',
+                    style: AppTheme.bodySmall,
+                  ),
+                ] else
+                  Text(
+                    'No se ha seleccionado ubicación',
+                    style: AppTheme.bodyMedium,
+                  ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _selectLocation,
+                    icon: const Icon(Icons.map),
+                    label: Text(_selectedLocation != null
+                        ? 'Cambiar ubicación'
+                        : 'Seleccionar ubicación'),
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_selectedLocation != null) ...[
-                const Row(
-                  children: [
-                    Icon(Icons.location_on, color: AppTheme.primaryColor),
-                    SizedBox(width: 8),
-                    Text('Ubicación seleccionada:'),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _selectedLocation!.address ??
-                      'Lat: ${_selectedLocation!.latitude.toStringAsFixed(6)}, '
-                          'Lng: ${_selectedLocation!.longitude.toStringAsFixed(6)}',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ] else
-                const Text(
-                  'No se ha seleccionado ubicación',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _selectLocation,
-                  icon: const Icon(Icons.map),
-                  label: Text(_selectedLocation != null
-                      ? 'Cambiar ubicación'
-                      : 'Seleccionar ubicación'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildImagesSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Imágenes (Opcional)',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        if (_selectedImages.isNotEmpty) ...[
-          SizedBox(
-            height: 100,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _selectedImages.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          _selectedImages[index],
-                          width: 100,
-                          height: 100,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: GestureDetector(
-                          onTap: () => _removeImage(index),
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              color: Colors.white,
-                              size: 16,
+    return Container(
+      decoration: AppTheme.cardDecoration,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Imágenes (Opcional)'),
+          if (_selectedImages.isNotEmpty) ...[
+            SizedBox(
+              height: 100,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _selectedImages.length,
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Stack(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.border),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              _selectedImages[index],
+                              width: 100,
+                              height: 100,
+                              fit: BoxFit.cover,
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: GestureDetector(
+                            onTap: () => _removeImage(index),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: AppTheme.emergency,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pickImage(ImageSource.camera),
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text('Tomar foto'),
                   ),
-                );
-              },
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pickImage(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library),
+                    label: const Text('Galería'),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
         ],
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _pickImage(ImageSource.camera),
-                icon: const Icon(Icons.camera_alt),
-                label: const Text('Tomar foto'),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _pickImage(ImageSource.gallery),
-                icon: const Icon(Icons.photo_library),
-                label: const Text('Galería'),
-              ),
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
   Widget _buildReferencesSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Referencias Adicionales (Opcional)',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        CustomTextField(
-          label: 'Referencias',
-          hint: 'Información adicional, números de ordenanza, etc.',
-          controller: _referencesController,
-          maxLines: 2,
-        ),
-      ],
+    return Container(
+      decoration: AppTheme.cardDecoration,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Referencias Adicionales (Opcional)'),
+          CustomTextField(
+            label: 'Referencias',
+            hint: 'Información adicional, números de ordenanza, etc.',
+            controller: _referencesController,
+            maxLines: 2,
+          ),
+        ],
+      ),
     );
   }
 
@@ -352,29 +382,36 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, -2),
-          ),
-        ],
+        color: AppTheme.surfaceWhite,
+        border: const Border(
+          top: BorderSide(color: AppTheme.border, width: 1),
+        ),
+        boxShadow: AppTheme.shadowSmall,
       ),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton(
-              onPressed: state is ReportCreating ? null : () => Navigator.pop(context),
+              onPressed: state is ReportCreating
+                  ? null
+                  : () => Navigator.pop(context),
               child: const Text('Cancelar'),
             ),
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: CustomButton(
-              text: 'Crear Denuncia',
-              onPressed: state is ReportCreating ? () {} : _submitReport,
-              isLoading: state is ReportCreating,
+            child: ElevatedButton.icon(
+              onPressed: state is ReportCreating ? null : _submitReport,
+              icon: state is ReportCreating
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.send),
+              label: Text(
+                  state is ReportCreating ? 'Enviando...' : 'Crear Denuncia'),
             ),
           ),
         ],
@@ -417,7 +454,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al seleccionar imagen: ${e.toString()}'),
-            backgroundColor: AppTheme.errorColor,
+            backgroundColor: AppTheme.emergency,
           ),
         );
       }
@@ -439,7 +476,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Por favor selecciona una ubicación'),
-          backgroundColor: AppTheme.warningColor,
+          backgroundColor: AppTheme.warning,
         ),
       );
       return;
@@ -454,7 +491,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           : null,
       location: _selectedLocation!,
       userId: widget.userId,
-      priority: Priority.medium, // Prioridad por defecto
+      priority: Priority.medium,
       attachments: _selectedImages,
     );
 

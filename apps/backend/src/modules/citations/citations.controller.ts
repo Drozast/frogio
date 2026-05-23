@@ -25,7 +25,7 @@ export class CitationsController {
   async findAll(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantId = req.user!.tenantId;
-      const { status, citationType, targetType, search, fromDate, toDate } = req.query;
+      const { status, citationType, targetType, search, fromDate, toDate, reportId } = req.query;
       const pagination = parsePagination(req);
 
       // Citizens can only see their own citations
@@ -39,6 +39,7 @@ export class CitationsController {
         fromDate: fromDate as string,
         toDate: toDate as string,
         userId,
+        reportId: reportId as string,
       };
 
       const result = await citationsService.findAll(tenantId, filters, pagination.limit, pagination.offset);

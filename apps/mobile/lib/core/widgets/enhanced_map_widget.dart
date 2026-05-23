@@ -108,6 +108,7 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
         children: [
           TileLayer(
             urlTemplate: MapsService.tileServerUrl,
+                  tileProvider: MapsService.tileProvider,
             fallbackUrl: MapsService.osmFallbackUrl,
             userAgentPackageName: 'com.frogio.santajuana',
           ),

@@ -16,37 +16,30 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
   final SharedPreferences prefs;
   final String baseUrl;
 
-  static const String _accessTokenKey = 'access_token';
-
   EnhancedReportApiDataSource({
     required this.client,
     required this.prefs,
     required this.baseUrl,
   });
 
-  Map<String, String> get _authHeaders {
-    final token = prefs.getString(_accessTokenKey);
-    return {
-      'Content-Type': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
-  }
-
   @override
   Future<List<ReportModel>> getReportsByUser(String userId) async {
     try {
       final response = await client.get(
         Uri.parse('$baseUrl/api/reports'),
-        headers: _authHeaders,
+        // AuthHttpClient handles auth headers automatically
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? decoded['reports'] ?? []);
         return data.map((json) => ReportModel.fromApi(json)).toList();
       } else {
-        throw Exception('Error al obtener reportes');
+        final errorBody = response.body.isNotEmpty ? json.decode(response.body) : <String, dynamic>{};
+        throw Exception(errorBody['error'] ?? 'Error al obtener reportes (${response.statusCode})');
       }
     } catch (e) {
+      if (e is Exception) rethrow;
       throw Exception('Error de conexión: ${e.toString()}');
     }
   }
@@ -56,7 +49,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
     try {
       final response = await client.get(
         Uri.parse('$baseUrl/api/reports/$reportId'),
-        headers: _authHeaders,
+        // AuthHttpClient handles auth headers automatically
       );
 
       if (response.statusCode == 200) {
@@ -67,6 +60,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
         throw Exception(error['error'] ?? 'Error al obtener reporte');
       }
     } catch (e) {
+      if (e is Exception) rethrow;
       throw Exception('Error de conexión: ${e.toString()}');
     }
   }
@@ -81,7 +75,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
       // Crear el reporte primero
       final response = await client.post(
         Uri.parse('$baseUrl/api/reports'),
-        headers: _authHeaders,
+        // AuthHttpClient handles auth headers automatically
         body: json.encode({
           'title': params.title,
           'description': params.description,
@@ -108,6 +102,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
         throw Exception(error['error'] ?? 'Error al crear reporte');
       }
     } catch (e) {
+      if (e is Exception) rethrow;
       throw Exception('Error de conexión: ${e.toString()}');
     }
   }
@@ -118,14 +113,16 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
     required ReportStatus status,
     String? comment,
     required String userId,
+    String? assignedTo,
   }) async {
     try {
       final response = await client.patch(
         Uri.parse('$baseUrl/api/reports/$reportId'),
-        headers: _authHeaders,
+        // AuthHttpClient handles auth headers automatically
         body: json.encode({
           'status': _mapStatusToBackend(status),
-          if (comment != null) 'response': comment,
+          if (comment != null) 'resolution': comment,
+          if (assignedTo != null) 'assignedTo': assignedTo,
         }),
       );
 
@@ -134,6 +131,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
         throw Exception(error['error'] ?? 'Error al actualizar reporte');
       }
     } catch (e) {
+      if (e is Exception) rethrow;
       throw Exception('Error de conexión: ${e.toString()}');
     }
   }
@@ -150,7 +148,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
     try {
       final response = await client.post(
         Uri.parse('$baseUrl/api/reports/$reportId/responses'),
-        headers: _authHeaders,
+        // AuthHttpClient handles auth headers automatically
         body: json.encode({
           'message': message,
           'isPublic': isPublic,
@@ -162,6 +160,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
         throw Exception(error['error'] ?? 'Error al agregar respuesta');
       }
     } catch (e) {
+      if (e is Exception) rethrow;
       throw Exception('Error de conexión: ${e.toString()}');
     }
   }
@@ -171,6 +170,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
     ReportStatus status, {
     String? muniId,
     String? assignedTo,
+    String? createdBy,
   }) async {
     try {
       final queryParams = <String, String>{
@@ -179,17 +179,22 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
       if (assignedTo != null) {
         queryParams['assignedTo'] = assignedTo;
       }
+      if (createdBy != null) {
+        queryParams['createdBy'] = createdBy;
+      }
 
       final uri = Uri.parse('$baseUrl/api/reports').replace(queryParameters: queryParams);
-      final response = await client.get(uri, headers: _authHeaders);
+      final response = await client.get(uri);
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? decoded['reports'] ?? []);
         return data.map((json) => ReportModel.fromApi(json)).toList();
       } else {
         throw Exception('Error al obtener reportes por estado');
       }
     } catch (e) {
+      if (e is Exception) rethrow;
       throw Exception('Error de conexión: ${e.toString()}');
     }
   }
@@ -203,7 +208,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
     try {
       final response = await client.patch(
         Uri.parse('$baseUrl/api/reports/$reportId'),
-        headers: _authHeaders,
+        // AuthHttpClient handles auth headers automatically
         body: json.encode({
           'assignedTo': assignedToId,
         }),
@@ -214,6 +219,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
         throw Exception(error['error'] ?? 'Error al asignar reporte');
       }
     } catch (e) {
+      if (e is Exception) rethrow;
       throw Exception('Error de conexión: ${e.toString()}');
     }
   }
@@ -229,11 +235,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
           Uri.parse('$baseUrl/api/files/upload'),
         );
 
-        final token = prefs.getString(_accessTokenKey);
-        if (token != null) {
-          request.headers['Authorization'] = 'Bearer $token';
-        }
-
+        // AuthHttpClient handles auth headers automatically via client.send()
         request.fields['entityType'] = 'report';
         request.fields['entityId'] = reportId;
 
@@ -265,6 +267,7 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
 
       return uploadedIds;
     } catch (e) {
+      if (e is Exception) rethrow;
       throw Exception('Error al subir archivos: ${e.toString()}');
     }
   }
@@ -320,25 +323,6 @@ class EnhancedReportApiDataSource implements ReportRemoteDataSource {
   }
 
   String _mapStatusToBackend(ReportStatus status) {
-    switch (status) {
-      case ReportStatus.draft:
-        return 'borrador';
-      case ReportStatus.submitted:
-        return 'pendiente';
-      case ReportStatus.reviewing:
-        return 'en_revision';
-      case ReportStatus.inProgress:
-        return 'en_proceso';
-      case ReportStatus.resolved:
-        return 'resuelto';
-      case ReportStatus.rejected:
-        return 'rechazado';
-      case ReportStatus.archived:
-        return 'archivado';
-      case ReportStatus.duplicate:
-        return 'duplicate';
-      case ReportStatus.cancelled:
-        return 'cancelled';
-    }
+    return status.toApiString();
   }
 }

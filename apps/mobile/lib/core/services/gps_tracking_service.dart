@@ -6,6 +6,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
+import '../config/api_config.dart';
+
 /// GPS Configuration
 class GpsConfig {
   static const int trackingIntervalMs = 10000; // 10 seconds
@@ -250,13 +252,13 @@ class GpsTrackingService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $_accessToken',
-          'X-Tenant-ID': 'santa_juana',
-        },
-        body: jsonEncode({
-          'vehicleId': _vehicleId,
-          'vehicleLogId': _vehicleLogId,
-          'points': pointsToSend.map((p) => p.toJson()).toList(),
-        }),
+              'X-Tenant-ID': ApiConfig.tenantId,
+            },
+            body: jsonEncode({
+              'vehicleId': _vehicleId,
+              'vehicleLogId': _vehicleLogId,
+              'points': pointsToSend.map((p) => p.toJson()).toList(),
+            }),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -367,7 +369,7 @@ Future<void> _onStart(ServiceInstance service) async {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $accessToken',
-              'X-Tenant-ID': 'santa_juana',
+              'X-Tenant-ID': ApiConfig.tenantId,
             },
             body: jsonEncode({
               'vehicleId': vehicleId,

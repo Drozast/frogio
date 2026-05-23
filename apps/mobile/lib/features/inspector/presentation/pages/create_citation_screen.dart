@@ -11,15 +11,18 @@ import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as path;
 
 import '../../../../core/config/api_config.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
 import '../../data/models/citation_model.dart';
 import '../../domain/entities/citation_entity.dart';
 import '../bloc/citation_bloc.dart';
+import 'package:frogio_mobile/core/services/maps_service.dart';
 
 class CreateCitationScreen extends StatefulWidget {
   final String inspectorId;
+  final String? reportId;
 
-  const CreateCitationScreen({super.key, required this.inspectorId});
+  const CreateCitationScreen({super.key, required this.inspectorId, this.reportId});
 
   @override
   State<CreateCitationScreen> createState() => _CreateCitationScreenState();
@@ -28,8 +31,6 @@ class CreateCitationScreen extends StatefulWidget {
 class _CreateCitationScreenState extends State<CreateCitationScreen> {
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
-
-  static const Color _primaryGreen = Color(0xFF1B5E20);
 
   // Controllers
   final _targetNameController = TextEditingController();
@@ -43,9 +44,11 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
 
   // Controllers para número de citación
   final _folioController = TextEditingController();
+  final _courtNameController = TextEditingController();
 
   // State
   CitationType _selectedCitationType = CitationType.citacion;
+  DateTime? _selectedHearingDate;
   TargetType _selectedTargetType = TargetType.persona;
   double? _latitude;
   double? _longitude;
@@ -73,6 +76,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
     _reasonController.dispose();
     _notesController.dispose();
     _folioController.dispose();
+    _courtNameController.dispose();
     super.dispose();
   }
 
@@ -178,7 +182,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.camera_alt, color: _primaryGreen),
+              leading: const Icon(Icons.camera_alt, color: AppTheme.primary),
               title: const Text('Tomar foto'),
               onTap: () {
                 Navigator.pop(context);
@@ -186,7 +190,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library, color: _primaryGreen),
+              leading: const Icon(Icons.photo_library, color: AppTheme.primary),
               title: const Text('Seleccionar de galería'),
               onTap: () {
                 Navigator.pop(context);
@@ -237,7 +241,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
           return Scaffold(
             appBar: AppBar(
               title: const Text('Nueva Citación'),
-              backgroundColor: _primaryGreen,
+              backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
             ),
             body: Form(
@@ -311,7 +315,9 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
+
+                    const SizedBox(height: 8),
 
                     // Botón guardar
                     SizedBox(
@@ -319,7 +325,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
                       child: ElevatedButton(
                         onPressed: isLoading ? null : () => _submitForm(context),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _primaryGreen,
+                          backgroundColor: AppTheme.primary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -369,7 +375,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.photo_camera, color: _primaryGreen, size: 20),
+                  const Icon(Icons.photo_camera, color: AppTheme.primary, size: 20),
                   const SizedBox(width: 8),
                   Text(
                     'Fotos adjuntas',
@@ -383,7 +389,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _primaryGreen.withValues(alpha: 0.1),
+                  color: AppTheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -391,7 +397,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: _primaryGreen,
+                    color: AppTheme.primary,
                   ),
                 ),
               ),
@@ -432,8 +438,8 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
                     : const Icon(Icons.add_a_photo),
                 label: Text(_isProcessingPhoto ? 'Procesando...' : 'Agregar foto'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: _primaryGreen,
-                  side: const BorderSide(color: _primaryGreen),
+                  foregroundColor: AppTheme.primary,
+                  side: const BorderSide(color: AppTheme.primary),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -547,16 +553,16 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _primaryGreen.withValues(alpha: 0.1),
+        color: AppTheme.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _primaryGreen.withValues(alpha: 0.3)),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.numbers, color: _primaryGreen, size: 24),
+              const Icon(Icons.numbers, color: AppTheme.primary, size: 24),
               const SizedBox(width: 12),
               Text(
                 'Número de Citación',
@@ -608,7 +614,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: _primaryGreen, width: 2),
+                      borderSide: const BorderSide(color: AppTheme.primary, width: 2),
                     ),
                   ),
                   validator: (value) {
@@ -659,10 +665,10 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
               ),
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                color: isSelected ? _primaryGreen : Colors.grey.shade100,
+                color: isSelected ? AppTheme.primary : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSelected ? _primaryGreen : Colors.grey.shade300,
+                  color: isSelected ? AppTheme.primary : Colors.grey.shade300,
                 ),
               ),
               child: Column(
@@ -701,7 +707,7 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
           label: Text(type.displayName),
           selected: isSelected,
           onSelected: (_) => setState(() => _selectedTargetType = type),
-          selectedColor: _primaryGreen,
+          selectedColor: AppTheme.primary,
           labelStyle: TextStyle(
             color: isSelected ? Colors.white : Colors.grey.shade700,
           ),
@@ -808,8 +814,8 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
                     : const Icon(Icons.my_location),
                 label: Text(_isLoadingLocation ? 'Obteniendo...' : 'Usar GPS'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: _primaryGreen,
-                  side: const BorderSide(color: _primaryGreen),
+                  foregroundColor: AppTheme.primary,
+                  side: const BorderSide(color: AppTheme.primary),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -821,8 +827,8 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
                 icon: const Icon(Icons.map),
                 label: const Text('Buscar en Mapa'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: _primaryGreen,
-                  side: const BorderSide(color: _primaryGreen),
+                  foregroundColor: AppTheme.primary,
+                  side: const BorderSide(color: AppTheme.primary),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -988,6 +994,10 @@ class _CreateCitationScreenState extends State<CreateCitationScreen> {
       citationNumber: citationNumber,
       reason: _reasonController.text,
       notes: _notesController.text.isNotEmpty ? _notesController.text : null,
+      reportId: widget.reportId,
+      courtName: _courtNameController.text.isNotEmpty ? _courtNameController.text : null,
+      hearingDate: _selectedHearingDate,
+      deliveredToCourt: false,
     );
 
     context.read<CitationBloc>().add(CreateCitationEvent(
@@ -1012,8 +1022,6 @@ class _MapPickerScreen extends StatefulWidget {
 }
 
 class _MapPickerScreenState extends State<_MapPickerScreen> {
-  static const Color _primaryGreen = Color(0xFF1B5E20);
-
   late double _latitude;
   late double _longitude;
   String? _address;
@@ -1157,7 +1165,7 @@ class _MapPickerScreenState extends State<_MapPickerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Seleccionar Ubicación'),
-        backgroundColor: _primaryGreen,
+        backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
         actions: [
           TextButton(
@@ -1275,8 +1283,9 @@ class _MapPickerScreenState extends State<_MapPickerScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.frogio.santa_juana',
+                      urlTemplate: MapsService.tileServerUrl,
+                  tileProvider: MapsService.tileProvider,
+                      userAgentPackageName: ApiConfig.appPackageName,
                     ),
                     MarkerLayer(
                       markers: [
@@ -1311,7 +1320,7 @@ class _MapPickerScreenState extends State<_MapPickerScreen> {
                                 height: 20,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Icon(Icons.my_location, color: _primaryGreen),
+                            : const Icon(Icons.my_location, color: AppTheme.primary),
                       ),
                       const SizedBox(height: 8),
                       // Botón Zoom In
@@ -1319,7 +1328,7 @@ class _MapPickerScreenState extends State<_MapPickerScreen> {
                         heroTag: 'zoom_in',
                         onPressed: _zoomIn,
                         backgroundColor: Colors.white,
-                        child: const Icon(Icons.add, color: _primaryGreen),
+                        child: const Icon(Icons.add, color: AppTheme.primary),
                       ),
                       const SizedBox(height: 8),
                       // Botón Zoom Out
@@ -1327,7 +1336,7 @@ class _MapPickerScreenState extends State<_MapPickerScreen> {
                         heroTag: 'zoom_out',
                         onPressed: _zoomOut,
                         backgroundColor: Colors.white,
-                        child: const Icon(Icons.remove, color: _primaryGreen),
+                        child: const Icon(Icons.remove, color: AppTheme.primary),
                       ),
                     ],
                   ),

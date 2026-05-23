@@ -13,6 +13,7 @@ import {
   MapIcon,
   CircleStackIcon,
 } from '@heroicons/react/24/outline';
+import { useTenant } from '@/lib/tenant-context';
 
 interface NavItem {
   name: string;
@@ -48,6 +49,10 @@ const navItemVariants = {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const tenant = useTenant();
+
+  // Prepend tenant prefix to hrefs so links work with tenant routing
+  const withTenant = (href: string) => `/${tenant.id}${href}`;
 
   return (
     <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20">
@@ -80,7 +85,8 @@ export default function Sidebar() {
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navigation.map((item, index) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            const fullHref = withTenant(item.href);
+            const isActive = pathname === fullHref || pathname.startsWith(fullHref + '/');
             const isHighlight = item.highlight && !isActive;
             return (
               <motion.div
@@ -91,7 +97,7 @@ export default function Sidebar() {
                 animate="show"
               >
                 <Link
-                  href={item.href}
+                  href={withTenant(item.href)}
                   className={`
                     group relative flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-300
                     ${isActive
@@ -161,7 +167,7 @@ export default function Sidebar() {
               Sistema de Gestión
             </p>
             <p className="text-xs font-semibold text-foreground mt-0.5">
-              Municipal Santa Juana
+              Municipal {tenant.name}
             </p>
           </motion.div>
         </div>

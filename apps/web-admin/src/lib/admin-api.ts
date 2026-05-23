@@ -1,27 +1,24 @@
 /**
  * Centralized fetch wrapper for FROGIO admin pages.
  *
- * - Uses cookies (server) or js-cookie (client) for the access token.
- * - Always sends X-Tenant-ID: santa_juana.
+ * - Uses cookies (server) or document.cookie (client) for the access token.
+ * - Reads tenant from cookie, looks up API URL and tenant ID from config.
  * - Tolerates BOTH `{data: [...]}` and bare-array responses.
  * - Tolerates BOTH camelCase and snake_case fields when the backend mixes them.
  */
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3110';
-const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID || 'santa_juana';
+import { getTenantConfig, DEFAULT_TENANT } from '@/config/tenants';
 
 // ---------------------------------------------------------------------------
-// Token resolution
+// Token & tenant resolution
 // ---------------------------------------------------------------------------
 
 const isServer = typeof window === 'undefined';
 
 async function getAccessTokenServer(): Promise<string | undefined> {
-  // Dynamic import keeps client bundle clean.
   try {
     const { cookies } = await import('next/headers');
-    return cookies().get('accessToken')?.value;
+    return (await cookies()).get('accessToken')?.value;
   } catch {
     return undefined;
   }
@@ -29,20 +26,41 @@ async function getAccessTokenServer(): Promise<string | undefined> {
 
 function getAccessTokenClient(): string | undefined {
   if (typeof document === 'undefined') return undefined;
-  // Parse document.cookie directly - avoids dynamic require() that breaks ESLint/SSR.
   try {
     const match = document.cookie.match(/(?:^|;\s*)accessToken=([^;]+)/);
     if (match) return decodeURIComponent(match[1]);
   } catch {
-    // js-cookie may not be installed yet; fall back to manual parse.
+    // fallback
   }
   const match = document.cookie.match(/(?:^|;\s*)accessToken=([^;]+)/);
   return match?.[1];
 }
 
+function getTenantIdClient(): string {
+  if (typeof document === 'undefined') return DEFAULT_TENANT;
+  const match = document.cookie.match(/(?:^|;\s*)tenantId=([^;]+)/);
+  if (match) return decodeURIComponent(match[1]);
+  return DEFAULT_TENANT;
+}
+
+async function getTenantIdServer(): Promise<string> {
+  try {
+    const { cookies } = await import('next/headers');
+    return (await cookies()).get('tenantId')?.value || DEFAULT_TENANT;
+  } catch {
+    return DEFAULT_TENANT;
+  }
+}
+
 async function getToken(explicit?: string): Promise<string | undefined> {
   if (explicit) return explicit;
   return isServer ? getAccessTokenServer() : getAccessTokenClient();
+}
+
+async function resolveTenant(): Promise<{ apiBase: string; tenantId: string }> {
+  const tid = isServer ? await getTenantIdServer() : getTenantIdClient();
+  const config = getTenantConfig(tid);
+  return { apiBase: config.apiUrl, tenantId: config.id };
 }
 
 // ---------------------------------------------------------------------------
@@ -74,15 +92,16 @@ export async function adminFetch<T = unknown>(
 ): Promise<T> {
   const { token, query, headers: extraHeaders, ...rest } = options;
   const auth = await getToken(token);
+  const { apiBase, tenantId } = await resolveTenant();
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-Tenant-ID': TENANT_ID,
+    'X-Tenant-ID': tenantId,
     ...(extraHeaders ?? {}),
   };
   if (auth) headers['Authorization'] = `Bearer ${auth}`;
 
-  const url = `${API_BASE}${endpoint}${buildQuery(query)}`;
+  const url = `${apiBase}${endpoint}${buildQuery(query)}`;
 
   const res = await fetch(url, {
     ...rest,

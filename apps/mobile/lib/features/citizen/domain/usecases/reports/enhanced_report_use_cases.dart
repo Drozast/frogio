@@ -88,6 +88,7 @@ class UpdateReportStatus implements UseCase<void, UpdateReportStatusParams> {
       status: params.status,
       comment: params.comment,
       userId: params.userId,
+      assignedTo: params.assignedTo,
     );
   }
 }
@@ -97,16 +98,18 @@ class UpdateReportStatusParams extends Equatable {
   final ReportStatus status;
   final String? comment;
   final String userId;
+  final String? assignedTo;
 
   const UpdateReportStatusParams({
     required this.reportId,
     required this.status,
     this.comment,
     required this.userId,
+    this.assignedTo,
   });
 
   @override
-  List<Object?> get props => [reportId, status, comment, userId];
+  List<Object?> get props => [reportId, status, comment, userId, assignedTo];
 }
 
 // ADD REPORT RESPONSE
@@ -159,6 +162,7 @@ class GetReportsByStatus implements UseCase<List<ReportEntity>, GetReportsByStat
       params.status,
       muniId: params.muniId,
       assignedTo: params.assignedTo,
+      createdBy: params.createdBy,
     );
   }
 }
@@ -167,15 +171,17 @@ class GetReportsByStatusParams extends Equatable {
   final ReportStatus status;
   final String? muniId;
   final String? assignedTo;
+  final String? createdBy;
 
   const GetReportsByStatusParams({
     required this.status,
     this.muniId,
     this.assignedTo,
+    this.createdBy,
   });
 
   @override
-  List<Object?> get props => [status, muniId, assignedTo];
+  List<Object?> get props => [status, muniId, assignedTo, createdBy];
 }
 
 // ASSIGN REPORT

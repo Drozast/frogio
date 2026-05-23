@@ -42,14 +42,17 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
     return BlocProvider.value(
       value: _reportBloc,
       child: Scaffold(
+        backgroundColor: AppTheme.surface,
         appBar: AppBar(
           title: const Text('Mis Denuncias'),
+          backgroundColor: AppTheme.surfaceWhite,
+          foregroundColor: AppTheme.textPrimary,
           elevation: 0,
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh),
+              color: AppTheme.primary,
               onPressed: () {
-                // ✅ CORREGIDO: Usar LoadReportsEvent en lugar de RefreshReportsEvent
                 _reportBloc.add(LoadReportsEvent(userId: widget.userId));
               },
             ),
@@ -61,7 +64,7 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message),
-                  backgroundColor: AppTheme.errorColor,
+                  backgroundColor: AppTheme.emergency,
                 ),
               );
             }
@@ -72,8 +75,9 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () => _navigateToCreateReport(),
-          backgroundColor: AppTheme.primaryColor,
-          child: const Icon(Icons.add, color: Colors.white),
+          backgroundColor: AppTheme.primary,
+          foregroundColor: AppTheme.textOnPrimary,
+          child: const Icon(Icons.add),
         ),
       ),
     );
@@ -81,34 +85,50 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
 
   Widget _buildContent(ReportState state) {
     if (state is ReportLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.primary),
+      );
     } else if (state is ReportsLoaded) {
       return _buildReportsList(state.reports);
     } else if (state is ReportError) {
       return _buildErrorState(state);
     }
-    
-    return const Center(
-      child: Text('Presiona + para crear tu primera denuncia'),
+
+    return Center(
+      child: Text(
+        'Presiona + para crear tu primera denuncia',
+        style: AppTheme.bodyMedium,
+      ),
     );
   }
 
   Widget _buildReportsList(List<ReportEntity> reports) {
     if (reports.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.report_outlined, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'No tienes denuncias',
-              style: TextStyle(fontSize: 18, color: Colors.grey),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTheme.primarySurface,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.report_outlined,
+                size: 56,
+                color: AppTheme.primary,
+              ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 20),
+            const Text(
+              'No tienes denuncias',
+              style: AppTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
             Text(
               'Presiona + para crear tu primera denuncia',
-              style: TextStyle(color: Colors.grey),
+              style: AppTheme.bodyMedium,
             ),
           ],
         ),
@@ -116,8 +136,9 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
     }
 
     return RefreshIndicator(
+      color: AppTheme.primary,
+      backgroundColor: AppTheme.surfaceWhite,
       onRefresh: () async {
-        // ✅ CORREGIDO: Usar LoadReportsEvent en lugar de RefreshReportsEvent
         _reportBloc.add(LoadReportsEvent(userId: widget.userId));
       },
       child: ListView.builder(
@@ -125,9 +146,19 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
         itemCount: reports.length,
         itemBuilder: (context, index) {
           final report = reports[index];
-          return ReportListItem(
-            report: report,
-            onTap: () => _navigateToReportDetail(report.id),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              decoration: AppTheme.cardDecoration,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                onTap: () => _navigateToReportDetail(report.id),
+                child: ReportListItem(
+                  report: report,
+                  onTap: () => _navigateToReportDetail(report.id),
+                ),
+              ),
+            ),
           );
         },
       ),
@@ -141,24 +172,32 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: AppTheme.errorColor),
-            const SizedBox(height: 16),
-            Text(
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.emergencyLight,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.error_outline, size: 56, color: AppTheme.emergency),
+            ),
+            const SizedBox(height: 20),
+            const Text(
               'Error al cargar denuncias',
-              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+              style: AppTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             Text(
               state.message,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[500]),
+              style: AppTheme.bodyMedium,
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
               onPressed: () {
                 _reportBloc.add(LoadReportsEvent(userId: widget.userId));
               },
-              child: const Text('Reintentar'),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
             ),
           ],
         ),
@@ -167,7 +206,6 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
   }
 
   void _navigateToCreateReport() async {
-    // Verificar si el perfil está completo
     if (widget.user != null && !widget.user!.isProfileComplete) {
       _showIncompleteProfileDialog();
       return;
@@ -181,7 +219,6 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
     );
 
     if (result == true) {
-      // ✅ CORREGIDO: Usar LoadReportsEvent para recargar después de crear
       _reportBloc.add(LoadReportsEvent(userId: widget.userId));
     }
   }
@@ -190,16 +227,15 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppTheme.warningColor.withValues(alpha: 0.1),
+                color: AppTheme.warningLight,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.person_outline, color: AppTheme.warningColor),
+              child: const Icon(Icons.person_outline, color: AppTheme.warning),
             ),
             const SizedBox(width: 12),
             const Expanded(
@@ -216,10 +252,7 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              // El usuario debe ir a la pestaña de perfil desde el dashboard
-            },
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Entendido'),
           ),
         ],

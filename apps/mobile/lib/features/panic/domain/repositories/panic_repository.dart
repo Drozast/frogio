@@ -12,9 +12,11 @@ abstract class PanicRepository {
     String? contactPhone,
   });
 
-  Future<Either<Failure, PanicAlertEntity>> cancelPanicAlert(String alertId);
+  Future<Either<Failure, PanicAlertEntity>> cancelPanicAlert(String alertId, {String? reason});
 
   Future<Either<Failure, PanicAlertEntity?>> getActiveAlert();
 
   Future<Either<Failure, int>> getTodayPanicCount();
+
+  Future<Either<Failure, int>> getCancelledPanicCount();
 }

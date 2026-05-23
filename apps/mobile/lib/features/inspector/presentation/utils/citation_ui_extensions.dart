@@ -11,6 +11,8 @@ extension CitationStatusUI on CitationStatus {
     switch (this) {
       case CitationStatus.pendiente:
         return AppTheme.warning;
+      case CitationStatus.emitida:
+        return AppTheme.success;
       case CitationStatus.notificado:
         return AppTheme.info;
       case CitationStatus.asistio:
@@ -27,6 +29,8 @@ extension CitationStatusUI on CitationStatus {
      switch (this) {
       case CitationStatus.pendiente:
         return AppTheme.warningLight;
+      case CitationStatus.emitida:
+        return AppTheme.successLight;
       case CitationStatus.notificado:
         return AppTheme.infoLight;
       case CitationStatus.asistio:
@@ -43,6 +47,8 @@ extension CitationStatusUI on CitationStatus {
     switch (this) {
       case CitationStatus.pendiente:
         return Icons.schedule_rounded;
+      case CitationStatus.emitida:
+        return Icons.check_circle_outline_rounded;
       case CitationStatus.notificado:
         return Icons.notifications_active_rounded;
       case CitationStatus.asistio:
@@ -58,15 +64,17 @@ extension CitationStatusUI on CitationStatus {
   String get statusDescription {
     switch (this) {
       case CitationStatus.pendiente:
-        return 'Citación creada, pendiente de notificar';
+        return 'Citacion pendiente de notificar';
+      case CitationStatus.emitida:
+        return 'Advertencia emitida';
       case CitationStatus.notificado:
         return 'El citado ha sido notificado';
       case CitationStatus.asistio:
-        return 'El citado asistió a la cita';
+        return 'El citado asistio a la cita';
       case CitationStatus.noAsistio:
-        return 'El citado no asistió';
+        return 'El citado no asistio';
       case CitationStatus.cancelado:
-        return 'Citación cancelada';
+        return 'Citacion cancelada';
     }
   }
 }

@@ -28,11 +28,12 @@ class SendPanicAlertEvent extends PanicEvent {
 
 class CancelPanicAlertEvent extends PanicEvent {
   final String alertId;
+  final String? reason;
 
-  const CancelPanicAlertEvent({required this.alertId});
+  const CancelPanicAlertEvent({required this.alertId, this.reason});
 
   @override
-  List<Object?> get props => [alertId];
+  List<Object?> get props => [alertId, reason];
 }
 
 class LoadActiveAlertEvent extends PanicEvent {

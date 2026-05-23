@@ -14,6 +14,8 @@ export interface AlertConfig {
 export type AlertType =
   | 'new_report'
   | 'report_status_change'
+  | 'report_response'
+  | 'report_assigned'
   | 'new_infraction'
   | 'infraction_paid'
   | 'panic_alert'
@@ -35,6 +37,18 @@ const DEFAULT_ALERT_CONFIGS: Record<AlertType, AlertConfig> = {
     type: 'report_status_change',
     enabled: true,
     recipients: ['assigned', 'citizen'],
+    priority: 'normal',
+  },
+  report_response: {
+    type: 'report_response',
+    enabled: true,
+    recipients: ['citizen'],
+    priority: 'normal',
+  },
+  report_assigned: {
+    type: 'report_assigned',
+    enabled: true,
+    recipients: ['citizen'],
     priority: 'normal',
   },
   new_infraction: {
@@ -162,6 +176,32 @@ export class AlertsService {
       oldStatus,
       newStatus,
     }, userIds);
+  }
+
+  /**
+   * Alert when inspector adds a response/resolution to a report
+   */
+  async onReportResponse(tenantId: string, report: any, responderName: string): Promise<void> {
+    if (!report.user_id) return;
+
+    await this.sendAlert('report_response', tenantId, {
+      reportId: report.id,
+      title: report.title,
+      responderName,
+    }, [report.user_id]);
+  }
+
+  /**
+   * Alert when inspector is assigned to a report
+   */
+  async onReportAssigned(tenantId: string, report: any, inspectorName: string): Promise<void> {
+    if (!report.user_id) return;
+
+    await this.sendAlert('report_assigned', tenantId, {
+      reportId: report.id,
+      title: report.title,
+      inspectorName,
+    }, [report.user_id]);
   }
 
   /**
@@ -302,10 +342,31 @@ export class AlertsService {
           message: `Se ha creado un nuevo reporte: "${data.title}" en ${data.address || 'ubicación no especificada'}`,
         };
 
-      case 'report_status_change':
+      case 'report_status_change': {
+        let statusMsg = `El reporte "${data.title}" cambió de "${data.oldStatus}" a "${data.newStatus}"`;
+        if (data.newStatus === 'en_proceso') {
+          statusMsg = `Un inspector está atendiendo tu denuncia "${data.title}" y se dirige a tu domicilio.`;
+        } else if (data.newStatus === 'resuelto') {
+          statusMsg = `Tu denuncia "${data.title}" ha sido resuelta exitosamente.`;
+        } else if (data.newStatus === 'rechazado') {
+          statusMsg = `Tu denuncia "${data.title}" no pudo ser atendida en esta ocasión.`;
+        }
         return {
-          title: '📝 Estado de Reporte Actualizado',
-          message: `El reporte "${data.title}" cambió de "${data.oldStatus}" a "${data.newStatus}"`,
+          title: '📝 Actualización de tu Denuncia',
+          message: statusMsg,
+        };
+      }
+
+      case 'report_response':
+        return {
+          title: '💬 Respuesta en tu Denuncia',
+          message: `${data.responderName || 'Un inspector'} respondió a tu denuncia "${data.title}"`,
+        };
+
+      case 'report_assigned':
+        return {
+          title: '👤 Inspector Asignado',
+          message: `${data.inspectorName || 'Un inspector'} fue asignado a tu denuncia "${data.title}"`,
         };
 
       case 'new_infraction':

@@ -33,9 +33,9 @@ class PanicRepositoryImpl implements PanicRepository {
   }
 
   @override
-  Future<Either<Failure, PanicAlertEntity>> cancelPanicAlert(String alertId) async {
+  Future<Either<Failure, PanicAlertEntity>> cancelPanicAlert(String alertId, {String? reason}) async {
     try {
-      final alert = await remoteDataSource.cancelPanicAlert(alertId);
+      final alert = await remoteDataSource.cancelPanicAlert(alertId, reason: reason);
       return Right(alert);
     } catch (e) {
       return Left(ServerFailure(e.toString()));
@@ -56,6 +56,16 @@ class PanicRepositoryImpl implements PanicRepository {
   Future<Either<Failure, int>> getTodayPanicCount() async {
     try {
       final count = await remoteDataSource.getTodayPanicCount();
+      return Right(count);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, int>> getCancelledPanicCount() async {
+    try {
+      final count = await remoteDataSource.getCancelledPanicCount();
       return Right(count);
     } catch (e) {
       return Left(ServerFailure(e.toString()));

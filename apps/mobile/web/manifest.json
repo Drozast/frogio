@@ -1,6 +1,6 @@
 {
-    "name": "frogio_santa_juana",
-    "short_name": "frogio_santa_juana",
+    "name": "frogio_mobile",
+    "short_name": "frogio_mobile",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

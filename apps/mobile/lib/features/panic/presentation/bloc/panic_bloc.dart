@@ -50,7 +50,7 @@ class PanicBloc extends Bloc<PanicEvent, PanicState> {
   ) async {
     emit(const PanicLoading());
 
-    final result = await cancelPanicAlert(event.alertId);
+    final result = await cancelPanicAlert(event.alertId, reason: event.reason);
 
     result.fold(
       (failure) => emit(PanicError(message: failure.message)),

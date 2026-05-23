@@ -1,36 +1,40 @@
 // lib/core/config/api_config.dart
 
+import 'package:frogio_mobile/tenants/current_tenant.dart';
+
 class ApiConfig {
   // URLs de API - Backend público via Cloudflare Tunnel
-  static const String baseUrl = String.fromEnvironment(
-    'API_URL',
-    defaultValue: 'https://api-frogio.drozast.xyz',
-  );
+  // Environment variables take precedence, tenant config provides defaults
+  static String get baseUrl {
+    const env = String.fromEnvironment('API_URL', defaultValue: '');
+    return env.isNotEmpty ? env : currentTenant.apiBaseUrl;
+  }
 
   // Tenant ID (municipalidad)
-  static const String tenantId = String.fromEnvironment(
-    'TENANT_ID',
-    defaultValue: 'santa_juana',
-  );
+  static String get tenantId {
+    const env = String.fromEnvironment('TENANT_ID', defaultValue: '');
+    return env.isNotEmpty ? env : currentTenant.id;
+  }
 
   // Configuración de ntfy para notificaciones
-  static const String ntfyUrl = String.fromEnvironment(
-    'NTFY_URL',
-    defaultValue: 'https://ntfy.drozast.xyz',
-  );
+  static String get ntfyUrl {
+    const env = String.fromEnvironment('NTFY_URL', defaultValue: '');
+    return env.isNotEmpty ? env : currentTenant.ntfyUrl;
+  }
 
   // Self-hosted Maps Services
-  static const String tileServerUrl = String.fromEnvironment(
-    'TILE_SERVER_URL',
-    defaultValue: 'https://maps.drozast.xyz',
-  );
+  static String get tileServerUrl {
+    const env = String.fromEnvironment('TILE_SERVER_URL', defaultValue: '');
+    return env.isNotEmpty ? env : currentTenant.tileServerUrl;
+  }
+
   static const String nominatimUrl = String.fromEnvironment(
     'NOMINATIM_URL',
-    defaultValue: 'https://geo.drozast.xyz',
+    defaultValue: 'https://geo.supertools.cl',
   );
   static const String osrmUrl = String.fromEnvironment(
     'OSRM_URL',
-    defaultValue: 'https://routing.drozast.xyz',
+    defaultValue: 'https://routing.supertools.cl',
   );
 
   // Timeouts
@@ -60,4 +64,7 @@ class ApiConfig {
   // Con DEVELOPMENT=true: Red local (solo para desarrollo en LAN)
   static String get activeBaseUrl => isDevelopment ? devBaseUrl : baseUrl;
   static String get activeNtfyUrl => isDevelopment ? devNtfyUrl : ntfyUrl;
+
+  // App package name from tenant config (for maps tile provider)
+  static String get appPackageName => currentTenant.appPackageName;
 }

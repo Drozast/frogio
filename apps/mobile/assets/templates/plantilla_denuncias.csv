@@ -1,0 +1,3 @@
+title,description,category,priority,status,latitude,longitude,address,citizen_name,citizen_phone,created_at
+Bache en calle,Bache peligroso en la calle principal,infraestructura,alta,resuelto,-37.1769,-72.9386,Av. Principal 100,Pedro Gonzalez,+56912345678,2024-02-01
+Alumbrado publico,Luminaria quemada,infraestructura,media,resuelto,-37.1800,-72.9400,Calle 2 45,Ana Ruiz,+56987654321,2024-02-05

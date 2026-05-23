@@ -5,6 +5,7 @@ import MobileMenu from './MobileMenu';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTenant } from '@/lib/tenant-context';
 
 const routeNames: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -26,6 +27,7 @@ const dropdownVariants = {
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
+  const tenant = useTenant();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -33,11 +35,13 @@ export default function Header() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
+    router.push(`/${tenant.id}/login`);
     router.refresh();
   };
 
-  const pathSegments = pathname.split('/').filter(Boolean);
+  // Strip tenant prefix from pathname for breadcrumb parsing
+  const displayPath = pathname.replace(/^\/[^/]+/, '') || '/';
+  const pathSegments = displayPath.split('/').filter(Boolean);
   const breadcrumbs = pathSegments.map((segment, i) => ({
     name: routeNames[segment] || segment.charAt(0).toUpperCase() + segment.slice(1),
     href: '/' + pathSegments.slice(0, i + 1).join('/'),
@@ -145,7 +149,7 @@ export default function Header() {
               >
                 <div className="hidden sm:block text-right">
                   <p className="text-sm font-medium text-foreground">Administrador</p>
-                  <p className="text-xs text-muted-foreground">Santa Juana</p>
+                  <p className="text-xs text-muted-foreground">{tenant.name}</p>
                 </div>
                 <div className="w-9 h-9 rounded-xl bg-gradient-frogio flex items-center justify-center shadow-md">
                   <UserCircleIcon className="h-5 w-5 text-white" />
@@ -165,7 +169,7 @@ export default function Header() {
                     >
                       <div className="px-4 py-3 border-b border-border/30">
                         <p className="text-sm font-semibold text-foreground">Administrador</p>
-                        <p className="text-xs text-muted-foreground">admin@santajuana.cl</p>
+                        <p className="text-xs text-muted-foreground">admin@{tenant.id}.cl</p>
                       </div>
                       <div className="py-1">
                         {['Mi Perfil', 'Configuración'].map((label, i) => (

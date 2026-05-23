@@ -1,12 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LockClosedIcon, EnvelopeIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { useTenant } from '@/lib/tenant-context';
 
 export default function LoginPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const tenant = useTenant();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -24,7 +28,11 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email,
+          password,
+          tenantId: tenant.id,
+        }),
         signal: controller.signal,
       });
 
@@ -35,7 +43,7 @@ export default function LoginPage() {
         throw new Error(data.error || 'Error al iniciar sesión');
       }
 
-      router.push('/dashboard');
+      router.push(`/${tenant.id}/dashboard`);
       router.refresh();
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -123,7 +131,7 @@ export default function LoginPage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 1.2 }}
           >
-            Municipalidad de Santa Juana
+            {tenant.fullName}
           </motion.div>
         </div>
       </div>
@@ -283,7 +291,7 @@ export default function LoginPage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8 }}
           >
-            Santa Juana - Gestión Municipal Integral
+            {tenant.name} - Gestión Municipal Integral
           </motion.p>
         </div>
       </div>

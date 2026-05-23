@@ -71,7 +71,10 @@ class AuthHttpClient extends http.BaseClient {
   }
 
   void _addAuthHeaders(http.BaseRequest request) {
-    request.headers['Content-Type'] = 'application/json';
+    // Don't override Content-Type for multipart requests
+    if (request is! http.MultipartRequest) {
+      request.headers['Content-Type'] = 'application/json';
+    }
     request.headers['X-Tenant-ID'] = _tenantId;
 
     final token = _prefs.getString(_accessTokenKey);
@@ -81,6 +84,13 @@ class AuthHttpClient extends http.BaseClient {
   }
 
   http.BaseRequest _copyRequest(http.BaseRequest original) {
+    if (original is http.MultipartRequest) {
+      final newRequest = http.MultipartRequest(original.method, original.url)
+        ..headers.addAll(original.headers)
+        ..fields.addAll(original.fields)
+        ..files.addAll(original.files);
+      return newRequest;
+    }
     if (original is http.Request) {
       final newRequest = http.Request(original.method, original.url)
         ..headers.addAll(original.headers)

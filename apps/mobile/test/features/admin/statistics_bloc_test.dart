@@ -3,10 +3,10 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:frogio_santa_juana/core/error/failures.dart';
-import 'package:frogio_santa_juana/features/admin/domain/entities/municipal_statistics_entity.dart';
-import 'package:frogio_santa_juana/features/admin/domain/usecases/get_municipal_statistics.dart';
-import 'package:frogio_santa_juana/features/admin/presentation/bloc/statistics/statistics_bloc.dart';
+import 'package:frogio_mobile/core/error/failures.dart';
+import 'package:frogio_mobile/features/admin/domain/entities/municipal_statistics_entity.dart';
+import 'package:frogio_mobile/features/admin/domain/usecases/get_municipal_statistics.dart';
+import 'package:frogio_mobile/features/admin/presentation/bloc/statistics/statistics_bloc.dart';
 
 class MockGetMunicipalStatistics extends Mock implements GetMunicipalStatistics {}
 

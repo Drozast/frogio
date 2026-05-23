@@ -28,4 +28,10 @@ abstract class AuthRemoteDataSource {
 
   /// Obtener URL fresca para un archivo dado su fileId
   Future<String?> getFileUrl(String fileId);
+
+  /// Sign in with Apple identity token
+  Future<UserEntity> signInWithApple(String identityToken);
+
+  /// Sign in with Google ID token
+  Future<UserEntity> signInWithGoogle(String idToken);
 }

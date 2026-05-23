@@ -44,6 +44,9 @@ class CitationModel extends CitationEntity {
     super.notifiedAt,
     super.issuedBy,
     super.issuerName,
+    super.reportId,
+    super.courtName,
+    super.hearingDate,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -74,6 +77,11 @@ class CitationModel extends CitationEntity {
           : null,
       issuedBy: json['issued_by'] as String?,
       issuerName: _buildIssuerName(json),
+      reportId: json['report_id'] as String?,
+      courtName: json['court_name'] as String?,
+      hearingDate: json['hearing_date'] != null
+          ? DateTime.parse(json['hearing_date'] as String)
+          : null,
       createdAt: DateTime.parse(json['created_at'] as String? ?? DateTime.now().toIso8601String()),
       updatedAt: DateTime.parse(json['updated_at'] as String? ?? DateTime.now().toIso8601String()),
     );
@@ -109,6 +117,9 @@ class CitationModel extends CitationEntity {
       'notification_method': notificationMethod?.toApiString(),
       'notified_at': notifiedAt?.toIso8601String(),
       'issued_by': issuedBy,
+      if (reportId != null) 'report_id': reportId,
+      if (courtName != null) 'court_name': courtName,
+      if (hearingDate != null) 'hearing_date': hearingDate!.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -136,6 +147,9 @@ class CitationModel extends CitationEntity {
       notifiedAt: notifiedAt,
       issuedBy: issuedBy,
       issuerName: issuerName,
+      reportId: reportId,
+      courtName: courtName,
+      hearingDate: hearingDate,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -157,6 +171,10 @@ class CreateCitationDto {
   final String reason;
   final String? notes;
   final List<String>? photos;
+  final String? reportId;
+  final String? courtName;
+  final DateTime? hearingDate;
+  final bool deliveredToCourt;
 
   const CreateCitationDto({
     required this.citationType,
@@ -173,6 +191,10 @@ class CreateCitationDto {
     required this.reason,
     this.notes,
     this.photos,
+    this.reportId,
+    this.courtName,
+    this.hearingDate,
+    this.deliveredToCourt = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -191,6 +213,10 @@ class CreateCitationDto {
       'reason': reason,
       if (notes != null) 'notes': notes,
       if (photos != null && photos!.isNotEmpty) 'photos': photos,
+      if (reportId != null) 'reportId': reportId,
+      if (courtName != null) 'courtName': courtName,
+      if (hearingDate != null) 'hearingDate': hearingDate!.toIso8601String(),
+      'deliveredToCourt': deliveredToCourt,
     };
   }
 }
@@ -247,6 +273,7 @@ class CitationFilters {
   final CitationType? citationType;
   final TargetType? targetType;
   final String? issuedBy;
+  final String? reportId;
   final String? search;
   final DateTime? fromDate;
   final DateTime? toDate;
@@ -256,6 +283,7 @@ class CitationFilters {
     this.citationType,
     this.targetType,
     this.issuedBy,
+    this.reportId,
     this.search,
     this.fromDate,
     this.toDate,
@@ -267,9 +295,10 @@ class CitationFilters {
       if (citationType != null) 'citationType': citationType!.name,
       if (targetType != null) 'targetType': targetType!.name,
       if (issuedBy != null) 'issuedBy': issuedBy!,
+      if (reportId != null) 'reportId': reportId!,
       if (search != null) 'search': search!,
       if (fromDate != null) 'fromDate': fromDate!.toIso8601String().split('T')[0],
-      if (toDate != null) 'toDate': toDate!.toIso8601String().split('T')[0],
+      if (toDate != null) 'toDate': '${toDate!.add(const Duration(days: 1)).toIso8601String().split('T')[0]}T23:59:59',
     };
   }
 }

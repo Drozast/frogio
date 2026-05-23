@@ -260,52 +260,26 @@ class AuthApiDataSource implements AuthRemoteDataSource {
   @override
   Future<String> uploadProfileImage(String userId, File imageFile) async {
     try {
-      final token = prefs.getString(_accessTokenKey);
-
-      // Usar multipart request para subir archivos
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/api/files/upload'),
-      );
-
-      // Headers
-      request.headers['X-Tenant-ID'] = tenantId;
-      if (token != null) {
-        request.headers['Authorization'] = 'Bearer $token';
-      }
-
-      // Agregar el archivo con content-type explícito
       final extension = imageFile.path.split('.').last.toLowerCase();
       String mimeType = 'jpeg';
-      if (extension == 'png') {
-        mimeType = 'png';
-      } else if (extension == 'gif') {
-        mimeType = 'gif';
-      } else if (extension == 'webp') {
-        mimeType = 'webp';
-      }
+      if (extension == 'png') { mimeType = 'png'; }
+      else if (extension == 'gif') { mimeType = 'gif'; }
+      else if (extension == 'webp') { mimeType = 'webp'; }
 
+      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/files/upload'));
       request.files.add(await http.MultipartFile.fromPath(
-        'file',
-        imageFile.path,
-        contentType: MediaType('image', mimeType),
+        'file', imageFile.path, contentType: MediaType('image', mimeType),
       ));
-
-      // Agregar campos adicionales
       request.fields['entityType'] = 'user';
       request.fields['entityId'] = userId;
 
-      final streamedResponse = await request.send();
+      // Send through client (AuthHttpClient handles auth headers + token refresh on 401)
+      final streamedResponse = await client.send(request);
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
-        final fileId = data['id'];
-
-        // Guardar el fileId como referencia, no la URL presignada
-        // La URL se obtendrá dinámicamente cuando se necesite mostrar la imagen
-        // Formato: file://<fileId> para indicar que es una referencia a archivo
-        return 'file://$fileId';
+        return 'file://${data['id']}';
       } else {
         final error = json.decode(response.body);
         throw Exception(error['error'] ?? 'Error al subir imagen');
@@ -318,9 +292,9 @@ class AuthApiDataSource implements AuthRemoteDataSource {
   @override
   Future<String?> getFileUrl(String fileId) async {
     try {
+      // AuthHttpClient handles auth headers + token refresh automatically
       final response = await client.get(
         Uri.parse('$baseUrl/api/files/$fileId/url'),
-        headers: _authHeaders,
       );
 
       if (response.statusCode == 200) {
@@ -398,5 +372,55 @@ class AuthApiDataSource implements AuthRemoteDataSource {
   Future<bool> isAuthenticated() async {
     final token = prefs.getString(_accessTokenKey);
     return token != null;
+  }
+
+  @override
+  Future<UserModel> signInWithApple(String identityToken) async {
+    try {
+      final response = await client.post(
+        Uri.parse('$baseUrl/api/auth/apple'),
+        headers: _headers,
+        body: json.encode({'identityToken': identityToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        await prefs.setString(_accessTokenKey, data['accessToken']);
+        await prefs.setString(_refreshTokenKey, data['refreshToken']);
+        final user = UserModel.fromApi(data['user']);
+        await prefs.setString(_userDataKey, json.encode(data['user']));
+        return user;
+      } else {
+        final error = json.decode(response.body);
+        throw Exception(error['error'] ?? 'Error al iniciar sesión con Apple');
+      }
+    } catch (e) {
+      throw Exception('Error de conexión: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<UserModel> signInWithGoogle(String idToken) async {
+    try {
+      final response = await client.post(
+        Uri.parse('$baseUrl/api/auth/google'),
+        headers: _headers,
+        body: json.encode({'idToken': idToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        await prefs.setString(_accessTokenKey, data['accessToken']);
+        await prefs.setString(_refreshTokenKey, data['refreshToken']);
+        final user = UserModel.fromApi(data['user']);
+        await prefs.setString(_userDataKey, json.encode(data['user']));
+        return user;
+      } else {
+        final error = json.decode(response.body);
+        throw Exception(error['error'] ?? 'Error al iniciar sesión con Google');
+      }
+    } catch (e) {
+      throw Exception('Error de conexión: ${e.toString()}');
+    }
   }
 }

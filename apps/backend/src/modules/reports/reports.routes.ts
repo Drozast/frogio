@@ -23,4 +23,7 @@ router.get('/:id/versions/:versionNumber', roleGuard('inspector', 'admin'), (req
 router.patch('/:id', roleGuard('inspector', 'admin'), (req, res) => reportsController.update(req as AuthRequest, res));
 router.delete('/:id', roleGuard('admin'), (req, res) => reportsController.delete(req as AuthRequest, res));
 
+// Inspector follow-up: add a note/evidence without changing the status
+router.post('/:id/follow-up', roleGuard('inspector', 'admin'), (req, res) => reportsController.addFollowUp(req as AuthRequest, res));
+
 export default router;

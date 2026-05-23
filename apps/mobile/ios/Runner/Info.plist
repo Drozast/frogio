@@ -41,6 +41,20 @@
 			<string>UIInterfaceOrientationLandscapeLeft</string>
 			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
+		<!-- Google Sign-In URL scheme -->
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.789201430048-epbsjo2ek3i1j115k7vjie6tu6c3jhrv</string>
+				</array>
+			</dict>
+		</array>
+		<key>GIDClientID</key>
+		<string>789201430048-epbsjo2ek3i1j115k7vjie6tu6c3jhrv.apps.googleusercontent.com</string>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true />
 		<key>UIApplicationSupportsIndirectInputEvents</key>
@@ -53,6 +67,15 @@
 		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 		<string>FROGIO necesita acceso a tu ubicación para funciones de seguimiento de inspectores y
 			geolocalización de denuncias.</string>
+
+		<key>NSLocationAlwaysUsageDescription</key>
+		<string>FROGIO necesita acceso a tu ubicación en segundo plano para registrar el recorrido del vehículo durante la bitácora.</string>
+
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>location</string>
+			<string>fetch</string>
+		</array>
 
 		<!-- Configuración de App Transport Security -->
 		<key>NSAppTransportSecurity</key>

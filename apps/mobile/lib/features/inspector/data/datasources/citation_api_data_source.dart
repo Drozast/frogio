@@ -43,7 +43,8 @@ class CitationApiDataSource implements CitationRemoteDataSource {
       final response = await client.get(uri, headers: _authHeaders);
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? decoded['items'] ?? decoded['vehicles'] ?? decoded['users'] ?? decoded['reports'] ?? []);
         return data.map((json) => CitationModel.fromJson(json)).toList();
       } else {
         final error = json.decode(response.body);
@@ -142,7 +143,8 @@ class CitationApiDataSource implements CitationRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? decoded['items'] ?? decoded['vehicles'] ?? decoded['users'] ?? decoded['reports'] ?? []);
         return data.map((json) => CitationModel.fromJson(json)).toList();
       } else {
         final error = json.decode(response.body);
@@ -229,7 +231,7 @@ class CitationApiDataSource implements CitationRemoteDataSource {
           final data = json.decode(response.body);
           // Get the file URL from response
           final fileId = data['id'] as String;
-          uploadedUrls.add('$baseUrl/api/files/serve/santa_juana/$fileId');
+          uploadedUrls.add('$baseUrl/api/files/serve/${ApiConfig.tenantId}/$fileId');
         } else {
           final error = json.decode(response.body);
           throw Exception(error['error'] ?? 'Error al subir foto');

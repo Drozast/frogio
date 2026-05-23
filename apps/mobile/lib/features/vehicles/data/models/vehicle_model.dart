@@ -17,6 +17,7 @@ class VehicleModel extends Equatable {
   final DateTime? nextMaintenance;
   final String? currentDriverId;
   final String? currentDriverName;
+  final String? activeLogId;
   final List<String> assignedAreas;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -36,6 +37,7 @@ class VehicleModel extends Equatable {
     this.nextMaintenance,
     this.currentDriverId,
     this.currentDriverName,
+    this.activeLogId,
     required this.assignedAreas,
     required this.createdAt,
     required this.updatedAt,
@@ -43,6 +45,15 @@ class VehicleModel extends Equatable {
   });
 
   factory VehicleModel.fromJson(Map<String, dynamic> json) {
+    // Backend returns active_log_id / active_driver_id / active_driver_name
+    // if a trip is currently active. Override status accordingly.
+    final activeLogId = json['active_log_id'] as String?;
+    final hasActiveLog = activeLogId != null && activeLogId.isNotEmpty;
+    final rawStatus = json['status'] as String?;
+    final effectiveStatus = hasActiveLog
+        ? VehicleStatus.inUse
+        : _parseVehicleStatus(rawStatus);
+
     return VehicleModel(
       id: json['id'] as String? ?? '',
       plate: json['plate'] as String? ?? '',
@@ -50,7 +61,7 @@ class VehicleModel extends Equatable {
       model: json['model'] as String? ?? '',
       year: json['year'] as int? ?? 0,
       type: _parseVehicleType(json['type'] as String?),
-      status: _parseVehicleStatus(json['status'] as String?),
+      status: effectiveStatus,
       currentKm: (json['currentKm'] as num?)?.toDouble() ?? 0.0,
       muniId: json['muniId'] as String? ?? json['tenantId'] as String? ?? '',
       lastMaintenance: json['lastMaintenance'] != null
@@ -59,8 +70,9 @@ class VehicleModel extends Equatable {
       nextMaintenance: json['nextMaintenance'] != null
           ? DateTime.parse(json['nextMaintenance'].toString())
           : null,
-      currentDriverId: json['currentDriverId'] as String?,
-      currentDriverName: json['currentDriverName'] as String?,
+      currentDriverId: json['active_driver_id'] as String? ?? json['currentDriverId'] as String?,
+      currentDriverName: json['active_driver_name'] as String? ?? json['currentDriverName'] as String?,
+      activeLogId: activeLogId,
       assignedAreas: (json['assignedAreas'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
@@ -113,6 +125,7 @@ class VehicleModel extends Equatable {
       nextMaintenance: nextMaintenance,
       currentDriverId: currentDriverId,
       currentDriverName: currentDriverName,
+      activeLogId: activeLogId,
       assignedAreas: assignedAreas,
       createdAt: createdAt,
       updatedAt: updatedAt,

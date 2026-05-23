@@ -20,6 +20,9 @@ class ReportModel extends ReportEntity {
     required super.responses,
     super.assignedToId,
     super.assignedToName,
+    super.citizenName,
+    super.citizenPhone,
+    super.citizenEmail,
   });
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
@@ -70,6 +73,10 @@ class ReportModel extends ReportEntity {
       // Backend sends 'assigned_to', frontend uses 'assignedToId'
       assignedToId: json['assignedToId'] as String? ?? json['assigned_to'] as String?,
       assignedToName: json['assignedToName'] as String?,
+      // Citizen info (only returned in findById for inspector/admin roles)
+      citizenName: _parseCitizenName(json),
+      citizenPhone: json['phone'] as String?,
+      citizenEmail: json['email'] as String?,
     );
   }
 
@@ -83,7 +90,7 @@ class ReportModel extends ReportEntity {
       'location': LocationDataModel.fromEntity(location).toJson(),
       'citizenId': citizenId,
       'muniId': muniId,
-      'status': status.name,
+      'status': status.toApiString(),
       'priority': priority.name,
       'attachments': attachments
           .map((e) => MediaAttachmentModel.fromEntity(e).toJson())
@@ -101,41 +108,15 @@ class ReportModel extends ReportEntity {
     };
   }
 
+  static String? _parseCitizenName(Map<String, dynamic> json) {
+    final firstName = json['first_name'] as String?;
+    final lastName = json['last_name'] as String?;
+    if (firstName == null && lastName == null) return null;
+    return '${firstName ?? ''} ${lastName ?? ''}'.trim();
+  }
+
   static ReportStatus _parseStatus(String? status) {
-    switch (status?.toLowerCase()) {
-      case 'draft':
-      case 'borrador':
-        return ReportStatus.draft;
-      case 'submitted':
-      case 'pendiente':
-        return ReportStatus.submitted;
-      case 'reviewing':
-      case 'en_revision':
-        return ReportStatus.reviewing;
-      case 'in_progress':
-      case 'inprogress':
-      case 'en_proceso':
-        return ReportStatus.inProgress;
-      case 'resolved':
-      case 'resuelto':
-        return ReportStatus.resolved;
-      case 'rejected':
-      case 'rechazado':
-        return ReportStatus.rejected;
-      case 'archived':
-      case 'archivado':
-        return ReportStatus.archived;
-      case 'duplicate':
-      case 'duplicada':
-      case 'duplicado':
-        return ReportStatus.duplicate;
-      case 'cancelled':
-      case 'cancelada':
-      case 'cancelado':
-        return ReportStatus.cancelled;
-      default:
-        return ReportStatus.submitted;
-    }
+    return ReportStatus.fromApiString(status ?? '');
   }
 
   static Priority _parsePriority(String? priority) {
@@ -176,6 +157,9 @@ class ReportModel extends ReportEntity {
       responses: entity.responses,
       assignedToId: entity.assignedToId,
       assignedToName: entity.assignedToName,
+      citizenName: entity.citizenName,
+      citizenPhone: entity.citizenPhone,
+      citizenEmail: entity.citizenEmail,
     );
   }
 
@@ -299,6 +283,8 @@ class StatusHistoryItemModel extends StatusHistoryItem {
     super.comment,
     super.userId,
     super.userName,
+    super.isFollowUp,
+    super.attachments,
   });
 
   factory StatusHistoryItemModel.fromJson(Map<String, dynamic> json) {
@@ -313,22 +299,42 @@ class StatusHistoryItemModel extends StatusHistoryItem {
       }
     }
 
+    List<String> parseAttachments() {
+      final raw = json['attachments'];
+      if (raw == null) return [];
+      if (raw is List) return raw.map((e) => e.toString()).toList();
+      return [];
+    }
+
     return StatusHistoryItemModel(
       timestamp: parseTimestamp(),
       status: ReportModel._parseStatus(json['status'] as String?),
       comment: json['comment'] as String? ?? json['change_reason'] as String?,
       userId: json['userId'] as String? ?? json['user_id'] as String? ?? json['modified_by'] as String?,
-      userName: json['userName'] as String?,
+      userName: json['userName'] as String? ?? _buildUserName(json),
+      isFollowUp: json['is_follow_up'] as bool? ?? false,
+      attachments: parseAttachments(),
     );
+  }
+
+  static String? _buildUserName(Map<String, dynamic> json) {
+    final first = json['modifier_first_name'] as String?;
+    final last = json['modifier_last_name'] as String?;
+    if (first != null || last != null) {
+      return '${first ?? ''} ${last ?? ''}'.trim();
+    }
+    return null;
   }
 
   Map<String, dynamic> toJson() {
     return {
       'timestamp': timestamp.toIso8601String(),
-      'status': status.name,
+      'status': status.toApiString(),
       'comment': comment,
       'userId': userId,
       'userName': userName,
+      'isFollowUp': isFollowUp,
+      'attachments': attachments,
     };
   }
 
@@ -339,6 +345,8 @@ class StatusHistoryItemModel extends StatusHistoryItem {
       comment: entity.comment,
       userId: entity.userId,
       userName: entity.userName,
+      isFollowUp: entity.isFollowUp,
+      attachments: entity.attachments,
     );
   }
 }

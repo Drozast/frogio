@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../models/vehicle_model.dart';
 import '../models/vehicle_log_model.dart';
 import 'vehicle_remote_data_source.dart';
@@ -25,7 +26,7 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
     final token = prefs.getString(_accessTokenKey);
     return {
       'Content-Type': 'application/json',
-      'x-tenant-id': 'santa_juana',
+      'x-tenant-id': ApiConfig.tenantId,
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
@@ -39,7 +40,8 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? decoded['items'] ?? decoded['vehicles'] ?? decoded['users'] ?? decoded['reports'] ?? []);
         return data.map((json) => VehicleModel.fromJson(_mapApiToModel(json))).toList();
       } else {
         throw Exception('Error al obtener vehículos');
@@ -174,7 +176,8 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? decoded['items'] ?? decoded['vehicles'] ?? decoded['users'] ?? decoded['reports'] ?? []);
         return data.map((item) => VehicleLogModel.fromJson(_mapLogApiToModel(item))).toList();
       } else {
         throw Exception('Error al obtener historial de uso');
@@ -193,7 +196,8 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? decoded['items'] ?? decoded['vehicles'] ?? decoded['users'] ?? decoded['reports'] ?? []);
         return data.map((item) => VehicleLogModel.fromJson(_mapLogApiToModel(item))).toList();
       } else {
         throw Exception('Error al obtener mis usos');
@@ -224,7 +228,8 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? decoded['items'] ?? decoded['vehicles'] ?? decoded['users'] ?? decoded['reports'] ?? []);
         return data.map((item) => VehicleLogModel.fromJson(_mapLogApiToModel(item))).toList();
       } else {
         throw Exception('Error al obtener usos activos');
@@ -308,6 +313,11 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
 
   /// Mapear respuesta de API a formato esperado por el modelo
   Map<String, dynamic> _mapApiToModel(Map<String, dynamic> apiData) {
+    // Detect active trip from backend response
+    final activeLogId = apiData['active_log_id'] as String?;
+    final hasActiveTrip = activeLogId != null && activeLogId.isNotEmpty;
+    final isActive = apiData['isActive'] == true || apiData['is_active'] == true;
+
     return {
       'id': apiData['id'],
       'plate': apiData['plate'],
@@ -315,13 +325,17 @@ class VehicleApiDataSource implements VehicleRemoteDataSource {
       'model': apiData['model'] ?? '',
       'year': apiData['year'] ?? 0,
       'type': _mapVehicleType(apiData['vehicleType'] ?? apiData['vehicle_type']),
-      'status': (apiData['isActive'] == true || apiData['is_active'] == true) ? 'available' : 'out_of_service',
-      'currentKm': 0.0, // No disponible en API actual
+      'status': hasActiveTrip ? 'inUse' : (isActive ? 'available' : 'out_of_service'),
+      'active_log_id': activeLogId,
+      'active_driver_id': apiData['active_driver_id'],
+      'active_driver_name': apiData['active_driver_name'],
+      'active_start_time': apiData['active_start_time']?.toString(),
+      'currentKm': 0.0,
       'muniId': apiData['tenantId'] ?? '',
       'lastMaintenance': null,
       'nextMaintenance': null,
-      'currentDriverId': apiData['ownerId'] ?? apiData['owner_id'],
-      'currentDriverName': apiData['ownerName'],
+      'currentDriverId': apiData['active_driver_id'] ?? apiData['ownerId'] ?? apiData['owner_id'],
+      'currentDriverName': apiData['active_driver_name'] ?? apiData['ownerName'],
       'assignedAreas': <String>[],
       'createdAt': apiData['createdAt'] ?? apiData['created_at'],
       'updatedAt': apiData['updatedAt'] ?? apiData['updated_at'],

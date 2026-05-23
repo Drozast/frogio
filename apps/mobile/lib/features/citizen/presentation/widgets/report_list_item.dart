@@ -207,50 +207,25 @@ class ReportListItem extends StatelessWidget {
     IconData icon;
 
     switch (report.status) {
-      case ReportStatus.draft:
-        backgroundColor = Colors.grey.withValues(alpha: 0.1);
-        textColor = Colors.grey;
-        icon = Icons.edit;
-        break;
-      case ReportStatus.submitted:
+      case ReportStatus.pendiente:
         backgroundColor = Colors.blue.withValues(alpha: 0.1);
         textColor = Colors.blue;
         icon = Icons.send;
         break;
-      case ReportStatus.reviewing:
+      case ReportStatus.enProceso:
         backgroundColor = Colors.orange.withValues(alpha: 0.1);
         textColor = Colors.orange;
-        icon = Icons.visibility;
-        break;
-      case ReportStatus.inProgress:
-        backgroundColor = Colors.purple.withValues(alpha: 0.1);
-        textColor = Colors.purple;
         icon = Icons.work;
         break;
-      case ReportStatus.resolved:
+      case ReportStatus.resuelto:
         backgroundColor = Colors.green.withValues(alpha: 0.1);
         textColor = Colors.green;
         icon = Icons.check_circle;
         break;
-      case ReportStatus.rejected:
+      case ReportStatus.rechazado:
         backgroundColor = Colors.red.withValues(alpha: 0.1);
         textColor = Colors.red;
         icon = Icons.cancel;
-        break;
-      case ReportStatus.archived:
-        backgroundColor = Colors.grey.withValues(alpha: 0.1);
-        textColor = Colors.grey;
-        icon = Icons.archive;
-        break;
-      case ReportStatus.duplicate:
-        backgroundColor = Colors.amber.withValues(alpha: 0.1);
-        textColor = Colors.amber.shade700;
-        icon = Icons.content_copy;
-        break;
-      case ReportStatus.cancelled:
-        backgroundColor = Colors.grey.withValues(alpha: 0.1);
-        textColor = Colors.grey.shade600;
-        icon = Icons.block;
         break;
     }
 

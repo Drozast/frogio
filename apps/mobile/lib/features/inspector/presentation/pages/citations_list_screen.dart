@@ -12,6 +12,7 @@ import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../domain/entities/citation_entity.dart';
 import '../bloc/citation_bloc.dart';
 import '../utils/citation_ui_extensions.dart';
+import 'citation_detail_screen.dart';
 import 'create_citation_screen.dart';
 
 class CitationsListScreen extends StatefulWidget {
@@ -35,7 +36,7 @@ class _CitationsListScreenState extends State<CitationsListScreen>
 
   void _startAutoRefresh() {
     _autoRefreshTimer?.cancel();
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (_citationBloc != null && mounted) {
         _citationBloc!.add(RefreshCitationsEvent());
       }
@@ -76,19 +77,16 @@ class _CitationsListScreenState extends State<CitationsListScreen>
     return BlocProvider.value(
       value: _citationBloc!,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF5F5F5),
+        backgroundColor: AppTheme.surface,
         appBar: AppBar(
-          title: const Text(
+          title: Text(
             'Mis Citaciones',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+            style: AppTheme.titleLarge.copyWith(color: Colors.white),
           ),
           centerTitle: true,
-          backgroundColor: AppTheme.primary,
+          backgroundColor: const Color(0xFF1B5E20),
           foregroundColor: Colors.white,
+          iconTheme: const IconThemeData(color: Colors.white),
           elevation: 0,
           actions: [
             BlocBuilder<CitationBloc, CitationState>(
@@ -97,7 +95,7 @@ class _CitationsListScreenState extends State<CitationsListScreen>
                     (state.currentStatusFilter != null || state.currentTypeFilter != null);
                 return Badge(
                   isLabelVisible: filtersActive,
-                  backgroundColor: Colors.white,
+                  backgroundColor: AppTheme.info,
                   child: IconButton(
                     icon: const Icon(Icons.filter_list_rounded, color: Colors.white),
                     onPressed: () => _showFilterBottomSheet(context),
@@ -137,7 +135,7 @@ class _CitationsListScreenState extends State<CitationsListScreen>
           },
           builder: (context, state) {
             if (state is CitationLoading && state.message != null) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: CircularProgressIndicator(color: AppTheme.info));
             }
 
             if (state is CitationError && state.canRetry) {
@@ -197,7 +195,7 @@ class _CitationsListScreenState extends State<CitationsListScreen>
               );
             }
 
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: AppTheme.info));
           },
         ),
         floatingActionButton: Builder(
@@ -225,7 +223,7 @@ class _CitationsListScreenState extends State<CitationsListScreen>
                   context.read<CitationBloc>().add(RefreshCitationsEvent());
                 }
               },
-              backgroundColor: AppTheme.primary,
+              backgroundColor: AppTheme.info,
               foregroundColor: Colors.white,
               elevation: 4,
               icon: const Icon(Icons.add_rounded, size: 22),
@@ -261,13 +259,14 @@ class _CitationsListScreenState extends State<CitationsListScreen>
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      color: AppTheme.surface,
       child: Row(
         children: [
           _buildStatCard(
             count: state.citations.length.toString(),
             label: 'Total',
             gradient: const LinearGradient(
-              colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
+              colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -423,20 +422,20 @@ class _CitationsListScreenState extends State<CitationsListScreen>
         margin: const EdgeInsets.symmetric(horizontal: 16),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: AppTheme.primarySurface,
+          color: AppTheme.surfaceWhite,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+          border: Border.all(color: AppTheme.info.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
-            const Icon(Icons.filter_list_rounded, size: 16, color: AppTheme.primary),
+            const Icon(Icons.filter_list_rounded, size: 16, color: AppTheme.info),
             const SizedBox(width: 8),
             Text(
               'Mostrando: ${_selectedStatFilter!.displayName}',
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.primary,
+                color: AppTheme.info,
               ),
             ),
             const Spacer(),
@@ -448,10 +447,10 @@ class _CitationsListScreenState extends State<CitationsListScreen>
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  color: AppTheme.info.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.primary),
+                child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.info),
               ),
             ),
           ],
@@ -468,19 +467,19 @@ class _CitationsListScreenState extends State<CitationsListScreen>
           Icon(
             isFiltered ? Icons.filter_alt_off_outlined : Icons.assignment_outlined,
             size: 80,
-            color: AppTheme.textTertiary,
+            color: AppTheme.info.withValues(alpha: 0.5),
           ),
           const SizedBox(height: AppTheme.spacing16),
           Text(
             isFiltered ? 'Sin Resultados' : 'No hay citaciones',
-            style: AppTheme.titleLarge,
+            style: AppTheme.titleLarge.copyWith(color: AppTheme.textPrimary),
           ),
           const SizedBox(height: AppTheme.spacing8),
           Text(
             isFiltered
                 ? 'Prueba con otros filtros o límpialos.'
                 : 'Las citaciones que crees aparecerán aquí.',
-            style: AppTheme.bodyMedium,
+            style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
             textAlign: TextAlign.center,
           ),
           if (isFiltered) ...[
@@ -489,6 +488,10 @@ class _CitationsListScreenState extends State<CitationsListScreen>
               onPressed: () {
                 context.read<CitationBloc>().add(const FilterCitationsEvent());
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.info,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Limpiar Filtros'),
             )
           ]
@@ -518,7 +521,7 @@ class _CitationsListScreenState extends State<CitationsListScreen>
             Text(
               message,
               textAlign: TextAlign.center,
-              style: AppTheme.bodyMedium,
+              style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
             ),
             const SizedBox(height: AppTheme.spacing24),
             ElevatedButton.icon(
@@ -535,12 +538,14 @@ class _CitationsListScreenState extends State<CitationsListScreen>
   }
 
   void _showCitationDetail(BuildContext context, CitationEntity citation) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (modalContext) => BlocProvider.value(
-        value: BlocProvider.of<CitationBloc>(context),
-        child: _CitationDetailSheet(citation: citation),
+    final citationBloc = context.read<CitationBloc>();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: citationBloc,
+          child: CitationDetailScreen(citation: citation),
+        ),
       ),
     );
   }
@@ -573,120 +578,161 @@ class _CitationListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = citation.status.color(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceWhite,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: statusColor.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header con icono, título y badge de estado
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLeadingIcon(context),
-                    const SizedBox(width: 14),
-                    Expanded(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                ),
+              ),
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onTap,
+                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Header con icono, título y badge de estado
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              _buildLeadingIcon(context),
+                              const SizedBox(width: 14),
                               Expanded(
-                                child: Text(
-                                  citation.citationNumber,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1A1A1A),
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            citation.citationNumber,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppTheme.textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                        _buildStatusBadge(context),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      citation.citationType.displayName,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppTheme.textSecondary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              _buildStatusBadge(context),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            citation.citationType.displayName,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade600,
-                              fontWeight: FontWeight.w500,
+
+                          const SizedBox(height: 14),
+
+                          // Línea divisoria sutil
+                          Container(
+                            height: 1,
+                            color: AppTheme.divider,
+                          ),
+
+                          const SizedBox(height: 14),
+
+                          // Información del citado
+                          _buildInfoRow(
+                            icon: Icons.person_outline_rounded,
+                            text: citation.targetDisplayName,
+                            isMain: true,
+                          ),
+                          const SizedBox(height: 10),
+                          _buildInfoRow(
+                            icon: Icons.description_outlined,
+                            text: citation.reason,
+                            maxLines: 2,
+                          ),
+                          if (citation.locationAddress != null) ...[
+                            const SizedBox(height: 10),
+                            _buildInfoRow(
+                              icon: Icons.location_on_outlined,
+                              text: citation.locationAddress!,
                             ),
+                          ],
+
+                          const SizedBox(height: 14),
+
+                          // Footer con fecha, badge de denuncia y flecha
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_today_rounded, size: 14, color: AppTheme.textTertiary),
+                              const SizedBox(width: 6),
+                              Text(
+                                DateFormat('dd/MM/yyyy').format(citation.createdAt),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textTertiary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              if (citation.reportId != null) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.link, size: 11, color: AppTheme.primary.withValues(alpha: 0.8)),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        'Denuncia',
+                                        style: TextStyle(fontSize: 10, color: AppTheme.primary.withValues(alpha: 0.8), fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              const Spacer(),
+                              Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textTertiary),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-
-                const SizedBox(height: 14),
-
-                // Línea divisoria sutil
-                Container(
-                  height: 1,
-                  color: Colors.grey.shade100,
-                ),
-
-                const SizedBox(height: 14),
-
-                // Información del citado
-                _buildInfoRow(
-                  icon: Icons.person_outline_rounded,
-                  text: citation.targetDisplayName,
-                  isMain: true,
-                ),
-                const SizedBox(height: 10),
-                _buildInfoRow(
-                  icon: Icons.description_outlined,
-                  text: citation.reason,
-                  maxLines: 2,
-                ),
-                if (citation.locationAddress != null) ...[
-                  const SizedBox(height: 10),
-                  _buildInfoRow(
-                    icon: Icons.location_on_outlined,
-                    text: citation.locationAddress!,
                   ),
-                ],
-
-                const SizedBox(height: 14),
-
-                // Footer con fecha y flecha
-                Row(
-                  children: [
-                    Icon(Icons.calendar_today_rounded, size: 14, color: Colors.grey.shade400),
-                    const SizedBox(width: 6),
-                    Text(
-                      DateFormat('dd/MM/yyyy').format(citation.createdAt),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const Spacer(),
-                    Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
-                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -694,34 +740,38 @@ class _CitationListItem extends StatelessWidget {
   }
 
   Widget _buildLeadingIcon(BuildContext context) {
+    final statusColor = citation.status.color(context);
     return Container(
       width: 52,
       height: 52,
       decoration: BoxDecoration(
-        color: citation.status.backgroundColor(context),
+        color: statusColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: statusColor.withValues(alpha: 0.35)),
       ),
       child: Icon(
         citation.citationType.icon,
-        color: citation.status.color(context),
+        color: statusColor,
         size: 26,
       ),
     );
   }
 
   Widget _buildStatusBadge(BuildContext context) {
+    final statusColor = citation.status.color(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: citation.status.backgroundColor(context),
+        color: statusColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: statusColor.withValues(alpha: 0.6)),
       ),
       child: Text(
         citation.status.displayName,
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: citation.status.color(context),
+          color: statusColor,
         ),
       ),
     );
@@ -739,7 +789,7 @@ class _CitationListItem extends StatelessWidget {
         Icon(
           icon,
           size: 16,
-          color: isMain ? AppTheme.primary : Colors.grey.shade500,
+          color: isMain ? AppTheme.info : AppTheme.textSecondary,
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -750,192 +800,11 @@ class _CitationListItem extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: isMain ? FontWeight.w600 : FontWeight.w400,
-              color: isMain ? const Color(0xFF333333) : Colors.grey.shade600,
+              color: isMain ? AppTheme.textPrimary : AppTheme.textSecondary,
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// WIDGET: _CitationDetailSheet
-// -----------------------------------------------------------------------------
-
-class _CitationDetailSheet extends StatelessWidget {
-  final CitationEntity citation;
-  const _CitationDetailSheet({required this.citation});
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scrollController) => Column(
-        children: [
-          const SizedBox(height: AppTheme.spacing12),
-          Container(
-            width: 40,
-            height: 5,
-            decoration: BoxDecoration(
-              color: AppTheme.border,
-              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacing12),
-          Expanded(
-            child: SingleChildScrollView(
-              controller: scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(context),
-                  const SizedBox(height: AppTheme.spacing24),
-                  _buildDetailSection(context, 'Tipo', citation.citationType.displayName),
-                  _buildDetailSection(context, 'Objetivo', '${citation.targetType.displayName}: ${citation.targetDisplayName}'),
-                  if (citation.targetRut != null)
-                    _buildDetailSection(context, 'RUT', citation.targetRut!),
-                  if (citation.targetPlate != null)
-                    _buildDetailSection(context, 'Patente', citation.targetPlate!),
-                  if (citation.targetPhone != null)
-                    _buildDetailSection(context, 'Teléfono', citation.targetPhone!),
-                  _buildDetailSection(context, 'Motivo', citation.reason),
-                  if (citation.locationAddress != null)
-                    _buildDetailSection(context, 'Ubicación', citation.locationAddress!),
-                  if (citation.notes != null)
-                    _buildDetailSection(context, 'Notas', citation.notes!),
-                  _buildDetailSection(context, 'Fecha', DateFormat('dd/MM/yyyy HH:mm').format(citation.createdAt)),
-                  if (citation.issuerName != null)
-                    _buildDetailSection(context, 'Emitida por', citation.issuerName!),
-                  const SizedBox(height: AppTheme.spacing24),
-                  _buildActionButtons(context),
-                  const SizedBox(height: AppTheme.spacing32),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(AppTheme.spacing12),
-          decoration: BoxDecoration(
-            color: citation.status.backgroundColor(context),
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-          ),
-          child: Icon(
-            citation.citationType.icon,
-            color: citation.status.color(context),
-            size: 32,
-          ),
-        ),
-        const SizedBox(width: AppTheme.spacing16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(citation.citationNumber, style: AppTheme.headlineSmall),
-              const SizedBox(height: AppTheme.spacing4),
-              _buildStatusBadge(context),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatusBadge(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacing12,
-        vertical: AppTheme.spacing4,
-      ),
-      decoration: BoxDecoration(
-        color: citation.status.backgroundColor(context),
-        borderRadius: BorderRadius.circular(AppTheme.radiusRound),
-      ),
-      child: Text(
-        citation.status.displayName,
-        style: AppTheme.labelMedium.copyWith(
-          color: citation.status.color(context),
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailSection(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppTheme.spacing16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: AppTheme.labelMedium),
-          const SizedBox(height: AppTheme.spacing4),
-          Text(value, style: AppTheme.bodyLarge.copyWith(color: AppTheme.textPrimary)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons(BuildContext context) {
-    if (citation.status == CitationStatus.pendiente) {
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: () {
-            Navigator.pop(context);
-            _showUpdateStatusDialog(context, citation);
-          },
-          icon: const Icon(Icons.update_rounded),
-          label: const Text('Actualizar Estado'),
-        ),
-      );
-    } else {
-      return Container(
-        padding: const EdgeInsets.all(AppTheme.spacing12),
-        decoration: BoxDecoration(
-          color: citation.status.backgroundColor(context),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              citation.status.icon,
-              color: citation.status.color(context),
-              size: 20,
-            ),
-            const SizedBox(width: AppTheme.spacing8),
-            Text(
-              'Estado: ${citation.status.displayName}',
-              style: AppTheme.titleSmall.copyWith(
-                color: citation.status.color(context),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
-  void _showUpdateStatusDialog(BuildContext context, CitationEntity citation) {
-    final citationBloc = context.read<CitationBloc>();
-    showModalBottomSheet(
-      context: context,
-      builder: (modalContext) => BlocProvider.value(
-        value: citationBloc,
-        child: _UpdateStatusSheet(citation: citation),
-      ),
     );
   }
 }

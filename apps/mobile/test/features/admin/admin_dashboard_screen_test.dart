@@ -4,10 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:frogio_santa_juana/features/admin/domain/entities/municipal_statistics_entity.dart';
-import 'package:frogio_santa_juana/features/admin/presentation/bloc/statistics/statistics_bloc.dart';
-import 'package:frogio_santa_juana/features/admin/presentation/pages/admin_dashboard_screen.dart';
-import 'package:frogio_santa_juana/features/auth/domain/entities/user_entity.dart';
+import 'package:frogio_mobile/features/admin/domain/entities/municipal_statistics_entity.dart';
+import 'package:frogio_mobile/features/admin/presentation/bloc/statistics/statistics_bloc.dart';
+import 'package:frogio_mobile/features/admin/presentation/pages/admin_dashboard_screen.dart';
+import 'package:frogio_mobile/features/auth/domain/entities/user_entity.dart';
 
 class MockStatisticsBloc extends MockBloc<StatisticsEvent, StatisticsState>
     implements StatisticsBloc {}

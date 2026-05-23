@@ -2,10 +2,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
+import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
@@ -48,7 +51,27 @@ class NotificationService {
 
   Future<void> initialize() async {
     await _initializeLocalNotifications();
-    await _loadSavedTopics();
+    await _loadSavedTopicsOnly();
+    // Reconectar SSE si hay topics guardados (sesión previa)
+    if (_userTopic != null || _panicTopic != null) {
+      await connectToSSE(resetAttempts: true);
+    }
+  }
+
+  Future<void> _loadSavedTopicsOnly() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _userTopic = prefs.getString('ntfy_user_topic');
+      _tenantTopic = prefs.getString('ntfy_tenant_topic');
+      _userRole = prefs.getString('user_role');
+      if (_userRole == 'inspector' || _userRole == 'admin') {
+        _panicTopic = prefs.getString('ntfy_panic_topic');
+      } else {
+        _panicTopic = null;
+      }
+    } catch (e) {
+      log('Error loading saved topics: $e');
+    }
   }
 
   Future<void> _initializeLocalNotifications() async {
@@ -63,6 +86,7 @@ class NotificationService {
         requestSoundPermission: true,
         requestBadgePermission: true,
         requestAlertPermission: true,
+        requestCriticalPermission: false,
       );
       const macOSSettings = DarwinInitializationSettings(
         requestSoundPermission: true,
@@ -93,12 +117,41 @@ class NotificationService {
   }
 
   Future<void> _requestNotificationPermission() async {
+    // Android 13+
     final androidPlugin = _localNotifications
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-
     if (androidPlugin != null) {
       final granted = await androidPlugin.requestNotificationsPermission();
-      log('Notification permission granted: $granted');
+      log('Android notification permission granted: $granted');
+    }
+
+    // iOS
+    final iosPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+    if (iosPlugin != null) {
+      final granted = await iosPlugin.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      log('iOS notification permission granted: $granted');
+    }
+  }
+
+  /// Solicita excepción de optimización de batería (Android).
+  /// Sin esto, el SSE muere cuando la pantalla se bloquea y el SOS no llega.
+  Future<void> _requestBatteryOptimizationExemption() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final status = await Permission.ignoreBatteryOptimizations.status;
+      if (!status.isGranted) {
+        await Permission.ignoreBatteryOptimizations.request();
+        log('Battery optimization exemption requested');
+      } else {
+        log('Battery optimization exemption already granted');
+      }
+    } catch (e) {
+      log('Error requesting battery optimization exemption: $e');
     }
   }
 
@@ -117,41 +170,25 @@ class NotificationService {
         ),
       );
 
-      // Canal de emergencia para alertas de pánico
+      // Canal de emergencia para alertas de pánico — usa sonido de alarma
+      // ID v2 para forzar recreación con la configuración de alarma
       await androidPlugin.createNotificationChannel(
         const AndroidNotificationChannel(
-          'frogio_panic_channel',
-          'Alertas de Pánico',
+          'frogio_panic_v2',
+          'Alertas de Pánico SOS',
           description: 'Alertas de emergencia que requieren atención inmediata',
           importance: Importance.max,
           playSound: true,
+          // Usar el sonido de alarma del sistema (bypasea DND en modo Alarma)
+          sound: UriAndroidNotificationSound('android.resource://android/raw/alarm_alert'),
           enableVibration: true,
           enableLights: true,
+          ledColor: Color(0xFFD32F2F),
         ),
       );
     }
   }
 
-  Future<void> _loadSavedTopics() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      _userTopic = prefs.getString('ntfy_user_topic');
-      _tenantTopic = prefs.getString('ntfy_tenant_topic');
-      _userRole = prefs.getString('user_role');
-
-      // Solo cargar panic topic si el usuario es inspector o admin
-      // Los ciudadanos NUNCA deben recibir alertas de pánico
-      if (_userRole == 'inspector' || _userRole == 'admin') {
-        _panicTopic = prefs.getString('ntfy_panic_topic');
-      } else {
-        _panicTopic = null;
-        // Limpiar el panic topic si existía para ciudadanos
-        await prefs.remove('ntfy_panic_topic');
-      }
-    } catch (e) {
-      log('Error loading saved topics: $e');
-    }
-  }
 
   /// Configurar topics para el usuario y conectar a SSE
   Future<void> setupUserTopics({
@@ -177,6 +214,10 @@ class NotificationService {
         _panicTopic = 'frogio-panic';
         await prefs.setString('ntfy_panic_topic', _panicTopic!);
         log('Topics configurados: user=$_userTopic, tenant=$_tenantTopic, panic=$_panicTopic');
+
+        // Solicitar excepción de optimización de batería para que el SSE
+        // siga vivo cuando la pantalla está bloqueada (crítico para SOS)
+        await _requestBatteryOptimizationExemption();
       } else {
         _panicTopic = null;
         await prefs.remove('ntfy_panic_topic');
@@ -410,13 +451,18 @@ class NotificationService {
   }
 
   /// Muestra notificación de pánico 3 veces con intervalos para máxima atención
+  /// Public method to show panic notification from polling
+  Future<void> showPanicNotificationDirect(String title, String message, Map<String, dynamic>? data) async {
+    return _showPanicNotification(title, message, data);
+  }
+
   Future<void> _showPanicNotification(String title, String message, Map<String, dynamic>? data) async {
     if (kIsWeb) return;
 
     try {
       final androidDetails = AndroidNotificationDetails(
-      'frogio_panic_channel',
-      'Alertas de Pánico',
+      'frogio_panic_v2',
+      'Alertas de Pánico SOS',
       channelDescription: 'Alertas de emergencia',
       importance: Importance.max,
       priority: Priority.max,
@@ -426,6 +472,7 @@ class NotificationService {
       category: AndroidNotificationCategory.alarm,
       visibility: NotificationVisibility.public,
       playSound: true,
+      sound: const UriAndroidNotificationSound('android.resource://android/raw/alarm_alert'),
       enableVibration: true,
       vibrationPattern: Int64List.fromList([0, 500, 200, 500, 200, 500, 200, 500]),
     );
@@ -434,7 +481,10 @@ class NotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      interruptionLevel: InterruptionLevel.critical,
+      presentBanner: true,
+      presentList: true,
+      sound: 'default',
+      interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
     final notificationDetails = NotificationDetails(

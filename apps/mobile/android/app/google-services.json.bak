@@ -1,0 +1,43 @@
+{
+  "project_info": {
+    "project_number": "789201430048",
+    "project_id": "frogio-santa-juana",
+    "storage_bucket": "frogio-santa-juana.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:789201430048:android:0000000000000000",
+        "android_client_info": {
+          "package_name": "com.frogio.santa_juana"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "789201430048-rt0m539ar5h467vkiui4eo0tvei0s33v.apps.googleusercontent.com",
+          "client_type": 1
+        },
+        {
+          "client_id": "789201430048-0npsmn7uvi9e066i7qk2hvp0nrftfat6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_88yvH7X3ETGzyRCZ9jkjtmhw-wIIbnc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "789201430048-0npsmn7uvi9e066i7qk2hvp0nrftfat6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

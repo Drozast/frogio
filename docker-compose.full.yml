@@ -95,7 +95,7 @@ services:
       # Server-side API URL (usa nombre del contenedor)
       API_URL: http://backend:3000
       # Client-side API URL (usa dominio de Cloudflare para acceso externo)
-      NEXT_PUBLIC_API_URL: https://api.frogio.drozast.xyz
+      NEXT_PUBLIC_API_URL: https://api.frogio.supertools.cl
       NEXT_PUBLIC_TENANT_ID: santa_juana
     ports:
       - "3010:3000"
@@ -139,7 +139,7 @@ services:
     restart: unless-stopped
     command: serve
     environment:
-      NTFY_BASE_URL: ${NTFY_BASE_URL:-https://ntfy.frogio.drozast.xyz}
+      NTFY_BASE_URL: ${NTFY_BASE_URL:-https://ntfy.frogio.supertools.cl}
     volumes:
       - ntfy_data:/var/cache/ntfy
     ports:
@@ -154,7 +154,7 @@ services:
       retries: 3
       start_period: 10s
 
-  # Cloudflare Tunnel - Expone servicios con subdominios de drozast.xyz
+  # Cloudflare Tunnel - Expone servicios con subdominios de supertools.cl
   # Usa token del túnel en lugar de archivo de credenciales
   # Obtener token: Cloudflare Dashboard > Zero Trust > Access > Tunnels > Create
   cloudflared:

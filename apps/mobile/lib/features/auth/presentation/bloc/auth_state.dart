@@ -16,11 +16,12 @@ class AuthLoading extends AuthState {}
 
 class Authenticated extends AuthState {
   final UserEntity user;
+  final bool needsProfileCompletion;
 
-  const Authenticated(this.user);
+  const Authenticated(this.user, {this.needsProfileCompletion = false});
 
   @override
-  List<Object> get props => [user];
+  List<Object> get props => [user, needsProfileCompletion];
 }
 
 class Unauthenticated extends AuthState {}

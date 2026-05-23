@@ -1,7 +1,45 @@
 {
   "permissions": {
     "allow": [
-      "Bash(~/Library/Android/sdk/emulator/emulator:*)"
+      "Bash(~/Library/Android/sdk/emulator/emulator:*)",
+      "Bash(wc -l /Users/drozast/frogio/apps/web-admin/src/app/**/*.tsx /Users/drozast/frogio/apps/web-admin/src/components/**/*.tsx)",
+      "Read(//Users/drozast/frogio/**)",
+      "Bash(for file:*)",
+      "Bash(do echo:*)",
+      "Bash(npx next:*)",
+      "Bash(/tmp/frogio_flow_summary.txt:*)",
+      "Bash(/tmp/frogio_flowmap.md:*)",
+      "Bash(/tmp/frogio_summary.txt:*)",
+      "Bash(npx prisma:*)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(''''OK - role:'''', d.get\\(''''user'''',{}\\).get\\(''''role'''',''''?''''\\)\\) if ''''accessToken'''' in d else print\\(''''FAIL:'''', d\\)\")",
+      "Bash(while read:*)",
+      "Bash(do sed:*)",
+      "Bash(echo \"Updated: $f\")",
+      "Bash(system_profiler SPUSBDataType)",
+      "Bash(echo \"Android PID: $!\")",
+      "Bash(echo \"iOS PID: $!\")",
+      "Bash(xcodebuild -showsdks)",
+      "Bash(xcodebuild -version)",
+      "Bash(open /Users/drozast/frogio/apps/mobile/ios/Runner.xcworkspace)",
+      "Bash(chmod +x /Users/drozast/frogio/scripts/test_flows.sh)",
+      "Bash(bash scripts/test_flows.sh)",
+      "Bash(sed -i '' 's/ciudadano@frogio\\\\.cl/ciudadano@test.cl/g' /Users/drozast/frogio/scripts/test_flows.sh)",
+      "Bash(sed -i '' 's/inspector@frogio\\\\.cl/inspector@test.cl/g' /Users/drozast/frogio/scripts/test_flows.sh)",
+      "Bash(sed -i '' 's/admin@frogio\\\\.cl/admin@test.cl/g' /Users/drozast/frogio/scripts/test_flows.sh)",
+      "Bash(sed -i '' 's/import json, sys, urllib.request, urllib.error/import json, sys, urllib.request, urllib.error, ssl\\\\nssl_ctx = ssl.create_default_context\\(\\)\\\\nssl_ctx.check_hostname = False\\\\nssl_ctx.verify_mode = ssl.CERT_NONE/' /Users/drozast/frogio/scripts/test_flows.py)",
+      "Bash(sed -i '' 's/with urllib.request.urlopen\\(r, timeout=15\\) as resp:/with urllib.request.urlopen\\(r, timeout=15, context=ssl_ctx\\) as resp:/' /Users/drozast/frogio/scripts/test_flows.py)",
+      "Bash(sed -i '' 's/\"category\":\"alumbrado\"/\"type\":\"infraestructura\"/' /Users/drozast/frogio/scripts/test_flows.py)",
+      "Bash(sed -i '' 's/total = body.get\\(\"pagination\",{}\\).get\\(\"total\", len\\(body.get\\(\"data\",body.get\\(\"reports\",\\\\[\\\\]\\)\\)\\)\\)/total = body.get\\(\"pagination\",{}\\).get\\(\"total\", len\\(body.get\\(\"data\",[]\\)\\) if isinstance\\(body.get\\(\"data\",[]\\), list\\) else 0\\) if isinstance\\(body, dict\\) else len\\(body\\) if isinstance\\(body, list\\) else 0/' /Users/drozast/frogio/scripts/test_flows.py)",
+      "Bash(echo \"Build started in background \\(PID: $!\\)\")",
+      "Bash(echo \"Flutter launch PID: $!\")",
+      "Bash(awk '{print $1, $2, $11, $12}')",
+      "Bash(pkill -f \"flutter run\")",
+      "Bash(pkill -f \"idevicesyslog\")",
+      "Bash(pkill -f \"devicectl device\")",
+      "Bash(pkill -f \"frontend_server_aot\")"
+    ],
+    "additionalDirectories": [
+      "/Users/drozast/frogio/.claude"
     ]
   }
 }

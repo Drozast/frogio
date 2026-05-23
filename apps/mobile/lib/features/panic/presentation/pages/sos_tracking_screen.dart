@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:frogio_mobile/core/services/maps_service.dart';
 
 import '../../../../core/config/api_config.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -59,28 +60,78 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
 
   void _cancelAlert() {
     if (_alert == null) return;
+
+    const reasons = [
+      ('error_digitacion', 'Error de digitación'),
+      ('situacion_resuelta', 'Situación resuelta'),
+      ('otro', 'Otro motivo'),
+    ];
+    String? selectedReason;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cancelar Alerta'),
-        content: const Text('¿Estás seguro de que quieres cancelar tu alerta de emergencia?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('No'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.surfaceWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: AppTheme.emergency.withValues(alpha: 0.3)),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _panicBloc.add(CancelPanicAlertEvent(alertId: _alert!.id));
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+          title: Text(
+            'Cancelar Alerta',
+            style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '¿Por qué cancelas tu alerta?',
+                style: TextStyle(color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              ...reasons.map(((String value, String label) r) => RadioListTile<String>(
+                    value: r.$1,
+                    groupValue: selectedReason,
+                    onChanged: (v) => setDialogState(() => selectedReason = v),
+                    title: Text(r.$2, style: TextStyle(color: AppTheme.textPrimary, fontSize: 14)),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    activeColor: AppTheme.emergency,
+                  )),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Volver', style: TextStyle(color: AppTheme.textSecondary)),
             ),
-            child: const Text('Si, cancelar'),
-          ),
-        ],
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [BoxShadow(color: AppTheme.emergency.withValues(alpha: 0.2), blurRadius: 8)],
+              ),
+              child: ElevatedButton(
+                onPressed: selectedReason == null
+                    ? null
+                    : () {
+                        Navigator.pop(ctx);
+                        final label = reasons.firstWhere((r) => r.$1 == selectedReason).$2;
+                        _panicBloc.add(CancelPanicAlertEvent(
+                          alertId: _alert!.id,
+                          reason: label,
+                        ));
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emergency,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: AppTheme.emergency.withValues(alpha: 0.3),
+                ),
+                child: const Text('Confirmar'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -120,15 +171,15 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
   Color _getStatusColor(String status) {
     switch (status) {
       case 'responding':
-        return const Color(0xFF1B5E20);
+        return AppTheme.success;
       case 'active':
-        return const Color(0xFFC62828);
+        return AppTheme.emergency;
       case 'resolved':
         return AppTheme.success;
       case 'cancelled':
-        return Colors.grey;
+        return const Color(0xFF778899);
       default:
-        return AppTheme.primary;
+        return AppTheme.emergency;
     }
   }
 
@@ -160,6 +211,13 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
               setState(() => _isResolved = true);
               _refreshTimer?.cancel();
             }
+          } else if (state is PanicError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: AppTheme.emergency,
+              ),
+            );
           }
         },
         builder: (context, state) {
@@ -169,16 +227,13 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
           final isTerminal = status == 'resolved' || status == 'cancelled' || status == 'dismissed';
 
           return Scaffold(
-            backgroundColor: const Color(0xFFF5F5F5),
+            backgroundColor: AppTheme.surface,
             appBar: AppBar(
-              title: const Text(
-                'Seguimiento SOS',
-                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
-              ),
-              centerTitle: true,
-              backgroundColor: statusColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
+              title: const Text('Seguimiento SOS'),
+              backgroundColor: AppTheme.surfaceWhite,
+              foregroundColor: AppTheme.textPrimary,
+              elevation: 1,
+              shadowColor: statusColor.withValues(alpha: 0.3),
             ),
             body: Column(
               children: [
@@ -208,10 +263,14 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
       decoration: BoxDecoration(
-        color: statusColor,
+        color: AppTheme.surfaceWhite,
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(24),
           bottomRight: Radius.circular(24),
+        ),
+        boxShadow: [BoxShadow(color: statusColor.withValues(alpha: 0.2), blurRadius: 8)],
+        border: Border(
+          bottom: BorderSide(color: statusColor.withValues(alpha: 0.4), width: 1.5),
         ),
       ),
       child: Column(
@@ -227,12 +286,13 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: opacity * 0.25),
+                    color: statusColor.withValues(alpha: opacity * 0.18),
                     shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(color: statusColor.withValues(alpha: 0.2 * opacity), blurRadius: 8)],
                   ),
                   child: Icon(
                     _getStatusIcon(status),
-                    color: Colors.white,
+                    color: statusColor,
                     size: 36,
                   ),
                 ),
@@ -242,10 +302,10 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
           const SizedBox(height: 12),
           Text(
             _getStatusText(status),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: AppTheme.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
@@ -257,9 +317,9 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
                     : status == 'resolved'
                         ? 'Tu emergencia ha sido atendida'
                         : '',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.9),
+              color: Color(0xFF778899),
             ),
             textAlign: TextAlign.center,
           ),
@@ -268,14 +328,14 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.location_on_rounded, color: Colors.white.withValues(alpha: 0.8), size: 14),
+                Icon(Icons.location_on_rounded, color: statusColor.withValues(alpha: 0.8), size: 14),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
                     _alert!.address!,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: Color(0xFF778899),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -316,11 +376,13 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
         currentStep = 0;
     }
 
+    final accent = _getStatusColor(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -343,18 +405,18 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: isCompleted
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.3),
-                          border: isCurrent
-                              ? Border.all(color: Colors.white, width: 2)
-                              : null,
+                              ? accent.withValues(alpha: 0.18)
+                              : AppTheme.surfaceWhite,
+                          border: Border.all(
+                            color: isCompleted ? accent : const Color(0xFF334455),
+                            width: isCurrent ? 2 : 1,
+                          ),
+                          boxShadow: isCurrent ? [BoxShadow(color: accent.withValues(alpha: 0.25), blurRadius: 8)] : null,
                         ),
                         child: Icon(
                           step['icon'] as IconData,
                           size: 18,
-                          color: isCompleted
-                              ? _getStatusColor(status)
-                              : Colors.white.withValues(alpha: 0.5),
+                          color: isCompleted ? accent : const Color(0xFF445566),
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -363,9 +425,7 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                          color: isCompleted
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.5),
+                          color: isCompleted ? accent : const Color(0xFF445566),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -376,9 +436,12 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
                   Container(
                     width: 20,
                     height: 2,
-                    color: index < currentStep
-                        ? Colors.white
-                        : Colors.white.withValues(alpha: 0.3),
+                    decoration: BoxDecoration(
+                      color: index < currentStep
+                          ? accent.withValues(alpha: 0.6)
+                          : const Color(0xFF223344),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
                   ),
               ],
             ),
@@ -398,8 +461,9 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
       ),
       children: [
         TileLayer(
-          urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.frogio.santa_juana',
+          urlTemplate: MapsService.tileServerUrl,
+                  tileProvider: MapsService.tileProvider,
+          userAgentPackageName: ApiConfig.appPackageName,
         ),
         MarkerLayer(
           markers: [
@@ -420,9 +484,9 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
                         height: outerSize,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.red.withValues(alpha: 0.2 * (1 - _pulseController.value)),
+                          color: AppTheme.emergency.withValues(alpha: 0.18 * (1 - _pulseController.value)),
                           border: Border.all(
-                            color: Colors.red.withValues(alpha: 0.4 * (1 - _pulseController.value)),
+                            color: AppTheme.emergency.withValues(alpha: 0.5 * (1 - _pulseController.value)),
                             width: 2,
                           ),
                         ),
@@ -432,16 +496,10 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: Colors.red,
+                          color: AppTheme.emergency,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.red.withValues(alpha: 0.4),
-                              blurRadius: 8,
-                              spreadRadius: 2,
-                            ),
-                          ],
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [BoxShadow(color: AppTheme.emergency.withValues(alpha: 0.3), blurRadius: 10)],
                         ),
                         child: const Icon(Icons.sos_rounded, color: Colors.white, size: 16),
                       ),
@@ -460,11 +518,14 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceWhite,
+        border: Border(
+          top: BorderSide(color: AppTheme.emergency.withValues(alpha: 0.25), width: 1),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 10,
+            color: AppTheme.emergency.withValues(alpha: 0.08),
+            blurRadius: 16,
             offset: const Offset(0, -4),
           ),
         ],
@@ -478,9 +539,10 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
               children: [
                 Text(
                   alert.isResponding ? 'Inspector respondiendo' : 'Alerta activa',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -488,21 +550,28 @@ class _SosTrackingScreenState extends State<SosTrackingScreen>
                   'ID: ${alert.id.substring(0, 8)}...',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade500,
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
-          ElevatedButton.icon(
-            onPressed: _cancelAlert,
-            icon: const Icon(Icons.close_rounded, size: 18),
-            label: const Text('Cancelar'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade50,
-              foregroundColor: Colors.red,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [BoxShadow(color: AppTheme.emergency.withValues(alpha: 0.2), blurRadius: 8)],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: _cancelAlert,
+              icon: const Icon(Icons.close_rounded, size: 18),
+              label: const Text('Cancelar'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.emergency.withValues(alpha: 0.15),
+                foregroundColor: AppTheme.emergency,
+                elevation: 0,
+                side: BorderSide(color: AppTheme.emergency.withValues(alpha: 0.5)),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
             ),
           ),
         ],

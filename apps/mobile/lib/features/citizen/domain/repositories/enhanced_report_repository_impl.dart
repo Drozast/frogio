@@ -39,6 +39,7 @@ abstract class ReportRepository {
     ReportStatus status, {
     String? muniId,
     String? assignedTo,
+    String? createdBy,
   });
   
   /// Asigna un reporte a un inspector

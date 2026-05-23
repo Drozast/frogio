@@ -16,6 +16,7 @@ import {
   XMarkIcon,
   CircleStackIcon,
 } from '@heroicons/react/24/outline';
+import { useTenant } from '@/lib/tenant-context';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
@@ -31,6 +32,9 @@ const navigation = [
 export default function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const tenant = useTenant();
+
+  const withTenant = (href: string) => `/${tenant.id}${href}`;
 
   return (
     <div className="md:hidden">
@@ -93,6 +97,7 @@ export default function MobileMenu() {
               <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label="Navegacion principal">
                 {navigation.map((item, index) => {
                   const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                  const fullHref = withTenant(item.href);
                   return (
                     <motion.div
                       key={item.name}
@@ -101,7 +106,7 @@ export default function MobileMenu() {
                       transition={{ delay: index * 0.05 }}
                     >
                       <Link
-                        href={item.href}
+                        href={fullHref}
                         onClick={() => setIsOpen(false)}
                         className={`
                           group relative flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200
@@ -130,7 +135,7 @@ export default function MobileMenu() {
               <div className="p-4 border-t border-border/30">
                 <div className="px-4 py-3 rounded-xl bg-gradient-to-br from-primary/5 via-accent/30 to-primary/5 border border-primary/10">
                   <p className="text-[11px] text-muted-foreground font-medium">Sistema de Gestion</p>
-                  <p className="text-xs font-semibold text-foreground mt-0.5">Municipal Santa Juana</p>
+                  <p className="text-xs font-semibold text-foreground mt-0.5">Municipal {tenant.name}</p>
                 </div>
               </div>
             </motion.div>

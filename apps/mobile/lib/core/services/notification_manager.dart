@@ -1,11 +1,22 @@
 // lib/core/services/notification_manager.dart
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer';
 
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'dart:io';
 
+import 'package:audioplayers/audioplayers.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+
+import '../config/api_config.dart';
+import '../network/auth_http_client.dart';
 import '../theme/app_theme.dart';
+import '../../features/panic/presentation/pages/panic_alert_detail_screen.dart';
+import '../../di/injection_container_api.dart' as di;
 import 'notification_service.dart';
 
 class NotificationManager {
@@ -19,9 +30,71 @@ class NotificationManager {
   // Callback para alertas de pánico (para actualizar UI en tiempo real)
   Function(Map<String, dynamic>)? onPanicAlertReceived;
 
+  Timer? _panicPollTimer;
+  String? _lastSeenPanicId;
+
   Future<void> initialize() async {
     await _notificationService.initialize();
     _setupCallbacks();
+    // Start panic polling if already logged in as inspector
+    startPanicPolling();
+  }
+
+  /// Start polling for active panic alerts (backup for SSE failures on iOS)
+  void startPanicPolling() {
+    _panicPollTimer?.cancel();
+
+    _panicPollTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      try {
+        if (!di.sl.isRegistered<AuthHttpClient>()) return;
+        // Only poll if user is inspector or admin
+        final prefs = await SharedPreferences.getInstance();
+        final role = prefs.getString('user_role');
+        if (role != 'inspector' && role != 'admin') return;
+        final client = di.sl<AuthHttpClient>();
+        final response = await client.get(
+          Uri.parse('${ApiConfig.activeBaseUrl}/api/panic/active'),
+        );
+        if (response.statusCode == 200) {
+          final List<dynamic> alerts = json.decode(response.body);
+          if (alerts.isNotEmpty) {
+            final latest = alerts.first as Map<String, dynamic>;
+            final alertId = latest['id']?.toString();
+            if (alertId != null && alertId != _lastSeenPanicId) {
+              _lastSeenPanicId = alertId;
+              final userName = [latest['first_name'], latest['last_name']]
+                  .where((s) => s != null && s.toString().isNotEmpty)
+                  .join(' ');
+              final message = '$userName necesita ayuda!\n${latest['message'] ?? 'Emergencia'}';
+
+              // Trigger the same flow as SSE
+              _handlePanicAlertReceived({
+                'type': 'panic',
+                'title': 'ALERTA DE PANICO',
+                'message': message,
+                'alertId': alertId,
+                'latitude': (latest['latitude'] as num?)?.toDouble(),
+                'longitude': (latest['longitude'] as num?)?.toDouble(),
+              });
+
+              // Show panic notification (high priority, sound, vibration)
+              await _notificationService.showPanicNotificationDirect(
+                'ALERTA DE PANICO',
+                message,
+                {'type': 'panic', 'alertId': alertId},
+              );
+            }
+          }
+        }
+      } catch (e) {
+        log('Panic poll error: $e');
+      }
+    });
+  }
+
+  void stopPanicPolling() {
+    _panicPollTimer?.cancel();
+    _panicPollTimer = null;
   }
 
   void _setupCallbacks() {
@@ -42,8 +115,6 @@ class NotificationManager {
     _navigateBasedOnNotification(data);
   }
 
-  OverlayEntry? _activePanicOverlay;
-
   void _handlePanicAlertReceived(Map<String, dynamic> data) {
     log('PANIC ALERT RECEIVED: $data');
 
@@ -60,175 +131,59 @@ class NotificationManager {
     // Notificar a cualquier listener (ej: InspectorMapScreen)
     onPanicAlertReceived?.call(data);
 
-    // Mostrar banner superior de alerta que se repite 3 veces
+    // Vibración fuerte repetida
+    _vibrateEmergency();
+
+    // Navegar directamente a la pantalla de detalle SOS (más confiable que overlay)
     final context = navigatorKey.currentContext;
     if (context != null) {
-      _showRepeatingPanicBanner(context, data);
+      _navigateToPanicDetail(context, data);
     }
   }
 
-  /// Muestra un banner de pánico en la parte superior 3 veces con vibración
-  void _showRepeatingPanicBanner(BuildContext context, Map<String, dynamic> data) {
-    final title = data['title']?.toString() ?? 'ALERTA DE PANICO';
-    final message = data['message']?.toString() ?? 'Un ciudadano necesita ayuda';
-    final lat = data['latitude'] as double?;
-    final lng = data['longitude'] as double?;
+  Future<void> _vibrateEmergency() async {
+    // Play alarm sound
+    try {
+      final player = AudioPlayer();
+      await player.setVolume(1.0);
+      await player.setReleaseMode(ReleaseMode.loop);
+      await player.play(AssetSource('sounds/emergency_alarm.wav'));
+      // Stop after 15 seconds
+      Future.delayed(const Duration(seconds: 15), () => player.stop());
+    } catch (e) {
+      log('Error playing alarm sound: $e');
+    }
 
-    int repeatCount = 0;
-
-    void showBanner() {
-      if (repeatCount >= 3) {
-        // Después de las 3 repeticiones, mostrar el diálogo de acción
-        _showPanicActionDialog(context, data);
-        return;
+    // Strong vibration: 3s on + 0.5s off x5
+    for (int i = 0; i < 5; i++) {
+      for (int j = 0; j < 15; j++) {
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 200));
       }
-      repeatCount++;
-
-      // Vibración fuerte
-      HapticFeedback.heavyImpact();
-
-      // Remover overlay previo si existe
-      _activePanicOverlay?.remove();
-      _activePanicOverlay = null;
-
-      final overlay = Overlay.of(context);
-
-      _activePanicOverlay = OverlayEntry(
-        builder: (overlayContext) => _PanicBannerOverlay(
-          title: title,
-          message: message,
-          repeatNumber: repeatCount,
-          onDismiss: () {
-            _activePanicOverlay?.remove();
-            _activePanicOverlay = null;
-          },
-          onTap: () {
-            _activePanicOverlay?.remove();
-            _activePanicOverlay = null;
-            _refreshAndNavigateToMap(context, latitude: lat, longitude: lng);
-          },
-          onAnimationComplete: () {
-            // Esperar un poco y mostrar la siguiente repetición
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (repeatCount < 3) {
-                showBanner();
-              } else {
-                _activePanicOverlay?.remove();
-                _activePanicOverlay = null;
-                _showPanicActionDialog(context, data);
-              }
-            });
-          },
-        ),
-      );
-
-      overlay.insert(_activePanicOverlay!);
+      await Future.delayed(const Duration(milliseconds: 500));
     }
-
-    showBanner();
   }
 
-  void _showPanicActionDialog(BuildContext context, Map<String, dynamic> data) {
-    final latitude = data['latitude'];
-    final longitude = data['longitude'];
-    final hasLocation = latitude != null && longitude != null;
-    final message = data['message']?.toString() ?? 'Un ciudadano necesita ayuda';
+  void _navigateToPanicDetail(BuildContext context, Map<String, dynamic> data) {
+    final lat = data['latitude'] is double
+        ? data['latitude'] as double
+        : double.tryParse(data['latitude']?.toString() ?? '');
+    final lng = data['longitude'] is double
+        ? data['longitude'] as double
+        : double.tryParse(data['longitude']?.toString() ?? '');
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.red.shade50,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.warning_rounded, color: Colors.red, size: 32),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'ALERTA DE PANICO',
-                style: TextStyle(
-                  color: Colors.red.shade900,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            ),
-          ],
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PanicAlertDetailScreen(
+          alertId: data['alertId']?.toString(),
+          latitude: lat,
+          longitude: lng,
+          message: data['message']?.toString(),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: Text(message, style: const TextStyle(fontSize: 16)),
-            ),
-            if (hasLocation) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.location_on, color: Colors.green.shade700, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Ubicacion disponible',
-                      style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cerrar'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              _refreshAndNavigateToMap(
-                context,
-                latitude: latitude is double ? latitude : double.tryParse(latitude?.toString() ?? ''),
-                longitude: longitude is double ? longitude : double.tryParse(longitude?.toString() ?? ''),
-              );
-            },
-            icon: const Icon(Icons.map),
-            label: const Text('Ver en Mapa'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  void _refreshAndNavigateToMap(BuildContext context, {double? latitude, double? longitude}) {
-    // Navegar al mapa con ubicación del SOS si está disponible
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      '/inspector-map',
-      (route) => route.isFirst,
-      arguments: {
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
-      },
-    );
-  }
 
   void _showInAppNotification(BuildContext context, Map<String, dynamic> data) {
     final notificationType = data['type'] ?? 'general';
@@ -290,16 +245,7 @@ class NotificationManager {
 
     switch (type) {
       case 'panic':
-        final lat = data['latitude'] is double
-            ? data['latitude'] as double
-            : double.tryParse(data['latitude']?.toString() ?? '');
-        final lng = data['longitude'] is double
-            ? data['longitude'] as double
-            : double.tryParse(data['longitude']?.toString() ?? '');
-        Navigator.of(context).pushNamed('/inspector-map', arguments: {
-          if (lat != null) 'latitude': lat,
-          if (lng != null) 'longitude': lng,
-        });
+        _navigateToPanicDetail(context, data);
         break;
       case 'panic_response':
         Navigator.of(context).pushNamed('/sos-tracking', arguments: {
@@ -405,15 +351,71 @@ class NotificationManager {
   }
 
   // Métodos para suscripciones basadas en roles
-  Future<void> subscribeToUserTopics(String userId, String role, {String tenantId = 'santa_juana'}) async {
+  Future<void> subscribeToUserTopics(String userId, String role, {String? tenantId}) async {
+    final effectiveTenantId = tenantId ?? ApiConfig.tenantId;
     // Configurar topics para el usuario y conectar a SSE
     await _notificationService.setupUserTopics(
       userId: userId,
-      tenantId: tenantId,
+      tenantId: effectiveTenantId,
       role: role,
     );
 
     log('Usuario suscrito a notificaciones: $userId (role: $role)');
+
+    // Register APNs/FCM device token for push notifications
+    _registerDeviceToken();
+
+    // Start panic polling as backup (SSE can fail on iOS)
+    startPanicPolling();
+  }
+
+  static const _apnsChannel = MethodChannel('com.frogio.apns');
+
+  Future<void> _registerDeviceToken() async {
+    try {
+      if (Platform.isIOS) {
+        // Get APNs token via native method channel (more reliable than firebase_messaging)
+        String? apnsToken;
+        for (int i = 0; i < 10; i++) {
+          try {
+            apnsToken = await _apnsChannel.invokeMethod<String>('getAPNsToken');
+          } catch (_) {}
+          if (apnsToken != null) break;
+          debugPrint('FROGIO: APNs token not ready, retry ${i + 1}/10...');
+          await Future.delayed(const Duration(seconds: 2));
+        }
+
+        if (apnsToken != null) {
+          await _sendTokenToServer(apnsToken, 'ios');
+          debugPrint('FROGIO: APNs token registered: ${apnsToken.substring(0, 16)}...');
+        } else {
+          debugPrint('FROGIO: Could not get APNs token after retries');
+        }
+      } else {
+        // Android: use FCM
+        final messaging = FirebaseMessaging.instance;
+        final fcmToken = await messaging.getToken();
+        if (fcmToken != null) {
+          await _sendTokenToServer(fcmToken, 'android');
+          debugPrint('FROGIO: FCM token registered');
+        }
+      }
+    } catch (e) {
+      debugPrint('FROGIO: Error registering device token: $e');
+    }
+  }
+
+  Future<void> _sendTokenToServer(String token, String platform) async {
+    try {
+      if (!di.sl.isRegistered<AuthHttpClient>()) return;
+      final client = di.sl<AuthHttpClient>();
+      await client.post(
+        Uri.parse('${ApiConfig.activeBaseUrl}/api/auth/device-token'),
+        body: json.encode({'deviceToken': token, 'platform': platform}),
+      );
+    } catch (e) {
+      log('Error sending token to server: $e');
+    }
   }
 
   Future<void> unsubscribeFromAllTopics() async {
@@ -488,178 +490,6 @@ class NotificationManager {
         'longitude': lng,
       },
       highPriority: true,
-    );
-  }
-}
-
-/// Banner superior de alerta de pánico con animación de entrada/salida
-class _PanicBannerOverlay extends StatefulWidget {
-  final String title;
-  final String message;
-  final int repeatNumber;
-  final VoidCallback? onDismiss;
-  final VoidCallback? onTap;
-  final VoidCallback? onAnimationComplete;
-
-  const _PanicBannerOverlay({
-    required this.title,
-    required this.message,
-    required this.repeatNumber,
-    this.onDismiss,
-    this.onTap,
-    this.onAnimationComplete,
-  });
-
-  @override
-  State<_PanicBannerOverlay> createState() => _PanicBannerOverlayState();
-}
-
-class _PanicBannerOverlayState extends State<_PanicBannerOverlay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _fadeAnimation;
-  Timer? _autoDismissTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -1.5),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
-
-    _fadeAnimation = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-
-    _controller.forward();
-
-    // Vibrar al aparecer
-    HapticFeedback.heavyImpact();
-
-    // Auto-ocultar después de 3 segundos
-    _autoDismissTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        _dismiss();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _autoDismissTimer?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _dismiss() async {
-    _autoDismissTimer?.cancel();
-    if (!mounted) return;
-    await _controller.reverse();
-    widget.onAnimationComplete?.call();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      top: MediaQuery.of(context).padding.top,
-      left: 0,
-      right: 0,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.red.shade700, Colors.red.shade900],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.red.withValues(alpha: 0.5),
-                    blurRadius: 20,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    // Icono pulsante
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.warning_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Contenido
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'ALERTA SOS [${widget.repeatNumber}/3]',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 16,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.message,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 14,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Flecha para ver mapa
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.map_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

@@ -53,16 +53,18 @@ class UpdateReportStatusEvent extends ReportEvent {
   final String status;
   final String? comment;
   final String userId;
+  final String? assignedTo;
 
   const UpdateReportStatusEvent({
     required this.reportId,
     required this.status,
     this.comment,
     required this.userId,
+    this.assignedTo,
   });
 
   @override
-  List<Object?> get props => [reportId, status, comment, userId];
+  List<Object?> get props => [reportId, status, comment, userId, assignedTo];
 }
 
 class AssignReportEvent extends ReportEvent {
@@ -123,13 +125,16 @@ class GetReportsByStatusEvent extends ReportEvent {
   final String status;
   final String? muniId;
   final String? assignedTo;
+  /// Si se especifica, filtra por el creador (inspector viendo sus propias denuncias)
+  final String? createdBy;
 
   const GetReportsByStatusEvent({
     required this.status,
     this.muniId,
     this.assignedTo,
+    this.createdBy,
   });
 
   @override
-  List<Object?> get props => [status, muniId, assignedTo];
+  List<Object?> get props => [status, muniId, assignedTo, createdBy];
 }

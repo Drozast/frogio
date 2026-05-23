@@ -9,7 +9,7 @@ class CancelPanicAlert {
 
   CancelPanicAlert(this.repository);
 
-  Future<Either<Failure, PanicAlertEntity>> call(String alertId) {
-    return repository.cancelPanicAlert(alertId);
+  Future<Either<Failure, PanicAlertEntity>> call(String alertId, {String? reason}) {
+    return repository.cancelPanicAlert(alertId, reason: reason);
   }
 }

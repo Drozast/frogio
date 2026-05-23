@@ -151,6 +151,7 @@ export class PanicController {
   async cancel(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+      const { reason } = req.body;
       const userId = req.user?.userId;
       const tenantId = req.user?.tenantId;
 
@@ -159,7 +160,7 @@ export class PanicController {
         return;
       }
 
-      const alert = await panicService.cancel(id, userId, tenantId);
+      const alert = await panicService.cancel(id, userId, tenantId, reason);
       res.json(alert);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al cancelar alerta';

@@ -28,4 +28,6 @@ abstract class AuthRepository {
   });
   Future<Either<Failure, String>> uploadProfileImage(String userId, File imageFile);
   Future<Either<Failure, UserEntity>> updateProfileImage(String userId, String imageUrl);
+  Future<Either<Failure, UserEntity>> signInWithApple(String identityToken);
+  Future<Either<Failure, UserEntity>> signInWithGoogle(String idToken);
 }

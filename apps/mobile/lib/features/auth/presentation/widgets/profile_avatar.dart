@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
-import '../../data/datasources/auth_api_data_source.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../bloc/auth_bloc.dart';
@@ -145,7 +145,9 @@ class ProfileAvatar extends StatelessWidget {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: source,
-        imageQuality: 70,
+        imageQuality: 50,
+        maxWidth: 400,
+        maxHeight: 400,
       );
 
       if (image != null) {
@@ -298,28 +300,12 @@ class _FileImageAvatarState extends State<_FileImageAvatar> {
   }
 
   Future<void> _loadImageUrl() async {
-    try {
-      debugPrint('🖼️ Loading image URL for fileId: ${widget.fileId}');
-      final authDataSource = di.sl<AuthApiDataSource>();
-      final url = await authDataSource.getFileUrl(widget.fileId);
-      debugPrint('🖼️ Got URL: $url');
-
-      if (!mounted) return;
-
-      setState(() {
-        _imageUrl = url;
-        _isLoading = false;
-        _hasError = url == null;
-      });
-    } catch (e) {
-      debugPrint('🖼️ Error loading URL: $e');
-      if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-        _hasError = true;
-      });
-    }
+    final url = '${ApiConfig.activeBaseUrl}/api/files/serve/${ApiConfig.tenantId}/${widget.fileId}';
+    if (!mounted) return;
+    setState(() {
+      _imageUrl = url;
+      _isLoading = false;
+    });
   }
 
   @override

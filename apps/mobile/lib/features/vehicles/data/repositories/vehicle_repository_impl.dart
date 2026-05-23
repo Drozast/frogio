@@ -1,6 +1,6 @@
 // lib/features/vehicles/data/repositories/vehicle_repository_impl.dart
 import 'package:dartz/dartz.dart';
-import 'package:frogio_santa_juana/features/vehicles/data/datasources/vehicle_remote_data_source.dart';
+import 'package:frogio_mobile/features/vehicles/data/datasources/vehicle_remote_data_source.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/vehicle_entity.dart';

@@ -15,6 +15,7 @@ class VehicleEntity extends Equatable {
   final DateTime? nextMaintenance;
   final String? currentDriverId;
   final String? currentDriverName;
+  final String? activeLogId;
   final List<String> assignedAreas;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -34,6 +35,7 @@ class VehicleEntity extends Equatable {
     this.nextMaintenance,
     this.currentDriverId,
     this.currentDriverName,
+    this.activeLogId,
     required this.assignedAreas,
     required this.createdAt,
     required this.updatedAt,
@@ -44,7 +46,7 @@ class VehicleEntity extends Equatable {
   List<Object?> get props => [
     id, plate, model, brand, year, muniId, status, type, currentKm,
     lastMaintenance, nextMaintenance, currentDriverId, currentDriverName,
-    assignedAreas, createdAt, updatedAt, specs,
+    activeLogId, assignedAreas, createdAt, updatedAt, specs,
   ];
 
   VehicleEntity copyWith({
@@ -61,6 +63,7 @@ class VehicleEntity extends Equatable {
     DateTime? nextMaintenance,
     String? currentDriverId,
     String? currentDriverName,
+    String? activeLogId,
     List<String>? assignedAreas,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -80,6 +83,7 @@ class VehicleEntity extends Equatable {
       nextMaintenance: nextMaintenance ?? this.nextMaintenance,
       currentDriverId: currentDriverId ?? this.currentDriverId,
       currentDriverName: currentDriverName ?? this.currentDriverName,
+      activeLogId: activeLogId ?? this.activeLogId,
       assignedAreas: assignedAreas ?? this.assignedAreas,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

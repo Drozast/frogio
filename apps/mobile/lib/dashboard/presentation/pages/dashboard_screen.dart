@@ -17,12 +17,17 @@ import '../../../features/auth/presentation/widgets/profile_avatar.dart';
 import '../../../features/citizen/presentation/pages/create_report_screen.dart';
 import '../../../features/citizen/presentation/pages/my_reports_screen.dart';
 import '../../../features/citizen/presentation/pages/citizen_home_screen.dart';
-import '../../../features/admin/presentation/bloc/statistics/statistics_bloc.dart';
-import '../../../features/admin/presentation/pages/admin_dashboard_screen.dart';
+import '../../../features/admin/presentation/pages/admin_home_dashboard.dart';
+import '../../../features/admin/presentation/pages/admin_data_explorer.dart';
+import '../../../features/admin/presentation/pages/admin_fleet_screen.dart';
+import '../../../features/admin/presentation/pages/admin_live_map_screen.dart';
+import '../../../features/admin/presentation/pages/admin_personnel_screen.dart';
 import '../../../features/inspector/presentation/pages/inspector_home_screen_v2.dart';
 import '../../../features/inspector/presentation/pages/inspector_map_screen.dart';
 import '../../../features/inspector/presentation/pages/citations_main_screen.dart';
+import '../../../features/inspector/presentation/pages/inspector_reports_screen.dart';
 import '../../../features/inspector/presentation/bloc/citation_bloc.dart';
+import '../../../features/citizen/presentation/bloc/report/enhanced_report_bloc.dart';
 import '../../../features/panic/presentation/bloc/panic_bloc.dart';
 import '../../../features/panic/presentation/bloc/panic_event.dart';
 import '../../../features/panic/presentation/bloc/panic_state.dart';
@@ -533,7 +538,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   GestureDetector(
                     onTap: () {
                       setState(() {
-                        _currentIndex = 2; // Ir a la pestaña de perfil
+                        // Inspector tiene 5 tabs: perfil es el índice 4
+                        // Admin tiene 7 tabs: perfil es el índice 6
+                        // Citizen tiene 3 tabs: perfil es el índice 2
+                        _currentIndex = user.role == 'inspector' ? 4 : (user.role == 'admin' ? 6 : 2);
                       });
                     },
                     child: Container(
@@ -681,17 +689,21 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     switch (role) {
       case 'admin':
         return [
-          _buildNavItem(Icons.dashboard_rounded, 'Dashboard', 0),
-          _buildNavItem(Icons.people_outline, 'Usuarios', 1),
-          _buildNavItem(Icons.analytics_outlined, 'Reportes', 2),
-          _buildNavItem(Icons.person_outline, 'Perfil', 3),
+          _buildNavItem(Icons.dashboard_rounded, 'Inicio', 0),
+          _buildNavItem(Icons.work_rounded, 'Operar', 1),
+          _buildNavItem(Icons.bar_chart_rounded, 'Datos', 2),
+          _buildNavItem(Icons.map_rounded, 'Mapa', 3),
+          _buildNavItem(Icons.directions_car_rounded, 'Flota', 4),
+          _buildNavItem(Icons.badge_rounded, 'Personal', 5),
+          _buildNavItem(Icons.person_outline, 'Perfil', 6),
         ];
       case 'inspector':
         return [
           _buildNavItem(Icons.home_rounded, 'Inicio', 0),
-          _buildNavItem(Icons.map_rounded, 'Mapa', 1),
+          _buildNavItem(Icons.report_problem_outlined, 'Denuncias', 1),
           _buildNavItem(Icons.assignment_outlined, 'Citaciones', 2),
-          _buildNavItem(Icons.person_outline, 'Perfil', 3),
+          _buildNavItem(Icons.map_rounded, 'Mapa', 3),
+          _buildNavItem(Icons.person_outline, 'Perfil', 4),
         ];
       case 'citizen':
       default:
@@ -889,31 +901,27 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       case 'admin':
         switch (index) {
           case 0:
-            return BlocProvider(
-              create: (_) => di.sl<StatisticsBloc>(),
-              child: AdminDashboardScreen(user: user),
+            return AdminHomeDashboard(
+              user: user,
+              onNavigateToTab: (i) => setState(() => _currentIndex = i),
             );
           case 1:
-            return Center(
-              child: Text(
-                'Gestion de Usuarios - En desarrollo',
-                style: TextStyle(fontSize: 20, color: Colors.grey.shade600),
-              ),
+            return InspectorHomeScreenV2(
+              user: user,
+              onNavigateToTab: (i) => setState(() => _currentIndex = i),
             );
           case 2:
-            return Center(
-              child: Text(
-                'Reportes y Estadisticas - En desarrollo',
-                style: TextStyle(fontSize: 20, color: Colors.grey.shade600),
-              ),
-            );
+            return AdminDataExplorer(user: user);
           case 3:
+            return AdminLiveMapScreen(user: user);
+          case 4:
+            return AdminFleetScreen(user: user);
+          case 5:
+            return AdminPersonnelScreen(user: user);
+          case 6:
             return _buildProfilePage(user);
           default:
-            return BlocProvider(
-              create: (_) => di.sl<StatisticsBloc>(),
-              child: AdminDashboardScreen(user: user),
-            );
+            return AdminHomeDashboard(user: user);
         }
       case 'citizen':
         switch (index) {
@@ -930,15 +938,23 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       case 'inspector':
         switch (index) {
           case 0:
-            return InspectorHomeScreenV2(user: user);
+            return InspectorHomeScreenV2(
+              user: user,
+              onNavigateToTab: (index) => setState(() => _currentIndex = index),
+            );
           case 1:
-            return const InspectorMapScreen();
+            return BlocProvider(
+              create: (_) => di.sl<ReportBloc>(),
+              child: const InspectorReportsScreen(),
+            );
           case 2:
             return BlocProvider(
               create: (_) => di.sl<CitationBloc>()..add(LoadMyCitationsEvent()),
               child: CitationsMainScreen(user: user),
             );
           case 3:
+            return const InspectorMapScreen();
+          case 4:
             return _buildProfilePage(user);
           default:
             return InspectorHomeScreenV2(user: user);

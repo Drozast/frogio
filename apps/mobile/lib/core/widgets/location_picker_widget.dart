@@ -108,6 +108,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                   children: [
                     TileLayer(
                       urlTemplate: MapsService.tileServerUrl,
+                  tileProvider: MapsService.tileProvider,
                       fallbackUrl: MapsService.osmFallbackUrl,
                       userAgentPackageName: 'com.frogio.santajuana',
                     ),

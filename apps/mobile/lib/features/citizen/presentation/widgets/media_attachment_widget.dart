@@ -2,11 +2,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/widgets/custom_button.dart';
 import '../../domain/entities/enhanced_report_entity.dart';
 
 class MediaAttachmentWidget extends StatefulWidget {
@@ -42,181 +43,193 @@ class _MediaAttachmentWidgetState extends State<MediaAttachmentWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Attached files
+        if (_attachedFiles.isNotEmpty) ...[
+          ...List.generate(_attachedFiles.length, (index) {
+            return _buildFileItem(_attachedFiles[index], index);
+          }),
+          const SizedBox(height: 12),
+        ],
+
+        // Processing indicator
+        if (_isProcessing)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
+              color: AppTheme.primary.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+            ),
+            child: const Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
+                ),
+                SizedBox(width: 12),
+                Text('Comprimiendo archivo...', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+              ],
+            ),
+          ),
+
+        // Add button
+        if (_attachedFiles.length < widget.maxFiles && !_isProcessing)
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _showMediaPicker,
+              icon: const Icon(Icons.attach_file_rounded),
+              label: Text(
+                _attachedFiles.isEmpty
+                    ? 'Adjuntar imagen o video'
+                    : 'Agregar otro archivo (${_attachedFiles.length}/${widget.maxFiles})',
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primary,
+                side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.3)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
               ),
             ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.attach_file,
-                  color: AppTheme.primaryColor,
-                ),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Fotos y Videos (Opcional)',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${_attachedFiles.length}/${widget.maxFiles}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
-          
-          // Content
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Action buttons
-                if (_attachedFiles.length < widget.maxFiles && !_isProcessing) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CustomButton(
-                          text: 'Cámara',
-                          icon: Icons.camera_alt,
-                          onPressed: () => _pickMedia(ImageSource.camera, MediaType.image),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: CustomButton(
-                          text: 'Galería',
-                          icon: Icons.photo_library,
-                          isOutlined: true,
-                          onPressed: () => _pickMedia(ImageSource.gallery, MediaType.image),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (widget.allowVideos) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CustomButton(
-                            text: 'Video',
-                            icon: Icons.videocam,
-                            isOutlined: true,
-                            onPressed: () => _pickMedia(ImageSource.camera, MediaType.video),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: CustomButton(
-                            text: 'Video Galería',
-                            icon: Icons.video_library,
-                            isOutlined: true,
-                            onPressed: () => _pickMedia(ImageSource.gallery, MediaType.video),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                ],
-                
-                // Processing indicator
-                if (_isProcessing) ...[
-                  const LinearProgressIndicator(),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Procesando archivo...',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                
-                // File list
-                if (_attachedFiles.isNotEmpty) ...[
-                  const Text(
-                    'Archivos adjuntos:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...List.generate(_attachedFiles.length, (index) {
-                    return _buildFileItem(_attachedFiles[index], index);
-                  }),
-                ] else if (!_isProcessing) ...[
-                  _buildEmptyState(),
-                ],
-                
-                // Guidelines
-                const SizedBox(height: 16),
-                _buildGuidelines(),
-              ],
-            ),
-          ),
-        ],
+      ],
+    );
+  }
+
+  void _showMediaPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surfaceWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Adjuntar evidencia',
+                style: AppTheme.titleMedium.copyWith(color: AppTheme.textPrimary),
+              ),
+              const SizedBox(height: 20),
+              _buildPickerOption(
+                icon: Icons.camera_alt_rounded,
+                title: 'Tomar foto',
+                subtitle: 'Usar la camara',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickMedia(ImageSource.camera, MediaType.image);
+                },
+              ),
+              _buildPickerOption(
+                icon: Icons.photo_library_rounded,
+                title: 'Elegir de galeria',
+                subtitle: 'Seleccionar imagen existente',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickMedia(ImageSource.gallery, MediaType.image);
+                },
+              ),
+              if (widget.allowVideos) ...[
+                _buildPickerOption(
+                  icon: Icons.videocam_rounded,
+                  title: 'Grabar video',
+                  subtitle: 'Maximo 2 minutos',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickMedia(ImageSource.camera, MediaType.video);
+                  },
+                ),
+                _buildPickerOption(
+                  icon: Icons.video_library_rounded,
+                  title: 'Video de galeria',
+                  subtitle: 'Seleccionar video existente',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickMedia(ImageSource.gallery, MediaType.video);
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPickerOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: AppTheme.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: AppTheme.primary, size: 22),
+      ),
+      title: Text(title, style: AppTheme.titleSmall.copyWith(color: AppTheme.textPrimary)),
+      subtitle: Text(subtitle, style: AppTheme.labelSmall.copyWith(color: AppTheme.textTertiary)),
+      trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
 
   Widget _buildFileItem(File file, int index) {
     final isVideo = _isVideoFile(file.path);
     final fileName = path.basename(file.path);
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        border: Border.all(color: AppTheme.border),
       ),
       child: Row(
         children: [
           // Preview
           Container(
-            width: 60,
-            height: 60,
+            width: 50,
+            height: 50,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              color: Colors.grey.shade200,
+              color: AppTheme.border,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: isVideo
-                  ? _buildVideoPreview(file)
-                  : _buildImagePreview(file),
+                  ? const Icon(Icons.videocam_rounded, color: AppTheme.textSecondary)
+                  : Image.file(file, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: AppTheme.textTertiary)),
             ),
           ),
-          const SizedBox(width: 12),
-          
+          const SizedBox(width: 10),
+
           // File info
           Expanded(
             child: Column(
@@ -224,183 +237,40 @@ class _MediaAttachmentWidgetState extends State<MediaAttachmentWidget> {
               children: [
                 Text(
                   fileName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+                  style: AppTheme.bodySmall.copyWith(color: AppTheme.textPrimary, fontWeight: FontWeight.w500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 FutureBuilder<int>(
                   future: file.length(),
                   builder: (context, snapshot) {
                     final size = snapshot.data ?? 0;
                     return Text(
-                      '${_formatFileSize(size)} • ${isVideo ? 'Video' : 'Imagen'}',
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                      ),
+                      '${_formatFileSize(size)} · ${isVideo ? 'Video' : 'Imagen'}',
+                      style: AppTheme.labelSmall.copyWith(color: AppTheme.textTertiary),
                     );
                   },
                 ),
-                if (isVideo) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Se comprimirá automáticamente',
-                    style: TextStyle(
-                      color: Colors.orange.shade600,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
-          
-          // Actions
-          Column(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.visibility, size: 20),
-                onPressed: () => _previewFile(file),
-                color: AppTheme.primaryColor,
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete, size: 20),
-                onPressed: () => _removeFile(index),
-                color: AppTheme.errorColor,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildImagePreview(File file) {
-    return Image.file(
-      file,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        return const Icon(Icons.broken_image, color: Colors.grey);
-      },
-    );
-  }
+          // Preview button
+          IconButton(
+            icon: const Icon(Icons.visibility_rounded, size: 20),
+            onPressed: () => _previewFile(file),
+            color: AppTheme.primary,
+            visualDensity: VisualDensity.compact,
+          ),
 
-  Widget _buildVideoPreview(File file) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Container(
-          color: Colors.black,
-          child: const Icon(
-            Icons.videocam,
-            color: Colors.white,
-            size: 24,
+          // Delete button
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 20),
+            onPressed: () => _removeFile(index),
+            color: AppTheme.emergency,
+            visualDensity: VisualDensity.compact,
           ),
-        ),
-        const Icon(
-          Icons.play_circle_outline,
-          color: Colors.white,
-          size: 32,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
-      ),
-      child: const Column(
-        children: [
-          Icon(
-            Icons.photo_camera,
-            size: 48,
-            color: Colors.grey,
-          ),
-          SizedBox(height: 8),
-          Text(
-            'No hay archivos adjuntos',
-            style: TextStyle(color: Colors.grey),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'Agrega fotos o videos para proporcionar evidencia',
-            style: TextStyle(
-              color: Colors.grey,
-              fontSize: 12,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGuidelines() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.info_outline,
-                color: Colors.blue.shade600,
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Consejos para mejores evidencias:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade600,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...['Toma fotos claras y bien iluminadas', 'Incluye el problema completo en la imagen', 'Los videos se comprimen automáticamente', 'Máximo ${widget.maxFileSizeMB}MB por archivo']
-              .map((tip) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          margin: const EdgeInsets.only(top: 6),
-                          width: 4,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade600,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            tip,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ))
-              ,
         ],
       ),
     );
@@ -408,21 +278,19 @@ class _MediaAttachmentWidgetState extends State<MediaAttachmentWidget> {
 
   Future<void> _pickMedia(ImageSource source, MediaType type) async {
     if (_attachedFiles.length >= widget.maxFiles) {
-      _showError('Máximo ${widget.maxFiles} archivos permitidos');
+      _showError('Maximo ${widget.maxFiles} archivos permitidos');
       return;
     }
 
-    setState(() {
-      _isProcessing = true;
-    });
+    setState(() => _isProcessing = true);
 
     try {
       XFile? pickedFile;
-      
+
       if (type == MediaType.image) {
         pickedFile = await _picker.pickImage(
           source: source,
-          imageQuality: 85,
+          imageQuality: 70,
         );
       } else {
         pickedFile = await _picker.pickVideo(
@@ -433,46 +301,59 @@ class _MediaAttachmentWidgetState extends State<MediaAttachmentWidget> {
 
       if (pickedFile != null) {
         File file = File(pickedFile.path);
-        
-        // Verificar tamaño
+
+        // Check size
         final fileSize = await file.length();
         final maxSizeBytes = widget.maxFileSizeMB * 1024 * 1024;
-        
+
         if (fileSize > maxSizeBytes) {
-          _showError('El archivo es demasiado grande. Máximo ${widget.maxFileSizeMB}MB.');
+          _showError('El archivo es demasiado grande. Maximo ${widget.maxFileSizeMB}MB.');
           return;
         }
-        
-        // Comprimir si es imagen
+
+        // Compress image
         if (type == MediaType.image) {
           file = await _compressImage(file);
         }
-        
-        setState(() {
-          _attachedFiles.add(file);
-        });
-        
+
+        setState(() => _attachedFiles.add(file));
         widget.onFilesChanged(_attachedFiles);
       }
     } catch (e) {
       _showError('Error al seleccionar archivo: ${e.toString()}');
     } finally {
-      setState(() {
-        _isProcessing = false;
-      });
+      setState(() => _isProcessing = false);
     }
   }
 
   Future<File> _compressImage(File file) async {
-    // Image compression is handled by image_picker's imageQuality parameter
-    // Return the file as-is since we already set imageQuality: 85 when picking
+    try {
+      final dir = await getTemporaryDirectory();
+      final targetPath = '${dir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final result = await FlutterImageCompress.compressAndGetFile(
+        file.absolute.path,
+        targetPath,
+        quality: 70,
+        minWidth: 1280,
+        minHeight: 1280,
+      );
+
+      if (result != null) {
+        final compressed = File(result.path);
+        final originalSize = await file.length();
+        final compressedSize = await compressed.length();
+        debugPrint('Image compressed: ${_formatFileSize(originalSize)} -> ${_formatFileSize(compressedSize)}');
+        return compressed;
+      }
+    } catch (e) {
+      debugPrint('Compression failed, using original: $e');
+    }
     return file;
   }
 
   void _removeFile(int index) {
-    setState(() {
-      _attachedFiles.removeAt(index);
-    });
+    setState(() => _attachedFiles.removeAt(index));
     widget.onFilesChanged(_attachedFiles);
   }
 
@@ -501,7 +382,7 @@ class _MediaAttachmentWidgetState extends State<MediaAttachmentWidget> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: AppTheme.errorColor,
+        backgroundColor: AppTheme.emergency,
       ),
     );
   }
@@ -516,7 +397,7 @@ class MediaPreviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isVideo = _isVideoFile(file.path);
-    
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -529,42 +410,17 @@ class MediaPreviewScreen extends StatelessWidget {
       ),
       body: Center(
         child: isVideo
-            ? _buildVideoPlayer()
-            : _buildImageViewer(),
-      ),
-    );
-  }
-
-  Widget _buildImageViewer() {
-    return InteractiveViewer(
-      child: Image.file(
-        file,
-        fit: BoxFit.contain,
-      ),
-    );
-  }
-
-  Widget _buildVideoPlayer() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.videocam,
-            color: Colors.white,
-            size: 64,
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Vista previa de video',
-            style: TextStyle(color: Colors.white),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'El video se reproducirá al enviar la denuncia',
-            style: TextStyle(color: Colors.grey),
-          ),
-        ],
+            ? const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.videocam, color: Colors.white, size: 64),
+                  SizedBox(height: 16),
+                  Text('Vista previa de video', style: TextStyle(color: Colors.white)),
+                ],
+              )
+            : InteractiveViewer(
+                child: Image.file(file, fit: BoxFit.contain),
+              ),
       ),
     );
   }

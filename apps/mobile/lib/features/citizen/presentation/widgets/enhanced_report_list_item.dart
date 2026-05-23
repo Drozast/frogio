@@ -223,24 +223,14 @@ class EnhancedReportListItem extends StatelessWidget {
 
   Color _getStatusColor(ReportStatus status) {
     switch (status) {
-      case ReportStatus.draft:
-        return Colors.grey;
-      case ReportStatus.submitted:
+      case ReportStatus.pendiente:
         return Colors.blue;
-      case ReportStatus.reviewing:
+      case ReportStatus.enProceso:
         return Colors.orange;
-      case ReportStatus.inProgress:
-        return Colors.purple;
-      case ReportStatus.resolved:
+      case ReportStatus.resuelto:
         return AppTheme.successColor;
-      case ReportStatus.rejected:
+      case ReportStatus.rechazado:
         return AppTheme.errorColor;
-      case ReportStatus.archived:
-        return Colors.grey.shade600;
-      case ReportStatus.duplicate:
-        return Colors.amber;
-      case ReportStatus.cancelled:
-        return Colors.grey.shade500;
     }
   }
 
@@ -289,8 +279,8 @@ class EnhancedReportListItem extends StatelessWidget {
                 // Navegar a detalles
               },
             ),
-            if (report.status == ReportStatus.submitted ||
-                report.status == ReportStatus.reviewing) ...[
+            if (report.status == ReportStatus.pendiente ||
+                report.status == ReportStatus.enProceso) ...[
               ListTile(
                 leading: const Icon(Icons.person_add),
                 title: const Text('Asignar inspector'),

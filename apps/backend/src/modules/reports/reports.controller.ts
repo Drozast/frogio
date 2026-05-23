@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { ReportsService } from './reports.service.js';
 import type { AuthRequest } from '../../middleware/auth.middleware.js';
-import type { CreateReportDto, UpdateReportDto } from './reports.types.js';
+import type { CreateReportDto, UpdateReportDto, FollowUpDto } from './reports.types.js';
 import { parsePagination, buildPaginatedResponse } from '../../middleware/pagination.middleware.js';
 
 const reportsService = new ReportsService();
@@ -25,16 +25,22 @@ export class ReportsController {
   async findAll(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantId = req.user!.tenantId;
-      const { status, type } = req.query;
+      const { status, type, createdBy } = req.query;
       const pagination = parsePagination(req);
 
       // Citizens can only see their own reports
       const userId = req.user!.role === 'citizen' ? req.user!.userId : undefined;
 
+      // Inspectors can filter by createdBy to see only their own reports
+      const createdByFilter = req.user!.role !== 'citizen' && createdBy
+        ? createdBy as string
+        : undefined;
+
       const result = await reportsService.findAll(tenantId, {
         status: status as string,
         type: type as string,
         userId,
+        createdBy: createdByFilter,
       }, pagination.limit, pagination.offset);
 
       res.json(buildPaginatedResponse(result.data, result.total, pagination));
@@ -109,6 +115,26 @@ export class ReportsController {
       res.json(version);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al obtener versión';
+      res.status(400).json({ error: message });
+    }
+  }
+
+  async addFollowUp(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const data: FollowUpDto = req.body;
+      const tenantId = req.user!.tenantId;
+      const inspectorId = req.user!.userId;
+
+      if (!data.comment || data.comment.trim().length < 5) {
+        res.status(400).json({ error: 'El comentario de seguimiento es requerido (mínimo 5 caracteres)' });
+        return;
+      }
+
+      const result = await reportsService.addFollowUp(id, data, inspectorId, tenantId);
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al registrar seguimiento';
       res.status(400).json({ error: message });
     }
   }

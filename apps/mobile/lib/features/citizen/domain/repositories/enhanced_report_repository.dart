@@ -22,6 +22,7 @@ abstract class ReportRepository {
     required ReportStatus status,
     String? comment,
     required String userId,
+    String? assignedTo,
   });
   
   /// Añade una respuesta a un reporte
@@ -39,6 +40,7 @@ abstract class ReportRepository {
     ReportStatus status, {
     String? muniId,
     String? assignedTo,
+    String? createdBy,
   });
   
   /// Asigna un reporte a un inspector

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../../di/injection_container_api.dart' as di;
+import '../../data/services/trip_tracking_service.dart';
 import '../../domain/entities/vehicle_entity.dart';
 import '../../domain/entities/vehicle_log_entity.dart';
 import '../bloc/vehicle_bloc.dart';
@@ -49,6 +51,8 @@ class _StartTripPageState extends State<StartTripPage> {
     return BlocListener<VehicleBloc, VehicleState>(
       listener: (context, state) {
         if (state is VehicleUsageStarted) {
+          // Start background GPS tracking
+          TripTrackingService().startTrip(logId: state.logId, plate: widget.vehicle.plate);
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -68,15 +72,22 @@ class _StartTripPageState extends State<StartTripPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
-              backgroundColor: Colors.red,
+              backgroundColor: AppTheme.emergency,
             ),
           );
         }
       },
       child: Scaffold(
+        backgroundColor: AppTheme.surface,
         appBar: AppBar(
           title: const Text('Iniciar Viaje'),
+          backgroundColor: AppTheme.surfaceWhite,
+          foregroundColor: AppTheme.textPrimary,
           elevation: 0,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Divider(height: 1, color: AppTheme.primary.withValues(alpha: 0.15)),
+          ),
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -86,60 +97,67 @@ class _StartTripPageState extends State<StartTripPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Vehicle Info Card
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.directions_car,
-                            size: 32,
-                            color: Theme.of(context).primaryColor,
-                          ),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceWhite,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                    border: Border.all(color: AppTheme.primary.withValues(alpha: 0.15)),
+                    boxShadow: AppTheme.shadowSmall,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: AppTheme.shadowSmall,
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.vehicle.plate.toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${widget.vehicle.brand} ${widget.vehicle.model}',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
+                        child: const Icon(
+                          Icons.directions_car,
+                          size: 32,
+                          color: AppTheme.primary,
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.vehicle.plate.toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                                color: AppTheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${widget.vehicle.brand} ${widget.vehicle.model}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
 
-                // Usage Type
+                // Usage Type Label
                 const Text(
                   'Tipo de Uso',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -148,20 +166,37 @@ class _StartTripPageState extends State<StartTripPage> {
                   runSpacing: 8,
                   children: UsageType.values.map((type) {
                     final isSelected = _selectedUsageType == type;
-                    return ChoiceChip(
-                      label: Text(_getUsageTypeLabel(type)),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() => _selectedUsageType = type);
-                        }
-                      },
-                      selectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey.shade700,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedUsageType = type),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppTheme.primary.withValues(alpha: 0.2)
+                              : AppTheme.surfaceWhite,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.primary.withValues(alpha: 0.7)
+                                : AppTheme.primary.withValues(alpha: 0.2),
+                          ),
+                          boxShadow: isSelected ? AppTheme.shadowSmall : null,
+                        ),
+                        child: Text(
+                          _getUsageTypeLabel(type),
+                          style: TextStyle(
+                            color: isSelected
+                                ? AppTheme.primary
+                                : AppTheme.textSecondary,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
                       ),
                     );
                   }).toList(),
@@ -172,12 +207,47 @@ class _StartTripPageState extends State<StartTripPage> {
                 TextFormField(
                   controller: _startKmController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
+                  style: const TextStyle(color: AppTheme.textPrimary),
+                  decoration: InputDecoration(
                     labelText: 'Kilometraje Inicial',
+                    labelStyle: const TextStyle(color: AppTheme.textSecondary),
                     hintText: 'Ingrese el kilometraje actual',
-                    prefixIcon: Icon(Icons.speed),
+                    hintStyle: const TextStyle(color: AppTheme.textTertiary),
+                    prefixIcon: const Icon(Icons.speed, color: AppTheme.primary),
                     suffixText: 'km',
-                    border: OutlineInputBorder(),
+                    suffixStyle: const TextStyle(color: AppTheme.textSecondary),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: AppTheme.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: AppTheme.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: AppTheme.primary.withValues(alpha: 0.8),
+                        width: 1.5,
+                      ),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppTheme.emergency),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: AppTheme.emergency,
+                        width: 1.5,
+                      ),
+                    ),
+                    filled: true,
+                    fillColor: AppTheme.surfaceWhite,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -196,37 +266,73 @@ class _StartTripPageState extends State<StartTripPage> {
                 TextFormField(
                   controller: _purposeController,
                   maxLines: 3,
-                  decoration: const InputDecoration(
+                  style: const TextStyle(color: AppTheme.textPrimary),
+                  decoration: InputDecoration(
                     labelText: 'Propósito del Viaje (opcional)',
+                    labelStyle: const TextStyle(color: AppTheme.textSecondary),
                     hintText: 'Describa brevemente el objetivo del viaje',
-                    prefixIcon: Icon(Icons.description),
-                    border: OutlineInputBorder(),
+                    hintStyle: const TextStyle(color: AppTheme.textTertiary),
+                    prefixIcon: const Icon(
+                      Icons.description,
+                      color: AppTheme.primary,
+                    ),
                     alignLabelWithHint: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: AppTheme.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: AppTheme.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: AppTheme.primary.withValues(alpha: 0.8),
+                        width: 1.5,
+                      ),
+                    ),
+                    filled: true,
+                    fillColor: AppTheme.surfaceWhite,
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
 
                 // GPS Tracking Notice
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue.shade200),
+                    color: AppTheme.surfaceWhite,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                    border: Border.all(color: AppTheme.primaryDark.withValues(alpha: 0.15)),
+                    boxShadow: AppTheme.shadowSmall,
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.gps_fixed,
-                        color: Colors.blue.shade700,
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryDark.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.gps_fixed,
+                          color: AppTheme.primaryDark,
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(
+                      const Expanded(
                         child: Text(
                           'El GPS se activará automáticamente para registrar tu recorrido.',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.blue.shade700,
+                            color: AppTheme.textPrimary,
                           ),
                         ),
                       ),
@@ -236,41 +342,48 @@ class _StartTripPageState extends State<StartTripPage> {
                 const SizedBox(height: 24),
 
                 // Start Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _startTrip,
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                _isLoading
+                    ? Center(
+                        child: Container(
+                          width: double.infinity,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppTheme.primary.withValues(alpha: 0.4),
                             ),
-                          )
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.play_arrow),
-                              SizedBox(width: 8),
-                              Text(
-                                'Iniciar Viaje',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
                           ),
-                  ),
-                ),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _startTrip,
+                          icon: const Icon(Icons.play_arrow, size: 18),
+                          label: const Text('Iniciar Viaje'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: AppTheme.primary.withValues(alpha: 0.3),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                const SizedBox(height: 16),
               ],
             ),
           ),

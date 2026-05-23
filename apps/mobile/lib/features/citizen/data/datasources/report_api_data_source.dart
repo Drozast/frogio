@@ -38,7 +38,8 @@ class ReportApiDataSource implements ReportRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? decoded['reports'] ?? []);
         return data.map((json) => ReportModel.fromApi(json)).toList();
       } else {
         throw Exception('Error al obtener reportes');

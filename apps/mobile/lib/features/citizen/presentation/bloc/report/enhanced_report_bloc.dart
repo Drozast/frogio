@@ -130,6 +130,7 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
       status: _stringToReportStatus(event.status),
       comment: event.comment,
       userId: event.userId,
+      assignedTo: event.assignedTo,
     );
 
     final result = await updateReportStatus(params);
@@ -247,6 +248,7 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
       status: _stringToReportStatus(event.status),
       muniId: event.muniId,
       assignedTo: event.assignedTo,
+      createdBy: event.createdBy,
     );
 
     final result = await getReportsByStatus(params);
@@ -317,38 +319,7 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
   }
 
   ReportStatus _stringToReportStatus(String status) {
-    switch (status.toLowerCase()) {
-      case 'draft':
-      case 'borrador':
-        return ReportStatus.draft;
-      case 'submitted':
-      case 'enviada':
-        return ReportStatus.submitted;
-      case 'reviewing':
-      case 'en revisión':
-        return ReportStatus.reviewing;
-      case 'inprogress':
-      case 'in_progress':
-      case 'en proceso':
-        return ReportStatus.inProgress;
-      case 'resolved':
-      case 'resuelta':
-        return ReportStatus.resolved;
-      case 'rejected':
-      case 'rechazada':
-        return ReportStatus.rejected;
-      case 'archived':
-      case 'archivada':
-        return ReportStatus.archived;
-      case 'duplicate':
-      case 'duplicada':
-        return ReportStatus.duplicate;
-      case 'cancelled':
-      case 'cancelada':
-        return ReportStatus.cancelled;
-      default:
-        return ReportStatus.draft;
-    }
+    return ReportStatus.fromApiString(status);
   }
 
   @override

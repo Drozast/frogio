@@ -1,0 +1,484 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// FROGIO - Esquema de Base de Datos
+// Sistema de Gestión Municipal
+// ═══════════════════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENUMS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+enum UserRole {
+  CITIZEN        // Ciudadano
+  INSPECTOR      // Inspector/Fiscalizador Municipal
+  ADMIN          // Administrador
+  SUPER_ADMIN    // Super Administrador (Multi-tenant)
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum ReportStatus {
+  PENDING          // Pendiente de revisión
+  IN_REVIEW        // En revisión
+  ASSIGNED         // Asignado a inspector
+  IN_PROGRESS      // En progreso
+  RESOLVED         // Resuelto
+  REJECTED         // Rechazado
+  CLOSED           // Cerrado
+}
+
+enum ReportPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ReportCategory {
+  INFRASTRUCTURE     // Infraestructura (calles, veredas, luminarias)
+  ENVIRONMENT        // Medio ambiente (basura, áreas verdes)
+  SECURITY           // Seguridad ciudadana
+  NOISE              // Ruidos molestos
+  ANIMALS            // Animales abandonados
+  COMMERCE           // Comercio ilegal
+  TRAFFIC            // Tránsito
+  OTHER              // Otros
+}
+
+enum CitationStatus {
+  DRAFT             // Borrador
+  ISSUED            // Emitida
+  NOTIFIED          // Notificada
+  APPEALED          // Apelada
+  CONFIRMED         // Confirmada
+  PAID              // Pagada
+  CANCELLED         // Cancelada
+}
+
+enum AlertType {
+  PANIC             // Botón de pánico
+  EMERGENCY         // Emergencia
+  REPORT_UPDATE     // Actualización de denuncia
+  CITATION          // Citación
+  SYSTEM            // Sistema
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  READ
+  FAILED
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MODELOS PRINCIPALES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Municipalidad (Multi-tenant)
+model Municipality {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique // Código único de municipalidad
+  region      String
+  province    String
+  address     String?
+  phone       String?
+  email       String?
+  website     String?
+  logo        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  users       User[]
+  reports     Report[]
+  citations   Citation[]
+  zones       Zone[]
+  settings    MunicipalitySettings?
+
+  @@map("municipalities")
+}
+
+// Configuración de Municipalidad
+model MunicipalitySettings {
+  id                    String   @id @default(uuid())
+  municipalityId        String   @unique
+  primaryColor          String   @default("#10b981")
+  secondaryColor        String   @default("#1e3a5f")
+  maxReportsPerDay      Int      @default(10)
+  autoAssignReports     Boolean  @default(false)
+  enablePanicButton     Boolean  @default(true)
+  enableCitations       Boolean  @default(true)
+  notifyOnNewReport     Boolean  @default(true)
+  notifyOnStatusChange  Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  municipality Municipality @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+
+  @@map("municipality_settings")
+}
+
+// Zonas/Sectores de la municipalidad
+model Zone {
+  id              String   @id @default(uuid())
+  municipalityId  String
+  name            String
+  description     String?
+  boundaries      Json?    // GeoJSON de los límites
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  municipality    Municipality @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  reports         Report[]
+  inspectors      User[]       @relation("InspectorZones")
+
+  @@map("zones")
+}
+
+// Usuario
+model User {
+  id                String       @id @default(uuid())
+  municipalityId    String?
+  email             String       @unique
+  password          String
+  rut               String?      @unique // RUT chileno
+  firstName         String
+  lastName          String
+  phone             String?
+  avatar            String?
+  role              UserRole     @default(CITIZEN)
+  status            UserStatus   @default(PENDING_VERIFICATION)
+  address           String?
+  latitude          Float?
+  longitude         Float?
+  pushToken         String?      // Token para notificaciones push
+  lastLogin         DateTime?
+  emailVerified     Boolean      @default(false)
+  emailVerifyToken  String?
+  passwordResetToken String?
+  passwordResetExpires DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  // Relaciones
+  municipality      Municipality?     @relation(fields: [municipalityId], references: [id])
+  reports           Report[]          @relation("ReportCreator")
+  assignedReports   Report[]          @relation("ReportAssignee")
+  citations         Citation[]        @relation("CitationIssuer")
+  receivedCitations Citation[]        @relation("CitationReceiver")
+  alerts            Alert[]
+  notifications     Notification[]
+  comments          ReportComment[]
+  inspectionLogs    InspectionLog[]
+  zones             Zone[]            @relation("InspectorZones")
+  refreshTokens     RefreshToken[]
+  auditLogs         AuditLog[]
+
+  @@index([email])
+  @@index([rut])
+  @@index([municipalityId])
+  @@map("users")
+}
+
+// Tokens de refresco
+model RefreshToken {
+  id          String   @id @default(uuid())
+  userId      String
+  token       String   @unique
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// Denuncia/Reporte Ciudadano
+model Report {
+  id              String         @id @default(uuid())
+  municipalityId  String
+  creatorId       String
+  assigneeId      String?
+  zoneId          String?
+
+  // Información del reporte
+  title           String
+  description     String
+  category        ReportCategory
+  priority        ReportPriority @default(MEDIUM)
+  status          ReportStatus   @default(PENDING)
+
+  // Ubicación
+  address         String
+  latitude        Float
+  longitude       Float
+
+  // Archivos adjuntos
+  images          String[]       // URLs de imágenes en MinIO
+  documents       String[]       // URLs de documentos
+
+  // Seguimiento
+  resolvedAt      DateTime?
+  resolutionNotes String?
+
+  // Metadata
+  isAnonymous     Boolean        @default(false)
+  viewCount       Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relaciones
+  municipality    Municipality   @relation(fields: [municipalityId], references: [id])
+  creator         User           @relation("ReportCreator", fields: [creatorId], references: [id])
+  assignee        User?          @relation("ReportAssignee", fields: [assigneeId], references: [id])
+  zone            Zone?          @relation(fields: [zoneId], references: [id])
+  comments        ReportComment[]
+  statusHistory   ReportStatusHistory[]
+  citations       Citation[]
+
+  @@index([municipalityId])
+  @@index([creatorId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+  @@map("reports")
+}
+
+// Historial de estados de reporte
+model ReportStatusHistory {
+  id          String       @id @default(uuid())
+  reportId    String
+  fromStatus  ReportStatus?
+  toStatus    ReportStatus
+  changedBy   String?
+  notes       String?
+  createdAt   DateTime     @default(now())
+
+  report      Report       @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("report_status_history")
+}
+
+// Comentarios en reportes
+model ReportComment {
+  id          String   @id @default(uuid())
+  reportId    String
+  userId      String
+  content     String
+  isInternal  Boolean  @default(false) // Solo visible para funcionarios
+  attachments String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("report_comments")
+}
+
+// Citación/Multa
+model Citation {
+  id              String         @id @default(uuid())
+  municipalityId  String
+  reportId        String?
+  issuerId        String
+  receiverId      String?
+
+  // Información de la citación
+  code            String         @unique // Código único de citación
+  title           String
+  description     String
+  amount          Float?         // Monto de la multa
+  status          CitationStatus @default(DRAFT)
+
+  // Ubicación de la infracción
+  address         String
+  latitude        Float
+  longitude       Float
+
+  // Fechas
+  issuedAt        DateTime?
+  notifiedAt      DateTime?
+  dueDate         DateTime?
+  paidAt          DateTime?
+
+  // Evidencia
+  images          String[]
+  documents       String[]
+
+  // Datos del infractor (si no es usuario registrado)
+  offenderName    String?
+  offenderRut     String?
+  offenderAddress String?
+  offenderPhone   String?
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relaciones
+  municipality    Municipality   @relation(fields: [municipalityId], references: [id])
+  report          Report?        @relation(fields: [reportId], references: [id])
+  issuer          User           @relation("CitationIssuer", fields: [issuerId], references: [id])
+  receiver        User?          @relation("CitationReceiver", fields: [receiverId], references: [id])
+
+  @@index([municipalityId])
+  @@index([code])
+  @@index([status])
+  @@map("citations")
+}
+
+// Alerta (Botón de pánico, emergencias)
+model Alert {
+  id              String      @id @default(uuid())
+  userId          String
+  type            AlertType
+  title           String
+  message         String?
+  latitude        Float
+  longitude       Float
+  address         String?
+  isResolved      Boolean     @default(false)
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  resolutionNotes String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user            User        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("alerts")
+}
+
+// Notificaciones
+model Notification {
+  id          String             @id @default(uuid())
+  userId      String
+  title       String
+  body        String
+  data        Json?              // Datos adicionales
+  status      NotificationStatus @default(PENDING)
+  readAt      DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime           @default(now())
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("notifications")
+}
+
+// Log de inspecciones (bitácora del inspector)
+model InspectionLog {
+  id            String   @id @default(uuid())
+  inspectorId   String
+  action        String
+  description   String?
+  latitude      Float?
+  longitude     Float?
+  address       String?
+  images        String[]
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  inspector     User     @relation(fields: [inspectorId], references: [id])
+
+  @@index([inspectorId])
+  @@index([createdAt])
+  @@map("inspection_logs")
+}
+
+// Auditoría del sistema
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  action      String
+  entity      String
+  entityId    String?
+  oldValue    Json?
+  newValue    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// Formulario de contacto
+model ContactRequest {
+  id            String   @id @default(uuid())
+  name          String
+  email         String
+  phone         String?
+  company       String?
+  municipality  String?
+  message       String
+  type          String   @default("contact") // contact, demo, support
+  isProcessed   Boolean  @default(false)
+  processedAt   DateTime?
+  processedBy   String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("contact_requests")
+}
+
+// Estadísticas diarias (para dashboard)
+model DailyStats {
+  id              String   @id @default(uuid())
+  municipalityId  String
+  date            DateTime @db.Date
+
+  // Reportes
+  totalReports    Int      @default(0)
+  pendingReports  Int      @default(0)
+  resolvedReports Int      @default(0)
+  rejectedReports Int      @default(0)
+
+  // Citaciones
+  totalCitations  Int      @default(0)
+  paidCitations   Int      @default(0)
+  citationAmount  Float    @default(0)
+
+  // Alertas
+  totalAlerts     Int      @default(0)
+  panicAlerts     Int      @default(0)
+
+  // Usuarios
+  activeUsers     Int      @default(0)
+  newUsers        Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([municipalityId, date])
+  @@index([municipalityId])
+  @@index([date])
+  @@map("daily_stats")
+}

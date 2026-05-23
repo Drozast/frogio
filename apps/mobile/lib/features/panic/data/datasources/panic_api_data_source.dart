@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../domain/entities/panic_alert_entity.dart';
 import 'panic_remote_data_source.dart';
 
@@ -21,7 +22,7 @@ class PanicApiDataSource implements PanicRemoteDataSource {
     final token = prefs.getString('access_token');
     return {
       'Content-Type': 'application/json',
-      'X-Tenant-ID': 'santa_juana',
+      'X-Tenant-ID': ApiConfig.tenantId,
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
@@ -56,10 +57,11 @@ class PanicApiDataSource implements PanicRemoteDataSource {
   }
 
   @override
-  Future<PanicAlertEntity> cancelPanicAlert(String alertId) async {
+  Future<PanicAlertEntity> cancelPanicAlert(String alertId, {String? reason}) async {
     final response = await client.patch(
       Uri.parse('$baseUrl/api/panic/$alertId/cancel'),
       headers: _headers,
+      body: reason != null ? jsonEncode({'reason': reason}) : null,
     );
 
     if (response.statusCode == 200) {
@@ -104,6 +106,23 @@ class PanicApiDataSource implements PanicRemoteDataSource {
               createdAt.day == today.day;
         }).toList();
         return todayAlerts.length;
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  @override
+  Future<int> getCancelledPanicCount() async {
+    try {
+      final response = await client.get(
+        Uri.parse('$baseUrl/api/panic/stats'),
+        headers: _headers,
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return (data['cancelled'] as num?)?.toInt() ?? 0;
       }
       return 0;
     } catch (e) {

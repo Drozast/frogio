@@ -16,15 +16,15 @@ class AppTheme {
   // PALETA DE COLORES PRINCIPAL
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Colores primarios - Verde institucional
-  static const Color primary = Color(0xFF1B5E20);           // Verde bosque profundo
-  static const Color primaryLight = Color(0xFF4C8C4A);      // Verde claro
-  static const Color primaryDark = Color(0xFF003300);       // Verde muy oscuro
+  // Colores primarios - Paleta "Verde Sapo / Frog Green"
+  static const Color primary = Color(0xFF4CAF50);           // Verde sapo principal
+  static const Color primaryLight = Color(0xFFA5D6A7);      // Verde claro (backgrounds sutiles)
+  static const Color primaryDark = Color(0xFF2E7D32);       // Verde oscuro (botones, headers)
   static const Color primarySurface = Color(0xFFE8F5E9);    // Verde muy suave para fondos
 
   // Colores de acento
-  static const Color accent = Color(0xFF00C853);            // Verde brillante para CTAs
-  static const Color accentLight = Color(0xFF69F0AE);       // Verde neón suave
+  static const Color accent = Color(0xFF69F0AE);            // Verde neon para efectos glow
+  static const Color accentLight = Color(0xFFA5D6A7);       // Verde suave
 
   // ═══════════════════════════════════════════════════════════════════════════
   // COLORES SEMÁNTICOS (Estados y feedback)
@@ -52,15 +52,15 @@ class AppTheme {
   // ═══════════════════════════════════════════════════════════════════════════
 
   // Superficies
-  static const Color surface = Color(0xFFFAFAFA);           // Fondo principal (casi blanco)
-  static const Color surfaceWhite = Color(0xFFFFFFFF);      // Blanco puro
+  static const Color surface = Color(0xFFF0F7F0);           // Fondo principal (blanco con tinte verde sutil)
+  static const Color surfaceWhite = Color(0xFFFFFFFF);      // Blanco puro para cards
   static const Color surfaceElevated = Color(0xFFFFFFFF);   // Tarjetas elevadas
 
   // Texto
-  static const Color textPrimary = Color(0xFF212121);       // Texto principal (casi negro)
-  static const Color textSecondary = Color(0xFF757575);     // Texto secundario
-  static const Color textTertiary = Color(0xFFBDBDBD);      // Texto deshabilitado/hints
-  static const Color textOnPrimary = Color(0xFFFFFFFF);     // Texto sobre color primario
+  static const Color textPrimary = Color(0xFF1B3A1B);       // Verde muy oscuro casi negro
+  static const Color textSecondary = Color(0xFF4A6741);     // Verde medio para subtítulos
+  static const Color textTertiary = Color(0xFF8DAF8D);      // Texto deshabilitado/hints
+  static const Color textOnPrimary = Color(0xFFFFFFFF);     // Blanco solo sobre botones verdes
 
   // Bordes y divisores
   static const Color border = Color(0xFFE0E0E0);            // Bordes sutiles
@@ -130,11 +130,84 @@ class AppTheme {
     ),
   ];
 
+  // Neon glow para botones principales y cards
+  static List<BoxShadow> get neonGlow => [
+    BoxShadow(
+      color: primary.withValues(alpha: 0.4),
+      blurRadius: 20,
+      spreadRadius: 2,
+    ),
+    BoxShadow(
+      color: accent.withValues(alpha: 0.2),
+      blurRadius: 40,
+      spreadRadius: 4,
+    ),
+  ];
+
+  // Card con borde neon verde
+  static BoxDecoration get neonCardDecoration => BoxDecoration(
+    color: surfaceWhite,
+    borderRadius: BorderRadius.circular(radiusLarge),
+    border: Border.all(color: primary.withValues(alpha: 0.3), width: 1),
+    boxShadow: [
+      BoxShadow(
+        color: primary.withValues(alpha: 0.15),
+        blurRadius: 16,
+        spreadRadius: 1,
+      ),
+    ],
+  );
+
   // ═══════════════════════════════════════════════════════════════════════════
   // TIPOGRAFÍA
   // ═══════════════════════════════════════════════════════════════════════════
 
-  static const String fontFamily = 'Roboto';
+  static const String fontFamily = 'Montserrat';
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GRADIENTES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [primaryDark, primary, Color(0xFF66BB6A)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient primaryGradientVertical = LinearGradient(
+    colors: [primaryDark, primary, Color(0xFF66BB6A)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+
+  static const LinearGradient surfaceGradient = LinearGradient(
+    colors: [Color(0xFFF0F7F0), surface],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+
+  static const LinearGradient emergencyGradient = LinearGradient(
+    colors: [emergencyDark, emergency],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient accentGradient = LinearGradient(
+    colors: [primaryDark, primary, accent],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient shimmerGradient = LinearGradient(
+    colors: [
+      Color(0xFFEEEEEE),
+      Color(0xFFF5F5F5),
+      Color(0xFFEEEEEE),
+    ],
+    stops: [0.0, 0.5, 1.0],
+    begin: Alignment(-1.0, 0),
+    end: Alignment(1.0, 0),
+  );
 
   // Display - Para números grandes y headlines
   static const TextStyle displayLarge = TextStyle(
@@ -271,6 +344,39 @@ class AppTheme {
     border: Border.all(color: border, width: 1),
   );
 
+  /// Glass morphism card decoration
+  static BoxDecoration get glassDecoration => BoxDecoration(
+    color: surfaceWhite.withValues(alpha: 0.8),
+    borderRadius: BorderRadius.circular(radiusXLarge),
+    border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.04),
+        blurRadius: 20,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  );
+
+  /// Premium card with accent border
+  static BoxDecoration premiumCardDecoration(Color accentColor) => BoxDecoration(
+    color: surfaceWhite,
+    borderRadius: BorderRadius.circular(radiusLarge),
+    border: Border.all(color: accentColor.withValues(alpha: 0.15), width: 1),
+    boxShadow: [
+      BoxShadow(
+        color: accentColor.withValues(alpha: 0.06),
+        blurRadius: 16,
+        offset: const Offset(0, 4),
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.03),
+        blurRadius: 8,
+        offset: const Offset(0, 2),
+      ),
+    ],
+  );
+
   /// Tarjeta destacada (para CTAs)
   static BoxDecoration cardHighlightDecoration(Color color) => BoxDecoration(
     color: color.withValues(alpha: 0.08),
@@ -288,20 +394,33 @@ class AppTheme {
   // TEMA LIGHT (Principal)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  static ThemeData get lightTheme {
+  /// Default light theme using Santa Juana colors (backward compatible).
+  static ThemeData get lightTheme => lightThemeFor(
+    primaryColor: primary,
+    primaryDarkColor: primaryDark,
+    accentColorValue: accent,
+  );
+
+  /// Builds a light theme with tenant-configurable brand colors.
+  /// All other tokens (spacing, typography, shadows, etc.) remain consistent.
+  static ThemeData lightThemeFor({
+    required Color primaryColor,
+    required Color primaryDarkColor,
+    required Color accentColorValue,
+  }) {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       fontFamily: fontFamily,
 
       // Colores
-      primaryColor: primary,
+      primaryColor: primaryColor,
       scaffoldBackgroundColor: surface,
 
-      colorScheme: const ColorScheme.light(
-        primary: primary,
+      colorScheme: ColorScheme.light(
+        primary: primaryColor,
         primaryContainer: primarySurface,
-        secondary: accent,
+        secondary: accentColorValue,
         secondaryContainer: accentLight,
         surface: surface,
         error: emergency,
@@ -330,7 +449,7 @@ class AppTheme {
       // Botones elevados
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primary,
+          backgroundColor: primaryColor,
           foregroundColor: textOnPrimary,
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
@@ -344,7 +463,7 @@ class AppTheme {
       // Botones de texto
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: primary,
+          foregroundColor: primaryColor,
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusSmall),
@@ -356,8 +475,8 @@ class AppTheme {
       // Botones outline
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primary,
-          side: const BorderSide(color: primary, width: 1.5),
+          foregroundColor: primaryColor,
+          side: BorderSide(color: primaryColor, width: 1.5),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusMedium),
@@ -369,7 +488,7 @@ class AppTheme {
       // Inputs minimalistas
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surfaceWhite,
+        fillColor: surface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusMedium),
@@ -381,7 +500,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusMedium),
-          borderSide: const BorderSide(color: primary, width: 2),
+          borderSide: BorderSide(color: primaryColor, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusMedium),
@@ -391,7 +510,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(radiusMedium),
           borderSide: const BorderSide(color: emergency, width: 2),
         ),
-        labelStyle: bodyMedium,
+        labelStyle: bodyMedium.copyWith(color: textSecondary),
         hintStyle: bodyMedium.copyWith(color: textTertiary),
         errorStyle: bodySmall.copyWith(color: emergency),
         prefixIconColor: textSecondary,
@@ -412,7 +531,7 @@ class AppTheme {
       // Chips
       chipTheme: ChipThemeData(
         backgroundColor: primarySurface,
-        labelStyle: labelMedium.copyWith(color: primary),
+        labelStyle: labelMedium.copyWith(color: primaryColor),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusRound),
@@ -421,9 +540,9 @@ class AppTheme {
       ),
 
       // Bottom Navigation
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: surfaceWhite,
-        selectedItemColor: primary,
+        selectedItemColor: primaryColor,
         unselectedItemColor: textTertiary,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
@@ -431,11 +550,12 @@ class AppTheme {
         unselectedLabelStyle: labelSmall,
       ),
 
-      // FloatingActionButton
+      // FloatingActionButton con neon glow
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: primary,
+        backgroundColor: primaryColor,
         foregroundColor: textOnPrimary,
         elevation: 4,
+        extendedPadding: const EdgeInsets.symmetric(horizontal: 24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusLarge),
         ),
@@ -493,10 +613,19 @@ class AppTheme {
       ),
 
       // Progress indicators
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: primary,
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: primaryColor,
         linearTrackColor: primarySurface,
         circularTrackColor: primarySurface,
+      ),
+
+      // Page transitions - iOS style slide (smoother)
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        },
       ),
     );
   }

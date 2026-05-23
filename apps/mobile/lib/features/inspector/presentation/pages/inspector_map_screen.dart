@@ -3,13 +3,15 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../../core/config/api_config.dart';
 import '../../../../core/network/auth_http_client.dart';
 import '../../../../di/injection_container_api.dart' as di;
-import 'report_detail_screen.dart';
+import '../../../citizen/presentation/pages/enhanced_report_detail_screen.dart';
+import 'package:frogio_mobile/core/services/maps_service.dart';
 
 class InspectorMapScreen extends StatefulWidget {
   final LatLng? initialLocation;
@@ -48,6 +50,9 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
   // Loading states
   bool _isLoading = true;
   String _currentFilter = 'all';
+  DateTime? _fromDate;
+  DateTime? _toDate;
+  bool _showHistory = false;
 
   // Animation for panic alerts
   late AnimationController _pulseController;
@@ -61,7 +66,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
     _initPulseAnimation();
     _getCurrentLocation();
     _loadData();
-    // Refresh every 30 seconds
+    // Refresh every 10 seconds for near real-time updates
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadData());
   }
 
@@ -106,9 +111,9 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
 
       debugPrint('🗺️ Map loading data from: $baseUrl');
 
-      // Load reports and panic alerts in parallel
+      // Load reports (all statuses) and panic alerts in parallel
       final results = await Future.wait([
-        authClient.get(Uri.parse('$baseUrl/api/reports')),
+        authClient.get(Uri.parse('$baseUrl/api/reports?limit=100')),
         authClient.get(Uri.parse('$baseUrl/api/panic/active')),
       ]);
 
@@ -122,7 +127,8 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
         _isLoading = false;
 
         if (reportsResponse.statusCode == 200) {
-          final List<dynamic> reportsData = json.decode(reportsResponse.body);
+          final decoded = json.decode(reportsResponse.body);
+          final List<dynamic> reportsData = decoded is List ? decoded : (decoded['data'] ?? []);
           _reports = reportsData.cast<Map<String, dynamic>>();
           debugPrint('✅ Loaded ${_reports.length} reports');
         } else {
@@ -130,7 +136,8 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
         }
 
         if (panicResponse.statusCode == 200) {
-          final List<dynamic> panicData = json.decode(panicResponse.body);
+          final decoded = json.decode(panicResponse.body);
+          final List<dynamic> panicData = decoded is List ? decoded : (decoded['data'] ?? []);
           _panicAlerts = panicData.cast<Map<String, dynamic>>();
           debugPrint('✅ Loaded ${_panicAlerts.length} panic alerts');
         } else {
@@ -159,25 +166,45 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
   }
 
   List<Map<String, dynamic>> get _filteredReports {
-    final reports = _currentFilter == 'all' ? _activeReports : _reports;
+    final reports = (_showHistory || _currentFilter == 'resolved' || _currentFilter == 'rejected')
+        ? _reports
+        : _activeReports;
 
     return reports.where((r) {
       final status = r['status']?.toString().toLowerCase() ?? '';
+
+      // Status filter
+      bool statusMatch;
       switch (_currentFilter) {
         case 'all':
-          // Already filtered to active only
-          return true;
+          statusMatch = true;
+          break;
         case 'submitted':
-          return status == 'pendiente' || status == 'submitted';
+          statusMatch = status == 'pendiente' || status == 'submitted';
+          break;
         case 'inProgress':
-          return status == 'en_proceso' || status == 'in_progress' || status == 'inprogress';
+          statusMatch = status == 'en_proceso' || status == 'in_progress' || status == 'inprogress';
+          break;
         case 'resolved':
-          return status == 'resuelto' || status == 'resolved';
+          statusMatch = status == 'resuelto' || status == 'resolved';
+          break;
         case 'rejected':
-          return status == 'rechazado' || status == 'rejected';
+          statusMatch = status == 'rechazado' || status == 'rejected';
+          break;
         default:
-          return true;
+          statusMatch = true;
       }
+      if (!statusMatch) return false;
+
+      // Date filter
+      if (_fromDate != null || _toDate != null) {
+        final createdAt = DateTime.tryParse(r['created_at']?.toString() ?? '');
+        if (createdAt == null) return false;
+        if (_fromDate != null && createdAt.isBefore(_fromDate!)) return false;
+        if (_toDate != null && createdAt.isAfter(_toDate!.add(const Duration(days: 1)))) return false;
+      }
+
+      return true;
     }).toList();
   }
 
@@ -185,71 +212,20 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mapa de Denuncias'),
+        title: const Text('Mapa de Denuncias', style: TextStyle(color: Colors.white)),
         backgroundColor: _primaryGreen,
         foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actionsIconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.filter_list),
-            tooltip: 'Filtrar',
-            onSelected: (status) {
-              setState(() {
-                _currentFilter = status;
-              });
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'all',
-                child: Row(
-                  children: [
-                    Icon(Icons.all_inclusive, size: 18, color: _currentFilter == 'all' ? _primaryGreen : Colors.grey),
-                    const SizedBox(width: 8),
-                    Text('Activas', style: TextStyle(fontWeight: _currentFilter == 'all' ? FontWeight.bold : FontWeight.normal)),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'submitted',
-                child: Row(
-                  children: [
-                    Icon(Icons.pending, size: 18, color: _currentFilter == 'submitted' ? Colors.orange : Colors.grey),
-                    const SizedBox(width: 8),
-                    Text('Pendientes', style: TextStyle(fontWeight: _currentFilter == 'submitted' ? FontWeight.bold : FontWeight.normal)),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'inProgress',
-                child: Row(
-                  children: [
-                    Icon(Icons.autorenew, size: 18, color: _currentFilter == 'inProgress' ? Colors.blue : Colors.grey),
-                    const SizedBox(width: 8),
-                    Text('En Proceso', style: TextStyle(fontWeight: _currentFilter == 'inProgress' ? FontWeight.bold : FontWeight.normal)),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                value: 'resolved',
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle, size: 18, color: _currentFilter == 'resolved' ? Colors.green : Colors.grey),
-                    const SizedBox(width: 8),
-                    Text('Resueltas (historial)', style: TextStyle(fontWeight: _currentFilter == 'resolved' ? FontWeight.bold : FontWeight.normal)),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'rejected',
-                child: Row(
-                  children: [
-                    Icon(Icons.cancel, size: 18, color: _currentFilter == 'rejected' ? Colors.red : Colors.grey),
-                    const SizedBox(width: 8),
-                    Text('Rechazadas (historial)', style: TextStyle(fontWeight: _currentFilter == 'rejected' ? FontWeight.bold : FontWeight.normal)),
-                  ],
-                ),
-              ),
-            ],
+          Badge(
+            isLabelVisible: _currentFilter != 'all' || _fromDate != null || _showHistory,
+            backgroundColor: Colors.orange,
+            child: IconButton(
+              icon: const Icon(Icons.tune_rounded),
+              tooltip: 'Filtros',
+              onPressed: _showFilterSheet,
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.my_location),
@@ -270,14 +246,6 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
             tooltip: 'Santa Juana',
             onPressed: () {
               _mapController.move(_santaJuanaCenter, _defaultZoom);
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Actualizar',
-            onPressed: () {
-              setState(() => _isLoading = true);
-              _loadData();
             },
           ),
         ],
@@ -307,8 +275,9 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
             ),
             children: [
               TileLayer(
-                urlTemplate: '${ApiConfig.tileServerUrl}/styles/osm-bright/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.frogio.santa_juana',
+                urlTemplate: MapsService.tileServerUrl,
+                  tileProvider: MapsService.tileProvider,
+                userAgentPackageName: ApiConfig.appPackageName,
               ),
               MarkerLayer(
                 markers: [
@@ -687,6 +656,278 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
     );
   }
 
+  void _showFilterSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        String tempFilter = _currentFilter;
+        bool tempHistory = _showHistory;
+        DateTime? tempFrom = _fromDate;
+        DateTime? tempTo = _toDate;
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final dateFormat = DateFormat('dd/MM/yyyy');
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Filtros del Mapa',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setSheetState(() {
+                              tempFilter = 'all';
+                              tempHistory = false;
+                              tempFrom = null;
+                              tempTo = null;
+                            });
+                          },
+                          child: const Text('Limpiar', style: TextStyle(color: Colors.red)),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // History toggle
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: SwitchListTile(
+                      title: const Text('Mostrar historial completo'),
+                      subtitle: const Text('Incluye resueltas y rechazadas'),
+                      value: tempHistory,
+                      activeColor: _primaryGreen,
+                      contentPadding: EdgeInsets.zero,
+                      onChanged: (v) => setSheetState(() => tempHistory = v),
+                    ),
+                  ),
+
+                  const Divider(height: 24),
+
+                  // Status filter
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Text('Estado', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _filterChip('Todas', 'all', tempFilter, (v) => setSheetState(() => tempFilter = v)),
+                        _filterChip('Pendientes', 'submitted', tempFilter, (v) => setSheetState(() => tempFilter = v)),
+                        _filterChip('En Proceso', 'inProgress', tempFilter, (v) => setSheetState(() => tempFilter = v)),
+                        _filterChip('Resueltas', 'resolved', tempFilter, (v) => setSheetState(() => tempFilter = v)),
+                        _filterChip('Rechazadas', 'rejected', tempFilter, (v) => setSheetState(() => tempFilter = v)),
+                      ],
+                    ),
+                  ),
+
+                  const Divider(height: 24),
+
+                  // Date range
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Text('Rango de fechas', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final now = DateTime.now();
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(2024),
+                          lastDate: now,
+                          initialDateRange: tempFrom != null && tempTo != null
+                              ? DateTimeRange(start: tempFrom!, end: tempTo!)
+                              : DateTimeRange(start: now.subtract(const Duration(days: 30)), end: now),
+                          locale: const Locale('es', 'CL'),
+                          builder: (ctx2, child) => Theme(
+                            data: Theme.of(ctx2).copyWith(
+                              colorScheme: const ColorScheme.light(primary: _primaryGreen),
+                            ),
+                            child: child!,
+                          ),
+                        );
+                        if (picked != null) {
+                          setSheetState(() {
+                            tempFrom = picked.start;
+                            tempTo = picked.end;
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.date_range_rounded, size: 18),
+                      label: Text(
+                        tempFrom != null && tempTo != null
+                            ? '${dateFormat.format(tempFrom!)} - ${dateFormat.format(tempTo!)}'
+                            : 'Seleccionar rango',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: tempFrom != null ? _primaryGreen : Colors.grey,
+                        side: BorderSide(color: tempFrom != null ? _primaryGreen : Colors.grey.shade300),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                    ),
+                  ),
+                  if (tempFrom != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                      child: Row(
+                        children: [
+                          _quickDateChip('Hoy', () {
+                            final now = DateTime.now();
+                            setSheetState(() {
+                              tempFrom = DateTime(now.year, now.month, now.day);
+                              tempTo = tempFrom;
+                            });
+                          }),
+                          const SizedBox(width: 8),
+                          _quickDateChip('Esta semana', () {
+                            final now = DateTime.now();
+                            final monday = now.subtract(Duration(days: now.weekday - 1));
+                            setSheetState(() {
+                              tempFrom = DateTime(monday.year, monday.month, monday.day);
+                              tempTo = DateTime(now.year, now.month, now.day);
+                            });
+                          }),
+                          const SizedBox(width: 8),
+                          _quickDateChip('Este mes', () {
+                            final now = DateTime.now();
+                            setSheetState(() {
+                              tempFrom = DateTime(now.year, now.month, 1);
+                              tempTo = DateTime(now.year, now.month, now.day);
+                            });
+                          }),
+                        ],
+                      ),
+                    ),
+                  if (tempFrom == null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                      child: Row(
+                        children: [
+                          _quickDateChip('Hoy', () {
+                            final now = DateTime.now();
+                            setSheetState(() {
+                              tempFrom = DateTime(now.year, now.month, now.day);
+                              tempTo = tempFrom;
+                            });
+                          }),
+                          const SizedBox(width: 8),
+                          _quickDateChip('Esta semana', () {
+                            final now = DateTime.now();
+                            final monday = now.subtract(Duration(days: now.weekday - 1));
+                            setSheetState(() {
+                              tempFrom = DateTime(monday.year, monday.month, monday.day);
+                              tempTo = DateTime(now.year, now.month, now.day);
+                            });
+                          }),
+                          const SizedBox(width: 8),
+                          _quickDateChip('Este mes', () {
+                            final now = DateTime.now();
+                            setSheetState(() {
+                              tempFrom = DateTime(now.year, now.month, 1);
+                              tempTo = DateTime(now.year, now.month, now.day);
+                            });
+                          }),
+                        ],
+                      ),
+                    ),
+
+                  const SizedBox(height: 24),
+
+                  // Apply
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          setState(() {
+                            _currentFilter = tempFilter;
+                            _showHistory = tempHistory;
+                            _fromDate = tempFrom;
+                            _toDate = tempTo;
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primaryGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Aplicar filtros', style: TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _filterChip(String label, String value, String current, void Function(String) onSelected) {
+    final isSelected = current == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => onSelected(value),
+      selectedColor: _primaryGreen.withValues(alpha: 0.15),
+      labelStyle: TextStyle(
+        color: isSelected ? _primaryGreen : Colors.grey.shade700,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        fontSize: 13,
+      ),
+      side: BorderSide(color: isSelected ? _primaryGreen.withValues(alpha: 0.4) : Colors.grey.shade300),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Widget _quickDateChip(String label, VoidCallback onTap) {
+    return ActionChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      onPressed: onTap,
+      visualDensity: VisualDensity.compact,
+      side: BorderSide(color: _primaryGreen.withValues(alpha: 0.3)),
+      backgroundColor: _primaryGreen.withValues(alpha: 0.05),
+    );
+  }
+
   Widget _buildZoomButton(IconData icon, VoidCallback onPressed) {
     return Container(
       decoration: BoxDecoration(
@@ -916,7 +1157,10 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => ReportDetailScreen(report: report),
+        builder: (context) => EnhancedReportDetailScreen(
+          reportId: report['id'] as String,
+          currentUserRole: 'inspector',
+        ),
       ),
     );
 
@@ -1440,7 +1684,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
+                    color: Colors.green.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.check_circle, color: Colors.green, size: 28),
@@ -1485,10 +1729,10 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: isSelected ? Colors.green.withOpacity(0.15) : Colors.grey.withOpacity(0.08),
+                              color: isSelected ? Colors.green.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: isSelected ? Colors.green : Colors.grey.withOpacity(0.3),
+                                color: isSelected ? Colors.green : Colors.grey.withValues(alpha: 0.3),
                                 width: isSelected ? 1.5 : 1,
                               ),
                             ),

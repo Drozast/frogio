@@ -1,20 +1,32 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import { cookies } from 'next/headers';
+import type { Metadata } from 'next';
+import './globals.css';
+import { TenantProvider } from '@/lib/tenant-context';
+import { getTenantConfig, DEFAULT_TENANT } from '@/config/tenants';
 
-export const metadata: Metadata = {
-  title: 'FROGIO Admin - Gestión Municipal',
-  description: 'Sistema de Gestión de Seguridad Pública Municipal',
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies();
+  const tenantId = cookieStore.get('tenantId')?.value || DEFAULT_TENANT;
+  const tenant = getTenantConfig(tenantId);
+
+  return {
+    title: `${tenant.fullName} - FROGIO`,
+    description: `Sistema de Gestión de Seguridad Pública — ${tenant.fullName}`,
+    icons: {
+      icon: '/favicon.ico',
+      apple: '/apple-touch-icon.png',
+    },
+  };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const tenantId = cookieStore.get('tenantId')?.value || DEFAULT_TENANT;
+
   return (
     <html lang="es">
       <head>
@@ -25,7 +37,11 @@ export default function RootLayout({
           crossOrigin=""
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <TenantProvider tenant={tenantId}>
+          {children}
+        </TenantProvider>
+      </body>
     </html>
-  )
+  );
 }

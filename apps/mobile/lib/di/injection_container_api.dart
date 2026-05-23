@@ -36,16 +36,6 @@ import '../features/citizen/domain/repositories/enhanced_report_repository.dart'
 import '../features/citizen/domain/usecases/reports/enhanced_report_use_cases.dart';
 import '../features/citizen/presentation/bloc/report/enhanced_report_bloc.dart';
 
-// Inspector Infractions Feature
-import '../features/inspector/data/datasources/infraction_api_data_source.dart';
-import '../features/inspector/data/datasources/infraction_remote_data_source.dart';
-import '../features/inspector/data/repositories/infraction_repository_impl.dart';
-import '../features/inspector/domain/repositories/infraction_repository.dart';
-import '../features/inspector/domain/usecases/create_infraction.dart';
-import '../features/inspector/domain/usecases/get_infractions_by_inspector.dart';
-import '../features/inspector/domain/usecases/update_infraction_status.dart';
-import '../features/inspector/domain/usecases/upload_infraction_image.dart';
-
 // Inspector Citations Feature
 import '../features/inspector/data/datasources/citation_api_data_source.dart';
 import '../features/inspector/data/datasources/citation_remote_data_source.dart';
@@ -121,7 +111,7 @@ Future<void> initApi() async {
   // Registrar la implementación concreta para acceso directo (getFileUrl)
   sl.registerLazySingleton<AuthApiDataSource>(
     () => AuthApiDataSource(
-      client: sl(),
+      client: sl<AuthHttpClient>(),
       prefs: sl(),
       baseUrl: ApiConfig.activeBaseUrl,
       tenantId: ApiConfig.tenantId,
@@ -157,6 +147,7 @@ Future<void> initApi() async {
       signOutUser: sl(),
       getCurrentUser: sl(),
       forgotPassword: sl(),
+      authRepository: sl(),
     ),
   );
 
@@ -174,7 +165,7 @@ Future<void> initApi() async {
   // Data sources
   sl.registerLazySingleton<enhanced_ds.ReportRemoteDataSource>(
     () => EnhancedReportApiDataSource(
-      client: sl(),
+      client: sl<AuthHttpClient>(),
       prefs: sl(),
       baseUrl: ApiConfig.activeBaseUrl,
     ),
@@ -213,38 +204,13 @@ Future<void> initApi() async {
     ),
   );
 
-  // ===== INSPECTOR INFRACTIONS FEATURE =====
-  logger.i('  - Inspector infractions feature');
-
-  // Data sources
-  sl.registerLazySingleton<InfractionRemoteDataSource>(
-    () => InfractionApiDataSource(
-      client: sl(),
-      prefs: sl(),
-      baseUrl: ApiConfig.activeBaseUrl,
-    ),
-  );
-
-  // Repository
-  sl.registerLazySingleton<InfractionRepository>(
-    () => InfractionRepositoryImpl(
-      remoteDataSource: sl(),
-    ),
-  );
-
-  // Use cases
-  sl.registerLazySingleton(() => CreateInfraction(sl()));
-  sl.registerLazySingleton(() => GetInfractionsByInspector(sl()));
-  sl.registerLazySingleton(() => UpdateInfractionStatus(sl()));
-  sl.registerLazySingleton(() => UploadInfractionImage(sl()));
-
   // ===== INSPECTOR CITATIONS FEATURE =====
   logger.i('  - Inspector citations feature');
 
   // Data sources
   sl.registerLazySingleton<CitationRemoteDataSource>(
     () => CitationApiDataSource(
-      client: sl(),
+      client: sl<AuthHttpClient>(),
       prefs: sl(),
       baseUrl: ApiConfig.activeBaseUrl,
     ),
@@ -270,7 +236,7 @@ Future<void> initApi() async {
   // Data sources
   sl.registerLazySingleton<VehicleRemoteDataSource>(
     () => VehicleApiDataSource(
-      client: sl(),
+      client: sl<AuthHttpClient>(),
       prefs: sl(),
       baseUrl: ApiConfig.activeBaseUrl,
     ),
@@ -354,7 +320,7 @@ Future<void> initApi() async {
   // Data sources
   sl.registerLazySingleton<AdminRemoteDataSource>(
     () => AdminApiDataSource(
-      client: sl(),
+      client: sl<AuthHttpClient>(),
       prefs: sl(),
       baseUrl: ApiConfig.activeBaseUrl,
     ),

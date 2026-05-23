@@ -9,9 +9,11 @@ abstract class PanicRemoteDataSource {
     String? contactPhone,
   });
 
-  Future<PanicAlertEntity> cancelPanicAlert(String alertId);
+  Future<PanicAlertEntity> cancelPanicAlert(String alertId, {String? reason});
 
   Future<PanicAlertEntity?> getActiveAlert();
 
   Future<int> getTodayPanicCount();
+
+  Future<int> getCancelledPanicCount();
 }

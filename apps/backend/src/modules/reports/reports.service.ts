@@ -1,6 +1,6 @@
 import prisma from '../../config/database.js';
 import { alertsService } from '../../services/alerts.service.js';
-import type { CreateReportDto, UpdateReportDto, ReportVersion } from './reports.types.js';
+import type { CreateReportDto, UpdateReportDto, ReportVersion, FollowUpDto } from './reports.types.js';
 
 // Normalize status values from English to Spanish
 const normalizeStatus = (status: string): string => {
@@ -18,7 +18,7 @@ const normalizeStatus = (status: string): string => {
 
 export class ReportsService {
   // Save version after updating (captures the new state)
-  private async saveVersionAfterUpdate(reportId: string, modifiedBy: string, tenantId: string, changeReason?: string): Promise<void> {
+  private async saveVersionAfterUpdate(reportId: string, modifiedBy: string, tenantId: string, changeReason?: string, attachments?: string[], isFollowUp: boolean = false): Promise<void> {
     // Get next version number
     const [versionCount] = await prisma.$queryRawUnsafe<any[]>(
       `SELECT COALESCE(MAX(version_number), 0) + 1 as next_version
@@ -39,8 +39,8 @@ export class ReportsService {
     await prisma.$queryRawUnsafe(
       `INSERT INTO "${tenantId}".report_versions
        (report_id, version_number, title, description, type, status, priority, address,
-        latitude, longitude, assigned_to, resolution, modified_by, modified_at, change_reason)
-       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::uuid, $12, $13::uuid, NOW(), $14)`,
+        latitude, longitude, assigned_to, resolution, attachments, is_follow_up, modified_by, modified_at, change_reason)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::uuid, $12, $13, $14, $15::uuid, NOW(), $16)`,
       reportId,
       nextVersion,
       updatedReport.title,
@@ -53,9 +53,40 @@ export class ReportsService {
       updatedReport.longitude,
       updatedReport.assigned_to,
       updatedReport.resolution,
+      JSON.stringify(attachments || []),
+      isFollowUp,
       modifiedBy,
       changeReason || null
     );
+  }
+
+  // Add a follow-up note without changing the report status
+  async addFollowUp(reportId: string, data: FollowUpDto, inspectorId: string, tenantId: string): Promise<{ success: boolean; version: number }> {
+    const [report] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM "${tenantId}".reports WHERE id = $1::uuid`,
+      reportId
+    );
+
+    if (!report) {
+      throw new Error('Reporte no encontrado');
+    }
+
+    // Touch updated_at so clients notice a change
+    await prisma.$queryRawUnsafe(
+      `UPDATE "${tenantId}".reports SET updated_at = NOW() WHERE id = $1::uuid`,
+      reportId
+    );
+
+    // Persist follow-up as a version entry (is_follow_up = true)
+    await this.saveVersionAfterUpdate(reportId, inspectorId, tenantId, data.comment, data.attachments, true);
+
+    // Get the version number we just inserted
+    const [versionCount] = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT COALESCE(MAX(version_number), 0) as latest FROM "${tenantId}".report_versions WHERE report_id = $1::uuid`,
+      reportId
+    );
+
+    return { success: true, version: parseInt(versionCount?.latest || '1') };
   }
 
   // Get version history for a report (includes initial creation)
@@ -153,7 +184,7 @@ export class ReportsService {
     return report;
   }
 
-  async findAll(tenantId: string, filters?: { status?: string; type?: string; userId?: string }, limit: number = 50, offset: number = 0) {
+  async findAll(tenantId: string, filters?: { status?: string; type?: string; userId?: string; createdBy?: string }, limit: number = 50, offset: number = 0) {
     let baseWhere = `FROM "${tenantId}".reports r
                  LEFT JOIN "${tenantId}".users u ON r.user_id = u.id
                  WHERE 1=1`;
@@ -176,6 +207,13 @@ export class ReportsService {
     if (filters?.userId) {
       baseWhere += ` AND r.user_id = $${paramIndex}::uuid`;
       params.push(filters.userId);
+      paramIndex++;
+    }
+
+    // createdBy: inspector filters to see only their own reports
+    if (filters?.createdBy) {
+      baseWhere += ` AND r.user_id = $${paramIndex}::uuid`;
+      params.push(filters.createdBy);
       paramIndex++;
     }
 
@@ -252,9 +290,28 @@ export class ReportsService {
       });
     }
 
+    // Get attachments (files) for this report
+    const files = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, original_filename, mime_type, size_bytes, created_at
+       FROM "${tenantId}".files
+       WHERE entity_type = 'report' AND entity_id = $1::uuid
+       ORDER BY created_at ASC`,
+      id
+    );
+
+    const attachments = files.map(f => ({
+      id: f.id,
+      url: `https://api-frogio.supertools.cl/api/files/serve/${tenantId}/${f.id}`,
+      fileName: f.original_filename,
+      type: (f.mime_type || '').startsWith('video') ? 'video' : 'image',
+      fileSize: f.size_bytes ? parseInt(f.size_bytes) : null,
+      uploadedAt: f.created_at,
+    }));
+
     return {
       ...report,
       statusHistory,
+      attachments,
       // Format response if there's a resolution
       responses: report.resolution ? [{
         id: `res-${report.id}`,
@@ -375,6 +432,33 @@ export class ReportsService {
         ...updatedReport,
         reporterId: currentReport.user_id,
       }, oldStatus, normalizedStatus);
+    }
+
+    // Send alert if resolution/response was added
+    if (data.resolution && data.resolution !== currentReport.resolution) {
+      // Get inspector name
+      const [inspector] = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT first_name, last_name FROM "${tenantId}".users WHERE id = $1::uuid`,
+        modifiedBy
+      );
+      const inspectorName = inspector
+        ? `${inspector.first_name} ${inspector.last_name}`.trim()
+        : 'Inspector';
+
+      await alertsService.onReportResponse(tenantId, updatedReport, inspectorName);
+    }
+
+    // Send alert if inspector was assigned
+    if (data.assignedTo && data.assignedTo !== currentReport.assigned_to) {
+      const [inspector] = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT first_name, last_name FROM "${tenantId}".users WHERE id = $1::uuid`,
+        data.assignedTo
+      );
+      const inspectorName = inspector
+        ? `${inspector.first_name} ${inspector.last_name}`.trim()
+        : 'Inspector';
+
+      await alertsService.onReportAssigned(tenantId, updatedReport, inspectorName);
     }
 
     return updatedReport;

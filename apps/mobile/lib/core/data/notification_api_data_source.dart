@@ -20,8 +20,10 @@ class NotificationApiDataSource {
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((item) => _mapToNotification(item)).toList();
+      final decoded = jsonDecode(response.body);
+      // Backend returns paginated response { data: [...], total, page, limit }
+      final List<dynamic> data = decoded is List ? decoded : (decoded['data'] as List? ?? []);
+      return data.map((item) => _mapToNotification(item as Map<String, dynamic>)).toList();
     } else if (response.statusCode == 401) {
       throw Exception('Token inválido o expirado');
     } else {
@@ -89,7 +91,7 @@ class NotificationApiDataSource {
       createdAt: data['created_at'] != null
           ? DateTime.parse(data['created_at'])
           : DateTime.now(),
-      isRead: data['read_at'] != null,
+      isRead: data['is_read'] == true || data['read_at'] != null,
     );
   }
 

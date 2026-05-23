@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  frogioweb:
+    build: .
+    container_name: frogioweb
+    restart: unless-stopped
+    ports:
+      - "3025:80"
+    networks:
+      - frogio-network
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+networks:
+  frogio-network:
+    driver: bridge

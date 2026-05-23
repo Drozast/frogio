@@ -381,6 +381,10 @@ class CitationBloc extends Bloc<CitationEvent, CitationState> {
         reason: event.dto.reason,
         notes: event.dto.notes,
         photos: photoUrls,
+        reportId: event.dto.reportId,
+        courtName: event.dto.courtName,
+        hearingDate: event.dto.hearingDate,
+        deliveredToCourt: event.dto.deliveredToCourt,
       );
 
       final result = await repository.createCitation(dtoWithPhotos);
@@ -513,14 +517,16 @@ class CitationBloc extends Bloc<CitationEvent, CitationState> {
         switch (s) {
           case CitationStatus.pendiente:
             return 0;
-          case CitationStatus.notificado:
+          case CitationStatus.emitida:
             return 1;
-          case CitationStatus.asistio:
+          case CitationStatus.notificado:
             return 2;
-          case CitationStatus.noAsistio:
+          case CitationStatus.asistio:
             return 3;
-          case CitationStatus.cancelado:
+          case CitationStatus.noAsistio:
             return 4;
+          case CitationStatus.cancelado:
+            return 5;
         }
       }
 
