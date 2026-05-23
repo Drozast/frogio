@@ -90,6 +90,11 @@ apps/web-admin/.next/
 apps/web-admin/out/
 apps/web-admin/node_modules/
 
+# Secrets (local only)
+*.secret.md
+*.secret.json
+*.secret.env
+
 # Misc
 *.pem
 .vercel
