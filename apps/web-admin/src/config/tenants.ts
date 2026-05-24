@@ -31,6 +31,14 @@ export const TENANTS: Record<string, TenantConfig> = {
     apiUrl: 'https://api-nunoa.supertools.cl',
     theme: { primary: '220 60% 30%' },
   },
+  // Aliases (common misspellings)
+  santajuana: {
+    id: 'santa_juana',
+    name: 'Santa Juana',
+    fullName: 'Municipalidad de Santa Juana',
+    apiUrl: 'https://api-frogio.supertools.cl',
+    theme: { primary: '126 57% 23%' },
+  },
 };
 
 export const DEFAULT_TENANT = 'santa_juana';
