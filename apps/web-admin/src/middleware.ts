@@ -48,6 +48,19 @@ export function middleware(request: NextRequest) {
   const cleanPath = stripTenantFromPath(pathname); // "/login", "/dashboard", etc.
 
   // ------------------------------------------------------------------
+  // STATIC/ASSETS: after stripping tenant prefix, if the clean path is
+  // a Next.js internal or static file, let Next.js serve it directly.
+  // Must check BEFORE auth redirect to avoid blocking CSS/JS/fonts.
+  // ------------------------------------------------------------------
+  if (
+    cleanPath.startsWith('/_next') ||
+    cleanPath.startsWith('/favicon.ico') ||
+    /\.(ico|png|svg|jpe?g|gif|css|js|map|woff2?|ttf|eot)$/i.test(cleanPath)
+  ) {
+    return NextResponse.rewrite(new URL(cleanPath, request.url));
+  }
+
+  // ------------------------------------------------------------------
   // AUTH: if the clean path is /login, allow without auth
   // ------------------------------------------------------------------
   if (cleanPath === '/login' || cleanPath.startsWith('/login')) {
@@ -88,5 +101,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Only exclude paths that START with _next/ or favicon.ico
+  // Tenant-prefixed paths like /santa_juana/_next/... will still pass through
+  matcher: ['/((?!_next/|favicon\\.ico).*)'],
 };
