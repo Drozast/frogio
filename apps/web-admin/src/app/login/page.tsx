@@ -19,6 +19,17 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Basic validation
+    if (!email.trim()) {
+      setError('Ingresa tu correo electrónico.');
+      return;
+    }
+    if (!password) {
+      setError('Ingresa tu contraseña.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -38,20 +49,22 @@ export default function LoginPage() {
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Error al iniciar sesión');
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.success) {
+        setError(data.error || 'Error al iniciar sesión. Intenta nuevamente.');
+        setLoading(false);
+        return;
       }
 
       router.push(`/${tenant.id}/dashboard`);
       router.refresh();
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        setError('La petición tardó demasiado. Verifica tu conexión.');
+        setError('La conexión tardó demasiado. Verifica tu internet e intenta nuevamente.');
       } else {
-        setError(err.message || 'Error al iniciar sesión');
+        setError('No se pudo conectar con el servidor. Verifica tu conexión.');
       }
-    } finally {
       setLoading(false);
     }
   };

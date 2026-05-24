@@ -21,11 +21,38 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      return NextResponse.json(error, { status: response.status });
+      let errorMessage = 'Error al iniciar sesión';
+      try {
+        const error = await response.json();
+        errorMessage = error.error || errorMessage;
+      } catch {
+        // Response is not JSON (empty body, HTML error page, etc.)
+        if (response.status === 401) errorMessage = 'Credenciales inválidas. Verifica tu email y contraseña.';
+        else if (response.status === 404) errorMessage = 'Servicio no disponible. Intenta más tarde.';
+        else if (response.status >= 500) errorMessage = 'Error del servidor. Intenta más tarde.';
+      }
+      return NextResponse.json(
+        { error: errorMessage },
+        { status: response.status }
+      );
     }
 
-    const data = await response.json();
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'El servicio de autenticación no está disponible.' },
+        { status: 502 }
+      );
+    }
+
+    if (!data.accessToken) {
+      return NextResponse.json(
+        { error: 'Credenciales inválidas. Verifica tu email y contraseña.' },
+        { status: 401 }
+      );
+    }
 
     const isProd = process.env.NODE_ENV === 'production';
     const cookieStore = await cookies();
