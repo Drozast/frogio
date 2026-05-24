@@ -11,6 +11,7 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
+import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
 
 interface PanicAlert {
   id: string;
@@ -33,7 +34,11 @@ interface SOSAlertModalProps {
   onClose: () => void;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+function getApiBaseUrl(): string {
+  if (typeof window === 'undefined') return '';
+  const tenantId = window.location.pathname.split('/')[1] || DEFAULT_TENANT;
+  return TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
+}
 
 export default function SOSAlertModal({ alert, onClose }: SOSAlertModalProps) {
   const [isResponding, setIsResponding] = useState(false);
@@ -51,7 +56,7 @@ export default function SOSAlertModal({ alert, onClose }: SOSAlertModalProps) {
         .find(row => row.startsWith('accessToken='))
         ?.split('=')[1];
 
-      const response = await fetch(`${API_URL}/api/panic/${alert.id}/respond`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/panic/${alert.id}/respond`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef } f
 import { io, Socket } from 'socket.io-client';
 import SOSAlertModal from './SOSAlertModal';
 import SOSAlertToast from './SOSAlertToast';
+import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
 
 interface PanicAlert {
   id: string;
@@ -29,7 +30,11 @@ const SOSAlertContext = createContext<SOSAlertContextType>({
 
 export const useSOSAlerts = () => useContext(SOSAlertContext);
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+function getApiBaseUrl(): string {
+  if (typeof window === 'undefined') return '';
+  const tenantId = window.location.pathname.split('/')[1] || DEFAULT_TENANT;
+  return TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
+}
 
 function decodeJwtRole(token: string): string | null {
   try {
@@ -73,7 +78,7 @@ export default function SOSAlertProvider({ children }: { children: React.ReactNo
 
       if (!token) return;
 
-      const response = await fetch(`${API_URL}/api/panic/active`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/panic/active`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-Tenant-ID': 'santa_juana',
@@ -106,7 +111,7 @@ export default function SOSAlertProvider({ children }: { children: React.ReactNo
       ?.split('=')[1];
 
     if (token) {
-      const newSocket = io(API_URL, {
+      const newSocket = io(getApiBaseUrl(), {
         auth: { token },
         transports: ['websocket', 'polling'],
       });
