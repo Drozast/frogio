@@ -1,9 +1,8 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import AppLayout from '@/components/layout/AppLayout';
+import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
 import InfractionsClient from '@/components/infractions/InfractionsClient';
-
-const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 type Loose = Record<string, unknown> & { data?: unknown; items?: unknown; infractions?: unknown };
 function unwrap(payload: unknown): Loose[] {
@@ -19,10 +18,11 @@ function unwrap(payload: unknown): Loose[] {
 
 async function getInfractions(token: string) {
   try {
-    const response = await fetch(`${API_URL}/api/infractions`, {
+    const apiUrl = TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
+    const response = await fetch(`${apiUrl}/api/infractions`, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
       },
       cache: 'no-store',
     });

@@ -11,3 +11,18 @@ export const API_URL =
 export const CLIENT_API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   'http://localhost:3000';
+
+import { getTenantConfig, DEFAULT_TENANT } from '@/config/tenants';
+
+/**
+ * Get the API URL for the current tenant. Used by client components
+ * that need to call the external API directly (WebSocket, polling, etc.).
+ */
+export function getTenantApiUrl(tenantId?: string): string {
+  // Try to read tenant from URL path if not provided
+  if (!tenantId && typeof window !== 'undefined') {
+    const match = window.location.pathname.match(/^\/([^/]+)/);
+    tenantId = match?.[1] || DEFAULT_TENANT;
+  }
+  return getTenantConfig(tenantId || DEFAULT_TENANT).apiUrl;
+}

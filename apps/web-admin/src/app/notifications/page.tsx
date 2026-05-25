@@ -2,12 +2,12 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import AppLayout from '@/components/layout/AppLayout';
+import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
 
 async function getNotifications(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
   try {
-    const response = await fetch(`${API_URL}/api/notifications`, {
+    const apiUrl = TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
+    const response = await fetch(`${apiUrl}/api/notifications`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     });

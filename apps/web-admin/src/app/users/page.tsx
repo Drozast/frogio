@@ -3,18 +3,15 @@ import { redirect } from 'next/navigation';
 import AppLayout from '@/components/layout/AppLayout';
 import UsersClient from '@/components/users/UsersClient';
 import { getCurrentUserFromToken } from '@/lib/admin-api';
+import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
 
-const API_URL =
-  process.env.API_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  'http://localhost:3000';
-
-async function getUsers(token: string) {
+async function getUsers(token: string, tenantId: string) {
+  const apiUrl = TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
   try {
-    const response = await fetch(`${API_URL}/api/users`, {
+    const response = await fetch(`${apiUrl}/api/users`, {
       headers: {
         Authorization: `Bearer ${token}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
       },
       cache: 'no-store',
     });
@@ -35,13 +32,14 @@ async function getUsers(token: string) {
 export default async function UsersPage() {
   const cookieStore = cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+  const tenantId = cookieStore.get('tenantId')?.value || DEFAULT_TENANT;
 
   if (!accessToken) {
     redirect('/login');
   }
 
   const [users, currentUser] = await Promise.all([
-    getUsers(accessToken),
+    getUsers(accessToken, tenantId),
     getCurrentUserFromToken(),
   ]);
 

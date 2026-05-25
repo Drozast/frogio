@@ -1,16 +1,16 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import AppLayout from '@/components/layout/AppLayout';
+import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
 import UserForm from '@/components/users/UserForm';
-
-const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 async function getUser(token: string, userId: string) {
   try {
-    const response = await fetch(`${API_URL}/api/users/${userId}`, {
+    const apiUrl = TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
+    const response = await fetch(`${apiUrl}/api/users/${userId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
       },
       cache: 'no-store',
     });

@@ -3,10 +3,9 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
 async function getMedicalRecords(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
   try {
-    const response = await fetch(`${API_URL}/api/medical-records`, {
+    const apiUrl = TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
+    const response = await fetch(`${apiUrl}/api/medical-records`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     });

@@ -4,8 +4,13 @@ import { useState, useCallback } from 'react';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import ReportsTable from './ReportsTable';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+function getApiBaseUrl(): string {
+  if (typeof window === 'undefined') return '';
+  const tenantId = window.location.pathname.split('/')[1] || DEFAULT_TENANT;
+  return TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
+}
 
 interface Report {
   id: string;
@@ -54,13 +59,13 @@ export default function ReportsClient({ initialReports, initialInspectors }: Rep
       if (!token) return;
 
       const [reportsRes, inspectorsRes] = await Promise.all([
-        fetch(`${API_URL}/api/reports`, {
+        fetch(`${getApiBaseUrl()}/api/reports`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'X-Tenant-ID': 'santa_juana',
           },
         }),
-        fetch(`${API_URL}/api/users?role=inspector`, {
+        fetch(`${getApiBaseUrl()}/api/users?role=inspector`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'X-Tenant-ID': 'santa_juana',
