@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import AppLayout from '@/components/layout/AppLayout';
 import ReportsClient from '@/components/reports/ReportsClient';
-import { API_URL } from '@/lib/api-config';
+import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
 
 type Loose = Record<string, unknown>;
 function unwrap(payload: unknown): Loose[] {
@@ -17,12 +17,13 @@ function unwrap(payload: unknown): Loose[] {
   return [];
 }
 
-async function getReports(token: string) {
+async function getReports(token: string, tenantId: string) {
+  const apiUrl = TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
   try {
-    const response = await fetch(`${API_URL}/api/reports`, {
+    const response = await fetch(`${apiUrl}/api/reports`, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
       },
       cache: 'no-store',
     });
@@ -35,12 +36,13 @@ async function getReports(token: string) {
   }
 }
 
-async function getInspectors(token: string) {
+async function getInspectors(token: string, tenantId: string) {
+  const apiUrl = TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
   try {
-    const response = await fetch(`${API_URL}/api/users?role=inspector`, {
+    const response = await fetch(`${apiUrl}/api/users?role=inspector`, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
       },
       cache: 'no-store',
     });
@@ -56,14 +58,15 @@ async function getInspectors(token: string) {
 export default async function ReportsPage() {
   const cookieStore = cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+  const tenantId = cookieStore.get('tenantId')?.value || DEFAULT_TENANT;
 
   if (!accessToken) {
     redirect('/login');
   }
 
   const [reports, inspectors] = await Promise.all([
-    getReports(accessToken),
-    getInspectors(accessToken),
+    getReports(accessToken, tenantId),
+    getInspectors(accessToken, tenantId),
   ]);
 
   return (
