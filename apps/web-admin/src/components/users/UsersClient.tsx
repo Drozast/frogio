@@ -33,6 +33,13 @@ import {
   pick,
   type CreateUserBody,
 } from '@/lib/admin-api';
+import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
+
+function getApiBaseUrl(): string {
+  if (typeof window === 'undefined') return '';
+  const tenantId = window.location.pathname.split('/')[1] || DEFAULT_TENANT;
+  return TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -207,8 +214,7 @@ export default function UsersClient({
         .find((r) => r.startsWith('accessToken='))
         ?.split('=')[1];
       if (!token) return;
-      const apiBase =
-        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+      const apiBase = getApiBaseUrl();
       const res = await fetch(`${apiBase}/api/users`, {
         headers: {
           Authorization: `Bearer ${token}`,
