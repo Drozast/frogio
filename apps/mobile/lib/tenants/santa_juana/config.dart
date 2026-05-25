@@ -14,4 +14,6 @@ const santaJuanaConfig = TenantConfig(
   primaryDark: Color(0xFF2E7D32),
   accentColor: Color(0xFF69F0AE),
   appPackageName: 'com.frogio.santa_juana',
+  defaultLatitude: -37.0636,
+  defaultLongitude: -72.7306,
 );

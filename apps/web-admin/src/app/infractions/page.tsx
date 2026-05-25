@@ -16,7 +16,7 @@ function unwrap(payload: unknown): Loose[] {
   return [];
 }
 
-async function getInfractions(token: string) {
+async function getInfractions(token: string, tenantId: string) {
   try {
     const apiUrl = TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
     const response = await fetch(`${apiUrl}/api/infractions`, {
@@ -38,12 +38,13 @@ async function getInfractions(token: string) {
 export default async function InfractionsPage() {
   const cookieStore = cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+  const tenantId = cookieStore.get('tenantId')?.value || DEFAULT_TENANT;
 
   if (!accessToken) {
     redirect('/login');
   }
 
-  const infractions = await getInfractions(accessToken);
+  const infractions = await getInfractions(accessToken, tenantId);
 
   return (
     <AppLayout>

@@ -1,8 +1,9 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
 
-async function getMedicalRecords(token: string) {
+async function getMedicalRecords(token: string, tenantId: string) {
   try {
     const apiUrl = TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
     const response = await fetch(`${apiUrl}/api/medical-records`, {
@@ -21,12 +22,13 @@ async function getMedicalRecords(token: string) {
 export default async function MedicalRecordsPage() {
   const cookieStore = cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+  const tenantId = cookieStore.get('tenantId')?.value || DEFAULT_TENANT;
 
   if (!accessToken) {
     redirect('/login');
   }
 
-  const medicalRecords = await getMedicalRecords(accessToken);
+  const medicalRecords = await getMedicalRecords(accessToken, tenantId);
 
   return (
     <div className="min-h-screen bg-gray-100">

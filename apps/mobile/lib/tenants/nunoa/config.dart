@@ -9,9 +9,11 @@ const nunoaConfig = TenantConfig(
   apiBaseUrl: 'https://api-nunoa.supertools.cl',
   ntfyUrl: 'https://ntfy-nunoa.supertools.cl',
   tileServerUrl: 'https://maps.supertools.cl',
-  appTitle: 'FROGIO - Ñuñoa',
+  appTitle: 'Ñuñoa Seguridad Municipal FROGIO',
   primaryColor: Color(0xFF1A237E), // Indigo for Ñuñoa
   primaryDark: Color(0xFF0D1642),
   accentColor: Color(0xFF536DFE),
   appPackageName: 'com.frogio.nunoa',
+  defaultLatitude: -33.4569,
+  defaultLongitude: -70.6083,
 );

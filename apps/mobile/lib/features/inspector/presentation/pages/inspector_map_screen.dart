@@ -12,6 +12,7 @@ import '../../../../core/network/auth_http_client.dart';
 import '../../../../di/injection_container_api.dart' as di;
 import '../../../citizen/presentation/pages/enhanced_report_detail_screen.dart';
 import 'package:frogio_mobile/core/services/maps_service.dart';
+import 'package:frogio_mobile/tenants/current_tenant.dart';
 
 class InspectorMapScreen extends StatefulWidget {
   final LatLng? initialLocation;
@@ -30,8 +31,8 @@ class InspectorMapScreen extends StatefulWidget {
 class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProviderStateMixin {
   static const Color _primaryGreen = Color(0xFF1B5E20);
 
-  // Coordenadas de Santa Juana, Región del Biobío, Chile
-  static const LatLng _santaJuanaCenter = LatLng(-37.1769, -72.9386);
+  // Coordenadas del municipio desde tenant config
+  static LatLng get _defaultCenter => LatLng(currentTenant.defaultLatitude, currentTenant.defaultLongitude);
   static const double _defaultZoom = 14.0;
   static const double _minZoom = 10.0;
   static const double _maxZoom = 18.0;
@@ -245,7 +246,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
             icon: const Icon(Icons.home),
             tooltip: 'Santa Juana',
             onPressed: () {
-              _mapController.move(_santaJuanaCenter, _defaultZoom);
+              _mapController.move(_defaultCenter, _defaultZoom);
             },
           ),
         ],
@@ -256,7 +257,7 @@ class _InspectorMapScreenState extends State<InspectorMapScreen> with TickerProv
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: widget.initialLocation ?? _santaJuanaCenter,
+              initialCenter: widget.initialLocation ?? _defaultCenter,
               initialZoom: _defaultZoom,
               minZoom: _minZoom,
               maxZoom: _maxZoom,

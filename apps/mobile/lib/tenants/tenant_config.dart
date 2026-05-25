@@ -13,6 +13,8 @@ class TenantConfig {
   final Color primaryDark;
   final Color accentColor;
   final String appPackageName; // 'com.frogio.santa_juana'
+  final double defaultLatitude;  // Centro del municipio
+  final double defaultLongitude;
 
   const TenantConfig({
     required this.id,
@@ -26,5 +28,7 @@ class TenantConfig {
     required this.primaryDark,
     required this.accentColor,
     required this.appPackageName,
+    required this.defaultLatitude,
+    required this.defaultLongitude,
   });
 }

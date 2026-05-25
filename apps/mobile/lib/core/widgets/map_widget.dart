@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../services/maps_service.dart';
 import '../theme/app_theme.dart';
+import 'package:frogio_mobile/tenants/current_tenant.dart';
 
 class MapWidget extends StatefulWidget {
   final LatLng? initialLocation;
@@ -39,7 +40,7 @@ class _MapWidgetState extends State<MapWidget> {
   List<Marker> _markers = [];
   bool _isLoading = true;
 
-  static const LatLng _defaultLocation = LatLng(-37.0636, -72.7306); // Santa Juana, Chile
+  static LatLng get _defaultLocation => LatLng(currentTenant.defaultLatitude, currentTenant.defaultLongitude);
 
   @override
   void initState() {

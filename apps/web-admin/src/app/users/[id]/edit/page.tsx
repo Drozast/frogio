@@ -4,7 +4,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
 import UserForm from '@/components/users/UserForm';
 
-async function getUser(token: string, userId: string) {
+async function getUser(token: string, userId: string, tenantId: string) {
   try {
     const apiUrl = TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
     const response = await fetch(`${apiUrl}/api/users/${userId}`, {
@@ -26,12 +26,13 @@ async function getUser(token: string, userId: string) {
 export default async function EditUserPage({ params }: { params: { id: string } }) {
   const cookieStore = cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+  const tenantId = cookieStore.get('tenantId')?.value || DEFAULT_TENANT;
 
   if (!accessToken) {
     redirect('/login');
   }
 
-  const user = await getUser(accessToken, params.id);
+  const user = await getUser(accessToken, params.id, tenantId);
 
   if (!user) {
     redirect('/users');

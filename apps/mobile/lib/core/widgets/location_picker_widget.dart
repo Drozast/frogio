@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import '../services/maps_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_button.dart';
+import 'package:frogio_mobile/tenants/current_tenant.dart';
 
 class LocationPickerWidget extends StatefulWidget {
   final LatLng? initialLocation;
@@ -33,7 +34,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
   bool _isLoadingAddress = false;
   bool _isLoadingCurrentLocation = false;
 
-  static const LatLng _defaultLocation = LatLng(-37.0636, -72.7306);
+  static LatLng get _defaultLocation => LatLng(currentTenant.defaultLatitude, currentTenant.defaultLongitude);
 
   @override
   void initState() {
