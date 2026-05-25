@@ -19,7 +19,7 @@ export async function GET(
     const response = await fetch(`${getApiUrl(tenantId)}/api/citations/${id}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
       },
       cache: 'no-store',
     });
@@ -58,7 +58,7 @@ export async function PATCH(
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
       },
       body: JSON.stringify(body),
     });
@@ -94,7 +94,7 @@ export async function DELETE(
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
       },
     });
 

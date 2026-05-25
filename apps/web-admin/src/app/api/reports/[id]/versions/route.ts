@@ -19,7 +19,7 @@ export async function GET(
     const response = await fetch(`${getApiUrl(tenantId)}/api/reports/${id}/versions`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
       },
       cache: 'no-store',
     });

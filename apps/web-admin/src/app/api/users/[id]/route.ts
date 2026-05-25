@@ -20,7 +20,7 @@ export async function DELETE(
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
       },
     });
 
@@ -58,7 +58,7 @@ export async function PATCH(
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),

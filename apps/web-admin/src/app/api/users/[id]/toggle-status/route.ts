@@ -20,7 +20,7 @@ export async function PATCH(
     const getUserResponse = await fetch(`${getApiUrl(tenantId)}/api/users/${params.id}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
       },
     });
 
@@ -39,7 +39,7 @@ export async function PATCH(
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ is_active: newStatus }),

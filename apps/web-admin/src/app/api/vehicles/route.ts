@@ -16,7 +16,7 @@ export async function GET() {
     const response = await fetch(`${getApiUrl(tenantId)}/api/vehicles`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'X-Tenant-ID': 'santa_juana',
+        'X-Tenant-ID': tenantId,
       },
       cache: 'no-store',
     });
