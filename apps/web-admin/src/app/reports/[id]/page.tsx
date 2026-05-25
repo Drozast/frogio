@@ -13,7 +13,7 @@ import {
 import InspectorSelector from './InspectorSelector';
 import VersionHistory from './VersionHistory';
 import ReportMap from './ReportMap';
-import { API_URL } from '@/lib/api-config';
+import { getApiUrl } from '@/lib/api-config';
 
 interface Report {
   id: string;
@@ -45,7 +45,7 @@ interface Inspector {
 
 async function getReport(id: string, token: string): Promise<Report | null> {
   try {
-    const response = await fetch(`${API_URL}/api/reports/${id}`, {
+    const response = await fetch(`${getApiUrl('santa_juana')}/api/reports/${id}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'X-Tenant-ID': 'santa_juana',
@@ -63,7 +63,7 @@ async function getReport(id: string, token: string): Promise<Report | null> {
 
 async function getInspectors(token: string): Promise<Inspector[]> {
   try {
-    const response = await fetch(`${API_URL}/api/users?role=inspector`, {
+    const response = await fetch(`${getApiUrl('santa_juana')}/api/users?role=inspector`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'X-Tenant-ID': 'santa_juana',

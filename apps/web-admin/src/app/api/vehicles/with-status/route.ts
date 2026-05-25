@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-import { API_URL } from '@/lib/api-config';
+import { getApiUrl } from '@/lib/api-config';
 
 export interface VehicleWithStatus {
   id: string;
@@ -25,6 +25,7 @@ export interface VehicleWithStatus {
 export async function GET() {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+    const tenantId = cookieStore.get('tenantId')?.value || 'santa_juana';
 
   if (!accessToken) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -33,14 +34,14 @@ export async function GET() {
   try {
     // Fetch all vehicles and active logs in parallel
     const [vehiclesResponse, activeLogsResponse] = await Promise.all([
-      fetch(`${API_URL}/api/vehicles`, {
+      fetch(`${getApiUrl(tenantId)}/api/vehicles`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'X-Tenant-ID': 'santa_juana',
         },
         cache: 'no-store',
       }),
-      fetch(`${API_URL}/api/vehicles/logs/active`, {
+      fetch(`${getApiUrl(tenantId)}/api/vehicles/logs/active`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'X-Tenant-ID': 'santa_juana',

@@ -6,8 +6,13 @@ import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import InfractionsTable from './InfractionsTable';
 import StatCard from '@/components/ui/StatCard';
 import { PlusIcon, ExclamationTriangleIcon, CurrencyDollarIcon, ClockIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+function getApiBaseUrl(): string {
+  if (typeof window === 'undefined') return '';
+  const tenantId = window.location.pathname.split('/')[1] || DEFAULT_TENANT;
+  return TENANTS[tenantId]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
+}
 
 interface Infraction {
   id: string;
@@ -43,7 +48,7 @@ export default function InfractionsClient({ initialInfractions }: InfractionsCli
 
       if (!token) return;
 
-      const response = await fetch(`${API_URL}/api/infractions`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/infractions`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-Tenant-ID': 'santa_juana',

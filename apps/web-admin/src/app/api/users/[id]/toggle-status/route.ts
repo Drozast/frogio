@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-import { API_URL } from '@/lib/api-config';
+import { getApiUrl } from '@/lib/api-config';
 
 export async function PATCH(
   request: NextRequest,
@@ -9,6 +9,7 @@ export async function PATCH(
 ) {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+    const tenantId = cookieStore.get('tenantId')?.value || 'santa_juana';
 
   if (!accessToken) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -16,7 +17,7 @@ export async function PATCH(
 
   try {
     // First, get the current user to know their current status
-    const getUserResponse = await fetch(`${API_URL}/api/users/${params.id}`, {
+    const getUserResponse = await fetch(`${getApiUrl(tenantId)}/api/users/${params.id}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'X-Tenant-ID': 'santa_juana',
@@ -34,7 +35,7 @@ export async function PATCH(
     const newStatus = !user.is_active;
 
     // Update the user's active status
-    const updateResponse = await fetch(`${API_URL}/api/users/${params.id}`, {
+    const updateResponse = await fetch(`${getApiUrl(tenantId)}/api/users/${params.id}`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

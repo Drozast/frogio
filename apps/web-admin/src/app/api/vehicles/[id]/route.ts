@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-import { API_URL } from '@/lib/api-config';
+import { getApiUrl } from '@/lib/api-config';
 
 export async function GET(
   request: NextRequest,
@@ -9,6 +9,7 @@ export async function GET(
 ) {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+    const tenantId = cookieStore.get('tenantId')?.value || 'santa_juana';
 
   if (!accessToken) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -17,7 +18,7 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const response = await fetch(`${API_URL}/api/vehicles/${id}`, {
+    const response = await fetch(`${getApiUrl(tenantId)}/api/vehicles/${id}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'X-Tenant-ID': 'santa_juana',
@@ -44,6 +45,7 @@ export async function PATCH(
 ) {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+    const tenantId = cookieStore.get('tenantId')?.value || 'santa_juana';
 
   if (!accessToken) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -54,7 +56,7 @@ export async function PATCH(
   try {
     const body = await request.json();
 
-    const response = await fetch(`${API_URL}/api/vehicles/${id}`, {
+    const response = await fetch(`${getApiUrl(tenantId)}/api/vehicles/${id}`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -83,6 +85,7 @@ export async function DELETE(
 ) {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+    const tenantId = cookieStore.get('tenantId')?.value || 'santa_juana';
 
   if (!accessToken) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -91,7 +94,7 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    const response = await fetch(`${API_URL}/api/vehicles/${id}`, {
+    const response = await fetch(`${getApiUrl(tenantId)}/api/vehicles/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-import { API_URL } from '@/lib/api-config';
+import { getApiUrl } from '@/lib/api-config';
 
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get('accessToken')?.value;
+    const tenantId = cookieStore.get('tenantId')?.value || 'santa_juana';
 
     if (!accessToken) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -25,11 +26,12 @@ export async function GET(request: NextRequest) {
     if (year) params.append('year', year);
     if (month) params.append('month', month);
 
-    const url = `${API_URL}/api/gps/vehicle/${vehicleId}/activity-days?${params.toString()}`;
+    const url = `${getApiUrl(tenantId)}/api/gps/vehicle/${vehicleId}/activity-days?${params.toString()}`;
 
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
+          'X-Tenant-ID': tenantId,
       },
     });
 

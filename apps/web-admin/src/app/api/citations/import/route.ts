@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-import { API_URL } from '@/lib/api-config';
+import { getApiUrl } from '@/lib/api-config';
 
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get('accessToken')?.value;
+    const tenantId = cookieStore.get('tenantId')?.value || 'santa_juana';
 
     if (!accessToken) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const response = await fetch(`${API_URL}/api/citations/import`, {
+    const response = await fetch(`${getApiUrl(tenantId)}/api/citations/import`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

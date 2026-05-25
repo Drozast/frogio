@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-// Use internal API_URL for server-side requests (container name)
-import { API_URL } from '@/lib/api-config';
+// Use internal getApiUrl(tenantId) for server-side requests (container name)
+import { getApiUrl } from '@/lib/api-config';
 
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get('accessToken')?.value;
+    const tenantId = cookieStore.get('tenantId')?.value || 'santa_juana';
 
     if (!accessToken) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const response = await fetch(`${API_URL}/api/gps/vehicles/live`, {
+    const response = await fetch(`${getApiUrl(tenantId)}/api/gps/vehicles/live`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
+          'X-Tenant-ID': tenantId,
       },
     });
 

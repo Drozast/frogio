@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { API_URL } from '@/lib/api-config';
+import { getApiUrl } from '@/lib/api-config';
 
 export async function GET(
   request: NextRequest,
@@ -9,13 +9,14 @@ export async function GET(
   const { id } = await params;
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+    const tenantId = cookieStore.get('tenantId')?.value || 'santa_juana';
 
   if (!accessToken) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
   try {
-    const response = await fetch(`${API_URL}/api/citations/${id}`, {
+    const response = await fetch(`${getApiUrl(tenantId)}/api/citations/${id}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'X-Tenant-ID': 'santa_juana',
@@ -43,6 +44,7 @@ export async function PATCH(
   const { id } = await params;
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+    const tenantId = cookieStore.get('tenantId')?.value || 'santa_juana';
 
   if (!accessToken) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -51,7 +53,7 @@ export async function PATCH(
   try {
     const body = await request.json();
 
-    const response = await fetch(`${API_URL}/api/citations/${id}`, {
+    const response = await fetch(`${getApiUrl(tenantId)}/api/citations/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -81,13 +83,14 @@ export async function DELETE(
   const { id } = await params;
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
+    const tenantId = cookieStore.get('tenantId')?.value || 'santa_juana';
 
   if (!accessToken) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
   try {
-    const response = await fetch(`${API_URL}/api/citations/${id}`, {
+    const response = await fetch(`${getApiUrl(tenantId)}/api/citations/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

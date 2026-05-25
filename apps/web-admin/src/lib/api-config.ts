@@ -1,28 +1,17 @@
-// Centralized API URL configuration
-// Uses internal Docker network URL for SSR, external URL as fallback
-
-export const API_URL =
-  process.env.INTERNAL_API_URL ||
-  process.env.API_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  'http://localhost:3000';
-
-// Client-side API URL (always uses public URL)
-export const CLIENT_API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  'http://localhost:3000';
-
-import { getTenantConfig, DEFAULT_TENANT } from '@/config/tenants';
+import { TENANTS, DEFAULT_TENANT } from '@/config/tenants';
 
 /**
- * Get the API URL for the current tenant. Used by client components
- * that need to call the external API directly (WebSocket, polling, etc.).
+ * Get the API URL for a specific tenant.
+ * For server-side API routes, pass the tenantId explicitly.
+ * For client components, omit tenantId to auto-detect from URL.
  */
-export function getTenantApiUrl(tenantId?: string): string {
-  // Try to read tenant from URL path if not provided
-  if (!tenantId && typeof window !== 'undefined') {
-    const match = window.location.pathname.match(/^\/([^/]+)/);
-    tenantId = match?.[1] || DEFAULT_TENANT;
-  }
-  return getTenantConfig(tenantId || DEFAULT_TENANT).apiUrl;
+export function getApiUrl(tenantId?: string): string {
+  const id = tenantId || DEFAULT_TENANT;
+  return TENANTS[id]?.apiUrl || TENANTS[DEFAULT_TENANT].apiUrl;
 }
+
+/** @deprecated Use getApiUrl(tenantId) instead */
+export const API_URL = getApiUrl();
+
+/** @deprecated Use getApiUrl() instead */
+export const CLIENT_API_URL = getApiUrl();
